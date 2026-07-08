@@ -11,21 +11,14 @@
 | Directory / Path              | Primary Owner | Secondary Owner(s) | Description                              |
 | ----------------------------- | ------------- | ------------------- | ---------------------------------------- |
 | `/` (root)                    | @[tech-lead]  | @[co-lead]          | Project-wide config, root docs           |
-| `src/auth/`                   | @[owner]      | @[backup]           | Authentication and authorization module  |
-| `src/labeling/`               | @[owner]      | @[backup]           | Label generation and management          |
-| `src/verification/`           | @[owner]      | @[backup]           | AI verification and counterfeit detection|
-| `src/blockchain/`             | @[owner]      | @[backup]           | Blockchain integration and smart contracts|
-| `src/api/`                    | @[owner]      | @[backup]           | API gateway, routing, middleware         |
-| `src/shared/`                 | @[tech-lead]  | @[any-module-owner] | Shared utilities, types, constants       |
-| `tests/`                      | @[qa-lead]    | @[owner-per-module] | Test suites across all modules           |
-| `migrations/`                 | @[owner]      | @[tech-lead]        | Database migrations and schema changes   |
-| `docs/`                       | @[tech-lead]  | @[any-contributor]  | All project documentation                |
-| `docs/adr/`                   | @[tech-lead]  | @[module-owners]    | Architecture Decision Records            |
-| `docs/security/`              | @[sec-lead]   | @[tech-lead]        | Threat models and security docs          |
-| `templates/`                  | @[tech-lead]  | @[co-lead]          | Document templates                       |
-| `checkpoints/`                | @[tech-lead]  | @[product-owner]    | Checkpoint completion records            |
-| `config/`                     | @[devops]     | @[tech-lead]        | Configuration and environment            |
-| `scripts/`                    | @[devops]     | @[tech-lead]        | Build, deploy, and utility scripts       |
+| `BRAIN/`                      | @[tech-lead]  | @[co-lead]          | Project brain, session logs, rules       |
+| `governance/`                 | @[tech-lead]  | @[product-owner]    | Roadmap, quality gates, risk registers    |
+| `services/`                   | @[owner]      | @[backup]           | Core microservice code bases             |
+| `packages/`                   | @[tech-lead]  | @[owner]            | Monorepo shared packages                 |
+| `templates/`                  | @[tech-lead]  | @[co-lead]          | Project document templates               |
+| `checkpoints/`                | @[tech-lead]  | @[product-owner]    | Checkpoint completion sign-offs          |
+| `docs/`                       | @[tech-lead]  | @[any-contributor]  | Public and developer manuals             |
+| `testing/`                    | @[qa-lead]    | @[owner]            | Workspace testing configuration scripts  |
 
 > **Instructions:** Replace `@[handle]` placeholders with actual GitHub handles as team members are assigned.
 
@@ -59,16 +52,14 @@
 # Each line maps a path pattern to the required reviewer(s)
 
 *                           @[tech-lead]
-/src/auth/                  @[auth-owner]
-/src/labeling/              @[labeling-owner]
-/src/verification/          @[verification-owner]
-/src/blockchain/            @[blockchain-owner]
-/src/api/                   @[api-owner]
-/src/shared/                @[tech-lead]
-/migrations/                @[db-owner] @[tech-lead]
-/docs/security/             @[sec-lead]
-/docs/adr/                  @[tech-lead]
-/config/                    @[devops]
+/BRAIN/                     @[tech-lead]
+/governance/                @[tech-lead] @[product-owner]
+/services/                  @[owner]
+/packages/                  @[tech-lead]
+/templates/                 @[tech-lead]
+/checkpoints/               @[tech-lead]
+/docs/                      @[tech-lead]
+/testing/                   @[qa-lead]
 ```
 
 ### 2.3 Review SLA

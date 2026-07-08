@@ -101,22 +101,26 @@ The Resolver service translates any GS1 Digital Link scan into a rich verificati
 
 ## 7. Core Modules
 
-Each module maps to a bounded microservice context. See [ARCHITECTURE_SUMMARY.md](./ARCHITECTURE_SUMMARY.md) for service topology.
+Each module maps to a bounded context. See [ARCHITECTURE_SUMMARY.md](./ARCHITECTURE_SUMMARY.md) for service topology.
 
 | Module               | Responsibility                                                              |
 | -------------------- | --------------------------------------------------------------------------- |
+| **Authentication**   | User login, token issuance (JWT/RS256), and security gateway.               |
+| **Authorization**    | Role-based access control (RBAC) middleware and scopes.                     |
 | **CPQ**              | Configure-Price-Quote engine for onboarding, subscription, and billing.     |
 | **GS1 Engine**       | GS1 Digital Link minting, GTIN management, identifier lifecycle.           |
-| **QR Generator**     | Cryptographic QR code generation with HMAC signatures and branding.        |
-| **Resolver**         | GS1 Digital Link resolution, verification API, product metadata delivery.  |
+| **Mint Engine**      | Unique serial code generation and product registration mechanisms.          |
+| **QR Engine**        | Branded cryptographic QR code generator.                                    |
+| **Resolver**         | GS1 Digital Link resolution, verification API, product metadata routing.    |
 | **Transparency Log** | Append-only, Merkle-tree-backed event ledger for scan and lifecycle events. |
+| **Verification**     | Public authenticity checks and certificate verification APIs.               |
 | **Clone Detection**  | AI anomaly engine — geo-velocity, frequency, device clustering.            |
 | **Revocation**       | Identifier revocation, recall management, expiry enforcement.              |
-| **Dashboard**        | Brand-owner analytics, threat maps, scan heatmaps, alert management.       |
+| **Dashboards**       | Brand-owner analytics, threat maps, scan heatmaps, alert management.       |
 | **PWA**              | Consumer-facing progressive web app for scan-and-verify.                   |
-| **TraceNet**         | B2B supply-chain traceability — custody transfer, shipment tracking.       |
-| **AgriStack**        | Agriculture extension — farm registration, harvest lots, export certs.     |
-| **Security**         | AuthN/AuthZ (JWT + OAuth2), RBAC, API gateway, rate limiting, WAF.         |
+| **TraceNet Integration** | B2B supply-chain traceability — custody transfer, shipment tracking.     |
+| **AgriStack Integration**| Agriculture extension — farm registration, harvest lots, export certs.   |
+| **Testing**          | Comprehensive load, performance, and security penetration testing.          |
 
 ---
 
@@ -145,22 +149,19 @@ CapMint is developed using an **AI-first, checkpoint-driven** methodology. All d
 
 ### 9.1 Principles
 
-1. **AI reads before it writes.** Every task begins by consulting PROJECT_CONTEXT, CURRENT_STATE, ACTIVE_CHECKPOINT, NON_NEGOTIABLES, and AI_RULES.
-2. **Checkpoints are sacred.** Work proceeds sequentially from CP-000 (Foundation) through CP-020+. No checkpoint is skipped. See [state/ACTIVE_CHECKPOINT.md](./state/ACTIVE_CHECKPOINT.md).
+1. **AI reads before it writes.** Every task begins by consulting PROJECT_CONTEXT, CURRENT_STATE, SESSION, ACTIVE_CHECKPOINT, NON_NEGOTIABLES, and AI_RULES.
+2. **Checkpoints are sacred.** Work proceeds sequentially from CP-000 (Foundation) through CP-023. No checkpoint is skipped. See [state/ACTIVE_CHECKPOINT.md](./state/ACTIVE_CHECKPOINT.md).
 3. **Documents are the source of truth.** If it's not in BRAIN/, it doesn't govern the project.
-4. **Post-task updates are mandatory.** After every task, the AI updates CURRENT_STATE, CHANGELOG, ACTIVE_CHECKPOINT, DECISIONS (if applicable), DEPENDENCY_GRAPH, and TECH_DEBT.
+4. **Post-task updates are mandatory.** After every task, the AI updates CURRENT_STATE, CHANGELOG, SESSION, ACTIVE_CHECKPOINT, DECISIONS (if applicable), DEPENDENCY_GRAPH, and TECH_DEBT.
 5. **Architecture is immutable unless an ADR is filed.** See [DECISIONS.md](./DECISIONS.md).
 
 ### 9.2 Checkpoint Progression
 
 | Range       | Phase                  |
 | ----------- | ---------------------- |
-| CP-000–003  | Foundation & Scaffold  |
-| CP-004–007  | Core Services          |
-| CP-008–011  | Integration & Security |
-| CP-012–015  | Frontend & PWA         |
-| CP-016–018  | TraceNet & AgriStack   |
-| CP-019–020+ | Hardening & Launch     |
+| CP-000–005  | Foundation Phase       |
+| CP-006–014  | Core Engines & APIs    |
+| CP-015–023  | Specialized Modules & Release |
 
 Detailed checkpoint definitions live in [MASTER_PLAN.md](../governance/MASTER_PLAN.md).
 

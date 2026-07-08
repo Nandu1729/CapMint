@@ -1,21 +1,21 @@
 # CapMint — Active Checkpoint
 
 > **Last Updated:** 2026-07-08  
-> **Active Checkpoint:** CP-001 (Brain Complete) — ⏳ PENDING  
-> **Previous Checkpoint:** CP-000 (Foundation Initialized) — ✅ COMPLETE
+> **Active Checkpoint:** CP-001 (Architecture Lock) — ⏳ PENDING  
+> **Previous Checkpoint:** CP-000 (Project Operating System) — ✅ COMPLETE
 
 ---
 
 ## Current Transition
 
 ```
-CP-000 (Foundation Initialized)  ──✅──►  CP-001 (Brain Complete)
-         COMPLETE                              PENDING
+CP-000 (Project Operating System)  ──✅──►  CP-001 (Architecture Lock)
+          COMPLETE                                  PENDING
 ```
 
-**Transition Date:** 2026-07-08  
-**Sign-off:** AI Agent (automated)  
-**Validation:** All CP-000 acceptance criteria met.
+- **Transition Date:** 2026-07-08  
+- **Sign-off:** AI Agent / Tech Lead  
+- **Validation:** CP-000 acceptance criteria met and verified under git tag `CP-000`.
 
 ---
 
@@ -23,27 +23,30 @@ CP-000 (Foundation Initialized)  ──✅──►  CP-001 (Brain Complete)
 
 | CP    | Name                     | Status        | Phase       | Target     | Dependencies |
 |-------|--------------------------|---------------|-------------|------------|--------------|
-| CP-000 | Foundation Initialized  | ✅ COMPLETE    | Foundation  | 2026-07-08 | —            |
-| CP-001 | Brain Complete          | ⏳ PENDING     | Foundation  | TBD        | CP-000       |
-| CP-002 | Core Architecture       | ⬜ NOT STARTED | Design      | TBD        | CP-001       |
-| CP-003 | Authentication Service  | ⬜ NOT STARTED | Core Build  | TBD        | CP-002       |
-| CP-004 | Mint Engine             | ⬜ NOT STARTED | Core Build  | TBD        | CP-002       |
-| CP-005 | Verification API        | ⬜ NOT STARTED | Core Build  | TBD        | CP-004       |
-| CP-006 | Dashboard UI            | ⬜ NOT STARTED | Interface   | TBD        | CP-003, CP-005 |
-| CP-007 | Blockchain Anchor       | ⬜ NOT STARTED | Core Build  | TBD        | CP-004       |
-| CP-008 | ML Detection            | ⬜ NOT STARTED | Intelligence| TBD        | CP-005       |
-| CP-009 | Supply Chain Tracker    | ⬜ NOT STARTED | Integration | TBD        | CP-005, CP-007 |
-| CP-010 | Mobile SDK              | ⬜ NOT STARTED | Interface   | TBD        | CP-005       |
-| CP-011 | Analytics Pipeline      | ⬜ NOT STARTED | Intelligence| TBD        | CP-009       |
-| CP-012 | Notification Service    | ⬜ NOT STARTED | Integration | TBD        | CP-006       |
-| CP-013 | Partner Integration     | ⬜ NOT STARTED | Integration | TBD        | CP-009       |
-| CP-014 | Compliance Module       | ⬜ NOT STARTED | Governance  | TBD        | CP-009       |
-| CP-015 | Infrastructure / CI/CD  | ⬜ NOT STARTED | Operations  | TBD        | CP-005       |
-| CP-016 | Security Hardening      | ⬜ NOT STARTED | Operations  | TBD        | CP-015       |
-| CP-017 | Performance Tuning      | ⬜ NOT STARTED | Operations  | TBD        | CP-015       |
-| CP-018 | Documentation Site      | ⬜ NOT STARTED | Polish      | TBD        | CP-010       |
-| CP-019 | Beta Program            | ⬜ NOT STARTED | Launch      | TBD        | CP-016, CP-017 |
-| CP-020 | Production Launch       | ⬜ NOT STARTED | Launch      | TBD        | CP-019       |
+| CP-000 | Project Operating System | ✅ COMPLETE    | Foundation  | 2026-07-08 | —            |
+| CP-001 | Architecture Lock        | ⏳ PENDING     | Foundation  | TBD        | CP-000       |
+| CP-002 | Database Design          | ⬜ NOT STARTED | Foundation  | TBD        | CP-001       |
+| CP-003 | API Contracts            | ⬜ NOT STARTED | Foundation  | TBD        | CP-002       |
+| CP-004 | Infrastructure           | ⬜ NOT STARTED | Foundation  | TBD        | CP-003       |
+| CP-005 | Development Ready        | ⬜ NOT STARTED | Foundation  | TBD        | CP-004       |
+| CP-006 | Authentication           | ⬜ NOT STARTED | Application | TBD        | CP-005       |
+| CP-007 | Authorization            | ⬜ NOT STARTED | Application | TBD        | CP-006       |
+| CP-008 | CPQ                      | ⬜ NOT STARTED | Application | TBD        | CP-005       |
+| CP-009 | GS1 Engine               | ⬜ NOT STARTED | Application | TBD        | CP-005       |
+| CP-010 | Mint Engine              | ⬜ NOT STARTED | Application | TBD        | CP-009       |
+| CP-011 | QR Engine                | ⬜ NOT STARTED | Application | TBD        | CP-010       |
+| CP-012 | Resolver                 | ⬜ NOT STARTED | Application | TBD        | CP-009, CP-011 |
+| CP-013 | Transparency Log         | ⬜ NOT STARTED | Application | TBD        | CP-005       |
+| CP-014 | Verification             | ⬜ NOT STARTED | Application | TBD        | CP-012       |
+| CP-015 | Clone Detection          | ⬜ NOT STARTED | Application | TBD        | CP-012, CP-013 |
+| CP-016 | Revocation               | ⬜ NOT STARTED | Application | TBD        | CP-011, CP-013 |
+| CP-017 | Dashboards               | ⬜ NOT STARTED | Application | TBD        | CP-012, CP-013, CP-015 |
+| CP-018 | PWA                      | ⬜ NOT STARTED | Application | TBD        | CP-012, CP-017 |
+| CP-019 | TraceNet Integration     | ⬜ NOT STARTED | Application | TBD        | CP-013       |
+| CP-020 | AgriStack Integration    | ⬜ NOT STARTED | Application | TBD        | CP-013       |
+| CP-021 | Testing                  | ⬜ NOT STARTED | Application | TBD        | CP-005       |
+| CP-022 | Pilot Release            | ⬜ NOT STARTED | Application | TBD        | CP-006 to CP-021 |
+| CP-023 | Production Release       | ⬜ NOT STARTED | Application | TBD        | CP-022       |
 
 ---
 
@@ -52,13 +55,12 @@ CP-000 (Foundation Initialized)  ──✅──►  CP-001 (Brain Complete)
 ### Checkpoint Completion Criteria
 
 A checkpoint is considered **COMPLETE** when:
-
-1. **All acceptance criteria** defined in the checkpoint spec are met
-2. **All required documents** are created and cross-referenced
-3. **No blocking issues** exist (see [BLOCKERS.md](BLOCKERS.md))
-4. **State tracking docs** are updated to reflect the new state
-5. **CHANGELOG.md** entry is added for the checkpoint
-6. **Code review** (if applicable) is approved and merged
+1. **All acceptance criteria** defined in the checkpoint specification are met.
+2. **All required documents** are created and cross-referenced.
+3. **No blocking issues** exist (see [BLOCKERS.md](BLOCKERS.md)).
+4. **State tracking docs** are updated to reflect the new state.
+5. **CHANGELOG.md** entry is added for the checkpoint.
+6. **Code review** is approved and merged into the integration branch.
 
 ### Transition Process
 
@@ -69,22 +71,7 @@ A checkpoint is considered **COMPLETE** when:
 4. Update PROGRESS.md              →  Increment completion count
 5. Update CHANGELOG.md             →  Add checkpoint entry
 6. Update NEXT_TASK.md             →  Load next checkpoint details
-7. Merge branch (if applicable)    →  PR to develop/main
 ```
-
-### Rollback Policy
-
-If a checkpoint fails validation:
-- Revert state docs to previous checkpoint
-- Document failure reason in [BLOCKERS.md](BLOCKERS.md)
-- Create remediation plan in [NEXT_TASK.md](../NEXT_TASK.md)
-- Do **not** advance to the next checkpoint
-
-### Parallel Checkpoint Rules
-
-- Checkpoints within the same phase **may** run in parallel if dependencies allow
-- Cross-phase checkpoints **must** be sequential
-- The dependency column in the roadmap table is authoritative
 
 ---
 
@@ -92,16 +79,8 @@ If a checkpoint fails validation:
 
 | Phase        | Checkpoints     | Description                              |
 |--------------|-----------------|------------------------------------------|
-| Foundation   | CP-000 — CP-001 | Project setup, governance, brain system   |
-| Design       | CP-002          | Architecture, API contracts, data models  |
-| Core Build   | CP-003 — CP-005, CP-007 | Authentication, minting, verification, blockchain |
-| Interface    | CP-006, CP-010  | Dashboard and mobile SDK                  |
-| Intelligence | CP-008, CP-011  | ML detection and analytics                |
-| Integration  | CP-009, CP-012 — CP-013 | Supply chain, notifications, partners |
-| Governance   | CP-014          | Regulatory compliance                     |
-| Operations   | CP-015 — CP-017 | CI/CD, security, performance              |
-| Polish       | CP-018          | Documentation                             |
-| Launch       | CP-019 — CP-020 | Beta and production release               |
+| Foundation   | CP-000 — CP-005 | Project setup, governance, architecture lock, DB design, API contracts, infrastructure |
+| Application  | CP-006 — CP-023 | Core Auth services, all business engine implementation, dashboards, integrations, testing, and production release |
 
 ---
 
@@ -115,3 +94,7 @@ If a checkpoint fails validation:
 | [MILESTONES.md](MILESTONES.md)                  | Milestone descriptions        |
 | [ROADMAP.md](ROADMAP.md)                        | Phased delivery plan          |
 | [BLOCKERS.md](BLOCKERS.md)                      | Active blockers               |
+
+---
+
+*End of ACTIVE_CHECKPOINT.md*

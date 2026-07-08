@@ -108,6 +108,7 @@ Impact = max(Scope, Risk, Reversibility, Timeline, Security)
 | CA-ID | Date | Category | Summary | Impact | Proposed By | Approved By | Verdict | Status |
 |-------|------|----------|---------|--------|-------------|-------------|---------|--------|
 | CA-001 | 2026-07-08 | PROC | **Project OS Initialisation** — Establish governance documents, repository scaffold, CI skeleton, and branching strategy (`feature/*` → `develop` → `release/*` → `main`). Create BRAIN knowledge base. Define quality gates and checkpoint roadmap. | Low | Core Team | Tech Lead | ✅ APPROVED | VERIFIED |
+| CA-002 | 2026-07-08 | PROC | **Project OS Refinement** — Refine the project operating system after architectural review (ADRs pruned, checkpoints mapped to 24 sequence, simplified Quality Gates, removed speculative percentages, branching strategy aligned, `SESSION.md` and `LESSONS_LEARNED.md` created). | Low | Core Team | Tech Lead | ✅ APPROVED | VERIFIED |
 
 ---
 
@@ -164,7 +165,49 @@ reduces rework and misalignment in later phases.
 
 ---
 
-## 8. Log Entry Template
+## 8. Approval Detail — CA-002
+
+### CA-002: Project OS Refinement after Architectural Review
+
+- **Category**: PROC (Process)
+- **Date Proposed**: 2026-07-08
+- **Date Approved**: 2026-07-08
+- **Proposed By**: Core Team
+- **Approved By**: Tech Lead
+
+#### Description
+
+Refine the project operating system (CP-000) after architectural review. Corrections implemented:
+1. **DECISIONS.md**: Pruned all speculative/future ADRs, keeping only locked choices.
+2. **ACTIVE_BRANCH.md**: Updated branching workflows to show the correct flow `main` ← `develop` ← `feature/*`, setting `develop` as the active base working branch.
+3. **Roadmap**: Aligned the checkpoint roadmap to a sequential 24-step roadmap (CP-000 to CP-023) across all files.
+4. **QUALITY_GATES.md**: Simplified Quality Gates to Gates 0 to 5.
+5. **Progress**: Removed speculative progress percentages, replacing them with a binary progress statement ("Foundation Completed", "Application Not Started").
+6. **SESSION.md**: Created session memory log.
+7. **LESSONS_LEARNED.md**: Created lessons log.
+8. **Cross-References**: Audited and updated relative path cross-references for all files.
+
+#### Impact Assessment
+
+| Dimension | Rating |
+|-----------|--------|
+| Scope | Low — foundational documentation only. |
+| Risk | Low — documentation only. |
+| Reversibility | Easy — files can be modified or replaced. |
+| Timeline | No — aligns timeline to a realistic 24-checkpoint plan. |
+| Security | No — no runtime code introduced. |
+
+#### Decision Rationale
+
+Simplifying metrics, locking ADRs, and documenting the exact branching flow creates a clear, reliable Project Operating System that prevents development drift.
+
+#### Verdict
+
+✅ **APPROVED** — Refinement completed and verified.
+
+---
+
+## 9. Log Entry Template
 
 ```markdown
 ### CA-NNN: [Short Title]

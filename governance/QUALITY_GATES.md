@@ -2,6 +2,7 @@
 
 > **Document**: `governance/QUALITY_GATES.md`
 > **Created**: 2026-07-08
+> **Last Updated**: 2026-07-08
 > **Status**: ACTIVE
 > **Owner**: Core Team
 
@@ -9,128 +10,112 @@
 
 ## 1. Purpose
 
-Quality gates are **mandatory pass/fail checkpoints** that every module and integration
-milestone must satisfy before promotion to the next stage. No code reaches `main` without
-passing its corresponding gate.
+Quality gates are **mandatory pass/fail checkpoints** that every module and integration milestone must satisfy before promotion to the next stage. No code reaches `main` without passing its corresponding gate.
 
 ---
 
 ## 2. Gate Definitions
 
-### Gate 0 — Project Initialisation (CP-000)
+### Gate 0 — Repository Foundation
 
-**Applies to**: Repository scaffold, governance framework, CI skeleton.
+**Applies to**: Repository scaffold, governance framework, configuration files, initial documentation, templates.
+**Milestone**: CP-000 (Project Operating System)
 
 | # | Criterion | Verification |
 |---|-----------|--------------|
-| G0.1 | Repository structure matches agreed scaffold. | Manual review. |
-| G0.2 | Branching strategy documented and enforced by branch protection rules. | GitHub settings audit. |
-| G0.3 | CI pipeline runs lint + format checks on every PR. | Green CI badge. |
-| G0.4 | All governance documents created and internally consistent. | Peer review. |
-| G0.5 | BRAIN knowledge base initialised with project context. | File existence check. |
-| G0.6 | `README.md` contains project overview, setup placeholder, and licence. | Manual review. |
+| G0.1 | Repository structure matches agreed directory structure layout. | Manual review. |
+| G0.2 | Branching strategy documented and enforced (develop, features). | settings audit. |
+| G0.3 | All foundational project operating system documents created and verified. | Peer review. |
+| G0.4 | Reusable document templates present in `/templates`. | File verification. |
+| G0.5 | Initial git checkout completed and tagged `CP-000`. | Git tag verification. |
 
 ---
 
-### Gate 1 — Environment & Tooling (CP-001)
+### Gate 1 — Architecture Locked
 
-**Applies to**: Dev environment, Docker setup, tooling configuration.
+**Applies to**: Architecture, system designs, C4 diagrams, database design, API design contracts.
+**Milestones**: CP-001 through CP-003
 
 | # | Criterion | Verification |
 |---|-----------|--------------|
-| G1.1 | `docker compose up` starts all services without errors. | Automated smoke test. |
-| G1.2 | Environment variables documented in `.env.example`. | File diff check. |
-| G1.3 | Hot-reload functional for the primary dev server. | Manual verification. |
-| G1.4 | Seed data script populates local DB without errors. | Script exit code. |
-| G1.5 | "Getting Started" section in README verified by a fresh-clone test. | New-contributor walkthrough. |
+| G1.1 | Complete C4 Model (Context, Container, Component diagrams) documented. | Architecture review. |
+| G1.2 | Database relational schemas designed, optimized, and documented. | DB architecture sign-off. |
+| G1.3 | All public API design contracts fully documented (OpenAPI/GraphQL). | API review. |
+| G1.4 | Architectural Decision Records (ADRs) finalized and signed off. | ADR log check in `DECISIONS.md`. |
+| G1.5 | Threat model and security architecture finalized. | Security review. |
 
 ---
 
-### Gate 2 — Foundation Modules (CP-002, CP-003, CP-004)
+### Gate 2 — Development Ready
 
-**Applies to**: Auth, Authorization, Security modules individually.
+**Applies to**: Dev tools, container configurations, local testing setup, environments.
+**Milestones**: CP-004 through CP-005
 
 | # | Criterion | Verification |
 |---|-----------|--------------|
-| G2.1 | Unit test coverage ≥ 80 % for the module. | Coverage report. |
-| G2.2 | No critical or high-severity static analysis findings. | SAST tool output. |
-| G2.3 | API contract documented (OpenAPI / GraphQL schema). | Schema file exists + validates. |
-| G2.4 | Auth: JWT issuance, refresh, and revocation flows pass. | Integration test suite. |
-| G2.5 | Authz: RBAC policies enforce least-privilege correctly. | Policy test matrix. |
-| G2.6 | Security: Rate limiting, CORS, CSP headers verified. | Automated header checks. |
-| G2.7 | No secrets or credentials committed to the repository. | `git-secrets` scan. |
-| G2.8 | ADR (Architecture Decision Record) written and approved. | File existence + review. |
+| G2.1 | Local development environment runs via `docker compose up` with zero errors. | Docker setup test. |
+| G2.2 | Environment variable configurations documented in `.env.example`. | File audit. |
+| G2.3 | CI/CD base pipelines operational (build, lint, test triggers). | Pipeline run validation. |
+| G2.4 | Seed data scripts and initial migration schemas run successfully. | Local DB check. |
+| G2.5 | "Getting Started" guides completed and validated. | Peer clone walkthrough. |
 
 ---
 
-### Gate 3 — Core Pipeline (CP-006, CP-007, CP-008, CP-009)
+### Gate 3 — Feature Complete
 
-**Applies to**: GS1 Engine, QR Generator, Resolver, Transparency Log.
+**Applies to**: Feature modules, core engines, interfaces, PWAs, trackers, and integrations.
+**Milestones**: CP-006 through CP-020
 
 | # | Criterion | Verification |
 |---|-----------|--------------|
-| G3.1 | Unit test coverage ≥ 80 %. | Coverage report. |
-| G3.2 | GS1: Generated identifiers conform to GS1 Digital Link 1.2. | Conformance test suite. |
-| G3.3 | QR: Generated QR codes decode correctly and include digital signature. | Round-trip decode test. |
-| G3.4 | Resolver: p95 latency < 300 ms under 1 000 concurrent requests. | Load test (k6 / Locust). |
-| G3.5 | T-Log: Append-only invariant holds; Merkle proof verification passes. | Property-based tests. |
-| G3.6 | T-Log: Throughput ≥ 5 000 events/sec sustained for 60 s. | Benchmark script. |
-| G3.7 | No regressions in Foundation module tests. | Full CI suite green. |
-| G3.8 | API documentation updated and published. | Docs build passes. |
+| G3.1 | All functional requirements satisfied for the target module. | E2E/Acceptance test validation. |
+| G3.2 | Code passes strict TypeScript compilations and lint checks (zero warnings).| CI pipeline audit. |
+| G3.3 | Unit and integration test coverage meets or exceeds 80%. | Coverage reports. |
+| G3.4 | API endpoints conform strictly to versioning guidelines. | Contract test validation. |
+| G3.5 | Security controls implemented (RBAC check, input sanitization). | Static analysis (SAST) scan. |
+| G3.6 | Documentation and changelogs updated for the checkpoint. | File verification. |
 
 ---
 
-### Gate 4 — Intelligence & UI (CP-010 … CP-014)
+### Gate 4 — Release Ready
 
-**Applies to**: Clone Detection, Revocation, CPQ, Dashboard, PWA.
+**Applies to**: Integration testing, release candidates, system integration.
+**Milestones**: CP-021 through CP-022
 
 | # | Criterion | Verification |
 |---|-----------|--------------|
-| G4.1 | Unit test coverage ≥ 80 %. | Coverage report. |
-| G4.2 | Clone Detection: Precision ≥ 95 % on benchmark dataset. | Evaluation script. |
-| G4.3 | Clone Detection: Inference latency p95 < 500 ms. | Load test. |
-| G4.4 | Revocation: CRL/OCSP responder returns correct status within 1 s. | Integration test. |
-| G4.5 | CPQ: Pricing rules engine produces deterministic quotes. | Property-based tests. |
-| G4.6 | Dashboard: All role-based views render without JS errors. | Cypress / Playwright E2E. |
-| G4.7 | PWA: Lighthouse performance score ≥ 90. | Lighthouse CI. |
-| G4.8 | PWA: Offline scan-and-queue workflow verified. | Manual + automated test. |
-| G4.9 | Accessibility audit passes (WCAG 2.1 AA). | axe-core scan. |
-| G4.10 | No regressions in Core or Foundation tests. | Full CI suite green. |
+| G4.1 | Full end-to-end user journey test suite passes. | E2E automation run (Cypress/Playwright). |
+| G4.2 | Pilot testing in staging environment completed successfully. | Staging audit logs. |
+| G4.3 | Performance load tests demonstrate compliance with latency targets. | Performance test results (p95 < 200ms). |
+| G4.4 | Migration scripts tested and verified under rollback scenarios. | DB migration simulation. |
+| G4.5 | User and API documentation completed. | Docs compile check. |
 
 ---
 
-### Gate 5 — Ecosystem & GA (CP-016 … CP-020)
+### Gate 5 — Production Ready
 
-**Applies to**: TraceNet, AgriStack, Testing, Pre-Launch, GA Release.
+**Applies to**: General Availability release to the public.
+**Milestone**: CP-023
 
 | # | Criterion | Verification |
 |---|-----------|--------------|
-| G5.1 | TraceNet: Event ingestion pipeline processes 1 000 events/min. | Load test. |
-| G5.2 | AgriStack: Regulatory payload schema validated against spec. | Schema validation. |
-| G5.3 | End-to-end test suite covers ≥ 85 % of critical user journeys. | E2E coverage report. |
-| G5.4 | Load test: System sustains 10 000 RPS for 30 min (p99 < 1 s). | Load test report. |
-| G5.5 | Penetration test: Zero critical findings; all highs mitigated. | Pen-test report. |
-| G5.6 | Runbooks created for all P1/P2 incident scenarios. | Doc review. |
-| G5.7 | SLA definitions documented and monitoring dashboards live. | Dashboard screenshot. |
-| G5.8 | Chaos test: System recovers from single-node failure within 60 s. | Chaos experiment log. |
-| G5.9 | Zero known critical CVEs in production dependencies. | `npm audit` / `trivy` scan. |
-| G5.10 | Release notes, migration guide, and changelog published. | Doc review. |
+| G5.1 | Penetration test completed with zero critical or high-severity vulnerabilities.| Pentest sign-off. |
+| G5.2 | Dependency scan verified with zero known high CVEs. | Dependency auditing tool output. |
+| G5.3 | System monitoring dashboards, logs, and alerts configured in production. | Ops validation. |
+| G5.4 | SLA metrics, scaling policies, and incident playbooks finalized. | Ops handbook sign-off. |
+| G5.5 | Release approvals signed off by all key stakeholders. | Change approval register. |
 
 ---
 
-## 3. General Gates (Apply to Every Module)
+## 3. General Gates (Apply to Every PR)
 
-These criteria apply **in addition** to the specific gate above.
+These criteria apply to every PR before it can merge into the `develop` integration branch:
 
-| # | Criterion | Verification |
-|---|-----------|--------------|
-| GG.1 | Code passes all linters and formatters with zero warnings. | CI check. |
-| GG.2 | No `TODO` or `FIXME` without a linked issue/ticket. | Grep + issue tracker cross-check. |
-| GG.3 | Database migrations are reversible (up + down). | Migration test script. |
-| GG.4 | Feature flags wrap incomplete or experimental features. | Code review. |
-| GG.5 | Module status updated in [`MODULE_STATUS.md`](file:///Users/nandyyy/project/CapMint/governance/MODULE_STATUS.md). | File diff. |
-| GG.6 | Change approval logged in [`CHANGE_APPROVALS.md`](file:///Users/nandyyy/project/CapMint/governance/CHANGE_APPROVALS.md). | File diff. |
-| GG.7 | No hard-coded configuration values; all externalised. | Code review + grep. |
+- **GG.1**: Linting, formatting, and type-checks must be clean (zero warnings).
+- **GG.2**: Unit/Integration tests must pass.
+- **GG.3**: Code coverage must be ≥ 80% for new code.
+- **GG.4**: No hard-coded keys, configurations, or credentials (`git-secrets` scan clean).
+- **GG.5**: Project state documentation (`CURRENT_STATE.md`, `CHANGELOG.md`, `PROGRESS.md`, etc.) updated.
 
 ---
 
@@ -167,18 +152,7 @@ Copy this template into PR descriptions to confirm gate compliance.
 
 ---
 
-## 5. Escalation Policy
-
-| Scenario | Action |
-|----------|--------|
-| Gate criterion cannot be met | Raise a **waiver request** in Change Approvals with full justification. |
-| Waiver approved | Document the accepted risk in [`TECH_DEBT.md`](file:///Users/nandyyy/project/CapMint/governance/TECH_DEBT.md) with a remediation deadline. |
-| Waiver rejected | Module remains in current status until the criterion is satisfied. |
-| Dispute | Escalate to Tech Lead → CTO within 24 hours. |
-
----
-
-## 6. Cross-References
+## 5. Cross-References
 
 | Document | Path |
 |----------|------|

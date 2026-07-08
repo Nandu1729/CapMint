@@ -131,8 +131,8 @@ Preventing tech debt is cheaper than remediating it. The following practices are
 | Review | Cadence | Participants |
 |--------|---------|--------------|
 | Sprint debt triage | Every sprint | Module leads |
-| Phase debt audit | At each phase boundary (CP-005, CP-015, CP-019) | Full team |
-| Pre-GA debt freeze | Before CP-020 | Tech Lead + CTO |
+| Phase debt audit | At each phase boundary (CP-005, CP-014, CP-022) | Full team |
+| Pre-GA debt freeze | Before CP-023 | Tech Lead + CTO |
 
 ---
 

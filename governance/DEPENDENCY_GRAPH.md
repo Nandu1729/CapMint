@@ -9,9 +9,7 @@
 
 ## 1. Overview
 
-This document maps every module-to-module and checkpoint-to-checkpoint dependency in
-the CapMint platform. Use it to determine **build order**, identify the **critical path**,
-and evaluate the blast radius of any delay.
+This document maps every module-to-module and checkpoint-to-checkpoint dependency in the CapMint platform. Use it to determine **build order**, identify the **critical path**, and evaluate the blast radius of any delay.
 
 ---
 
@@ -19,26 +17,26 @@ and evaluate the blast radius of any delay.
 
 Rows depend on columns. **✓** = direct dependency, **(i)** = indirect / transitive.
 
-| Module | Auth | Authz | Security | GS1 Engine | QR Gen | Resolver | T-Log | Clone Det. | Revocation | CPQ | Dashboard | PWA | TraceNet | AgriStack | Testing |
-|----------------|------|-------|----------|------------|--------|----------|-------|------------|------------|-----|-----------|-----|----------|-----------|---------|
-| **Auth** | — | | | | | | | | | | | | | | |
-| **Authz** | ✓ | — | | | | | | | | | | | | | |
-| **Security** | ✓ | ✓ | — | | | | | | | | | | | | |
-| **GS1 Engine** | (i) | (i) | (i) | — | | | | | | | | | | | |
-| **QR Gen** | (i) | (i) | (i) | ✓ | — | | | | | | | | | | |
-| **Resolver** | (i) | (i) | (i) | ✓ | ✓ | — | | | | | | | | | |
-| **T-Log** | (i) | (i) | (i) | | | | — | | | | | | | | |
-| **Clone Det.** | (i) | (i) | (i) | | | ✓ | ✓ | — | | | | | | | |
-| **Revocation** | (i) | (i) | (i) | | ✓ | | ✓ | | — | | | | | | |
-| **CPQ** | (i) | (i) | (i) | | | | | | | — | | | | | |
-| **Dashboard** | (i) | (i) | (i) | | | ✓ | ✓ | ✓ | | | — | | | | |
-| **PWA** | (i) | (i) | (i) | | | ✓ | | | | | ✓ | — | | | |
-| **TraceNet** | (i) | (i) | (i) | | | | ✓ | | | | | | — | | |
-| **AgriStack** | (i) | (i) | (i) | | | | ✓ | | | | | | | — | |
-| **Testing** | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | — |
+| Module | Auth (CP-006) | Authz (CP-007) | CPQ (CP-008) | GS1 Eng (CP-009) | Mint Eng (CP-010) | QR Eng (CP-011) | Resolver (CP-012) | T-Log (CP-013) | Verification (CP-014) | Clone Det (CP-015) | Revocatn (CP-016) | Dashbrds (CP-017) | PWA (CP-018) | TraceNet (CP-019) | AgriStack (CP-020) | Testing (CP-021) |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Authentication** | — | | | | | | | | | | | | | | | |
+| **Authorization** | ✓ | — | | | | | | | | | | | | | | |
+| **CPQ** | (i) | | — | | | | | | | | | | | | | |
+| **GS1 Engine** | (i) | | | — | | | | | | | | | | | | |
+| **Mint Engine** | (i) | | | ✓ | — | | | | | | | | | | | |
+| **QR Engine** | (i) | | | (i) | ✓ | — | | | | | | | | | | |
+| **Resolver** | (i) | | | ✓ | (i) | ✓ | — | | | | | | | | | |
+| **T-Log** | (i) | | | | | | | — | | | | | | | | |
+| **Verification** | (i) | | | (i) | (i) | (i) | ✓ | | — | | | | | | | |
+| **Clone Det.** | (i) | | | (i) | (i) | (i) | ✓ | ✓ | | — | | | | | | |
+| **Revocation** | (i) | | | | (i) | ✓ | | ✓ | | | — | | | | | |
+| **Dashboards** | (i) | | | (i) | (i) | (i) | ✓ | ✓ | | ✓ | | — | | | | |
+| **PWA** | (i) | | | (i) | (i) | (i) | ✓ | | | | | ✓ | — | | | |
+| **TraceNet** | (i) | | | | | | | ✓ | | | | | | — | | |
+| **AgriStack** | (i) | | | | | | | ✓ | | | | | | | — | |
+| **Testing** | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | (i) | — |
 
-> **(i)** — All modules transitively depend on the **Foundation** layer (Auth + Authz + Security)
-> via the CP-005 integration checkpoint.
+> **(i)** — All application-phase modules transitively depend on the **Foundation Phase** (CP-000 through CP-005) via the CP-005 Development Ready checkpoint.
 
 ---
 
@@ -47,114 +45,41 @@ Rows depend on columns. **✓** = direct dependency, **(i)** = indirect / transi
 The following is the recommended build sequence respecting all dependencies:
 
 ```
-Tier 0 ─ Project OS (CP-000)
-Tier 1 ─ Dev Environment (CP-001)
-Tier 2 ─ Auth (CP-002)
-Tier 3 ─ Authorization (CP-003)
-Tier 4 ─ Security (CP-004)             CPQ (CP-012)*
-Tier 5 ─ Foundation Integration (CP-005)
-Tier 6 ─ GS1 Engine (CP-006)           Transparency Log (CP-009)
-Tier 7 ─ QR Generator (CP-007)
-Tier 8 ─ Resolver (CP-008)             Revocation (CP-011)
-Tier 9 ─ Clone Detection (CP-010)
-Tier 10 ─ Dashboard (CP-013)
-Tier 11 ─ PWA (CP-014)
-Tier 12 ─ Module Integration (CP-015)
-Tier 13 ─ TraceNet (CP-016)            AgriStack (CP-017)    Testing (CP-018)
-Tier 14 ─ Pre-Launch Hardening (CP-019)
-Tier 15 ─ GA Release (CP-020)
+Tier 0  ─ Project Operating System (CP-000)
+Tier 1  ─ Architecture Lock (CP-001)
+Tier 2  ─ Database Design (CP-002)
+Tier 3  ─ API Contracts (CP-003)
+Tier 4  ─ Infrastructure (CP-004)
+Tier 5  ─ Development Ready (CP-005)
+Tier 6  ─ Authentication (CP-006)       CPQ (CP-008)         GS1 Engine (CP-009)    Transparency Log (CP-013)  Testing (CP-021)
+Tier 7  ─ Authorization (CP-007)        Mint Engine (CP-010)
+Tier 8  ─ QR Engine (CP-011)
+Tier 9  ─ Resolver (CP-012)            Revocation (CP-016)
+Tier 10 ─ Verification (CP-014)        Clone Detection (CP-015)
+Tier 11 ─ Dashboards (CP-017)          TraceNet Integration (CP-019)                AgriStack Integration (CP-020)
+Tier 12 ─ PWA (CP-018)
+Tier 13 ─ Pilot Release (CP-022)
+Tier 14 ─ Production Release (CP-023)
 ```
-
-> *\* CPQ only depends on CP-005 and can be built in parallel with GS1 Engine / T-Log.*
 
 ---
 
 ## 4. Critical Path
 
-The **longest dependency chain** determines the minimum calendar time to GA:
+The **longest dependency chain** determines the minimum calendar time to Release:
 
 ```
 CP-000 → CP-001 → CP-002 → CP-003 → CP-004 → CP-005
-  → CP-006 → CP-007 → CP-008
-    → CP-010 → CP-013 → CP-014 → CP-015
-      → CP-016 → CP-019 → CP-020
+  → CP-009 (GS1 Engine) → CP-010 (Mint Engine) → CP-011 (QR Engine) → CP-012 (Resolver)
+    → CP-015 (Clone Detection) → CP-017 (Dashboards) → CP-018 (PWA)
+      → CP-022 (Pilot) → CP-023 (Production)
 ```
 
-**Total estimated duration on critical path: ~34 weeks**
-
-Any delay to a checkpoint on this chain delays GA by the same amount.
+Any delay to a checkpoint on this chain delays deployment by the same amount.
 
 ---
 
-## 5. Text Dependency Diagram
-
-```
-                          ┌──────────┐
-                          │  CP-000  │  Project OS
-                          └────┬─────┘
-                               │
-                          ┌────▼─────┐
-                          │  CP-001  │  Dev Env
-                          └────┬─────┘
-                               │
-                          ┌────▼─────┐
-                          │  CP-002  │  Auth
-                          └────┬─────┘
-                               │
-                          ┌────▼─────┐
-                          │  CP-003  │  Authorization
-                          └────┬─────┘
-                       ┌───────┴───────┐
-                  ┌────▼─────┐    ┌────▼─────┐
-                  │  CP-004  │    │  CP-012  │  CPQ (parallel)
-                  │ Security │    └──────────┘
-                  └────┬─────┘
-                       │
-                  ┌────▼─────┐
-                  │  CP-005  │  Foundation Integration
-                  └────┬─────┘
-              ┌────────┴────────┐
-         ┌────▼─────┐     ┌────▼─────┐
-         │  CP-006  │     │  CP-009  │  Transparency Log
-         │ GS1 Eng  │     └────┬─────┘
-         └────┬─────┘          │
-         ┌────▼─────┐          │
-         │  CP-007  │          │
-         │  QR Gen  │          │
-         └────┬─────┘          │
-    ┌─────────┼────────────────┤
-┌───▼────┐ ┌──▼──────┐  ┌─────▼────┐
-│ CP-008 │ │ CP-011  │  │  CP-010  │
-│Resolver│ │Revocatn │  │Clone Det │
-└───┬────┘ └─────────┘  └────┬─────┘
-    │                        │
-    └──────────┬─────────────┘
-          ┌────▼─────┐
-          │  CP-013  │  Dashboard
-          └────┬─────┘
-          ┌────▼─────┐
-          │  CP-014  │  PWA
-          └────┬─────┘
-          ┌────▼─────┐
-          │  CP-015  │  Module Integration
-          └────┬─────┘
-    ┌──────────┼──────────┐
-┌───▼────┐ ┌──▼──────┐ ┌─▼───────┐
-│ CP-016 │ │ CP-017  │ │ CP-018  │
-│TraceNet│ │AgriStack│ │ Testing │
-└───┬────┘ └────┬────┘ └────┬────┘
-    └────────────┼──────────┘
-            ┌────▼─────┐
-            │  CP-019  │  Pre-Launch
-            └────┬─────┘
-            ┌────▼─────┐
-            │  CP-020  │  GA Release
-            └──────────┘
-```
-
----
-
-## 6. Checkpoint Dependency Table
+## 5. Checkpoint Dependency Table
 
 | Checkpoint | Direct Dependencies | Can Start After |
 |------------|---------------------|-----------------|
@@ -162,41 +87,42 @@ Any delay to a checkpoint on this chain delays GA by the same amount.
 | CP-001 | CP-000 | CP-000 complete |
 | CP-002 | CP-001 | CP-001 complete |
 | CP-003 | CP-002 | CP-002 complete |
-| CP-004 | CP-002, CP-003 | CP-003 complete |
-| CP-005 | CP-002, CP-003, CP-004 | CP-004 complete |
+| CP-004 | CP-003 | CP-003 complete |
+| CP-005 | CP-004 | CP-004 complete |
 | CP-006 | CP-005 | CP-005 complete |
 | CP-007 | CP-006 | CP-006 complete |
-| CP-008 | CP-006, CP-007 | CP-007 complete |
+| CP-008 | CP-005 | CP-005 complete |
 | CP-009 | CP-005 | CP-005 complete |
-| CP-010 | CP-008, CP-009 | Both CP-008 & CP-009 complete |
-| CP-011 | CP-007, CP-009 | Both CP-007 & CP-009 complete |
-| CP-012 | CP-005 | CP-005 complete |
-| CP-013 | CP-008, CP-009, CP-010 | CP-010 complete |
-| CP-014 | CP-008, CP-013 | CP-013 complete |
-| CP-015 | CP-010 … CP-014 | All Phase 3 modules complete |
-| CP-016 | CP-009, CP-015 | CP-015 complete |
-| CP-017 | CP-009, CP-015 | CP-015 complete |
-| CP-018 | CP-015 | CP-015 complete |
-| CP-019 | CP-016, CP-017, CP-018 | All Phase 4 connectors complete |
-| CP-020 | CP-019 | CP-019 complete |
+| CP-010 | CP-009 | CP-009 complete |
+| CP-011 | CP-010 | CP-010 complete |
+| CP-012 | CP-009, CP-011 | Both CP-009 & CP-011 complete |
+| CP-013 | CP-005 | CP-005 complete |
+| CP-014 | CP-012 | CP-012 complete |
+| CP-015 | CP-012, CP-013 | Both CP-012 & CP-013 complete |
+| CP-016 | CP-011, CP-013 | Both CP-011 & CP-013 complete |
+| CP-017 | CP-012, CP-013, CP-015 | CP-012, CP-013, & CP-015 complete |
+| CP-018 | CP-012, CP-017 | Both CP-012 & CP-017 complete |
+| CP-019 | CP-013 | CP-013 complete |
+| CP-020 | CP-013 | CP-013 complete |
+| CP-021 | CP-005 | CP-005 complete |
+| CP-022 | CP-006 to CP-021 | All functional and integration testing complete |
+| CP-023 | CP-022 | CP-022 pilot complete |
 
 ---
 
-## 7. Parallelisation Opportunities
+## 6. Parallelisation Opportunities
 
-The following module pairs / groups **can be developed concurrently**:
+The following groups **can be developed concurrently**:
 
-| Parallel Group | Modules | Earliest Start |
-|----------------|---------|----------------|
-| A | GS1 Engine (CP-006) ∥ Transparency Log (CP-009) ∥ CPQ (CP-012) | After CP-005 |
-| B | Resolver (CP-008) ∥ Revocation (CP-011) | After CP-007 + CP-009 |
-| C | TraceNet (CP-016) ∥ AgriStack (CP-017) ∥ Testing (CP-018) | After CP-015 |
-
-Maximising parallelism in Groups A and C offers the greatest schedule compression.
+| Parallel Group | Modules / Checkpoints | Earliest Start |
+|----------------|-----------------------|----------------|
+| Group A | CP-006 (Authentication) ∥ CP-008 (CPQ) ∥ CP-009 (GS1 Engine) ∥ CP-013 (Transparency Log) ∥ CP-021 (Testing) | After CP-005 |
+| Group B | CP-012 (Resolver) ∥ CP-016 (Revocation) | After CP-011 and CP-013 |
+| Group C | CP-017 (Dashboards) ∥ CP-019 (TraceNet) ∥ CP-020 (AgriStack) | After CP-015 and CP-013 |
 
 ---
 
-## 8. Cross-References
+## 7. Cross-References
 
 | Document | Path |
 |----------|------|

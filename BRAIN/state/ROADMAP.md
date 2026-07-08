@@ -1,135 +1,92 @@
 # CapMint — Roadmap
 
 > **Last Updated:** 2026-07-08  
-> **Current Position:** Near-Term Phase (CP-000 ✅ → CP-001 ⏳)
+> **Current Position:** Near-Term Foundation Phase (CP-000 ✅ → CP-001 ⏳)
 
 ---
 
 ## Roadmap Overview
 
 ```
-Near-Term          Medium-Term              Long-Term
-CP-000 → CP-005    CP-006 → CP-009          CP-010 → CP-020
-Foundation →       Interfaces →             Scale →
-Core Build         Intelligence →           Operations →
-                   Integration              Launch 🚀
+Near-Term                 Medium-Term                  Long-Term
+CP-000 → CP-005           CP-006 → CP-014              CP-015 → CP-023
+Foundation Phase          Core Engines & APIs          Specialized Modules & Release
      ◄─── WE ARE HERE
 ```
 
 ---
 
-## Phase 1: Near-Term (CP-000 → CP-005)
+## Phase 1: Near-Term Foundation (CP-000 → CP-005)
 
-**Focus:** Foundation, architecture, and core services.  
-**Goal:** A working anti-counterfeiting system that can mint and verify products.
+**Focus:** Foundation, architecture designs, data models, and tooling.  
+**Goal:** Prepare the workspace, lock architecture, design database, specify API contracts, configure infrastructure, and establish a development-ready state.
 
-| CP     | Name                    | Status        | Est. Duration | Key Outcome                    |
-|--------|-------------------------|---------------|---------------|--------------------------------|
-| CP-000 | Foundation Initialized  | ✅ COMPLETE    | < 1 day       | Governance & state tracking    |
-| CP-001 | Brain Complete          | ⏳ PENDING     | ~2 days       | Full BRAIN/ documentation      |
-| CP-002 | Core Architecture       | ⬜ NOT STARTED | ~3 days       | System design & API contracts  |
-| CP-003 | Authentication Service  | ⬜ NOT STARTED | ~5 days       | Auth & authorization working   |
-| CP-004 | Mint Engine             | ⬜ NOT STARTED | ~7 days       | Product minting operational    |
-| CP-005 | Verification API        | ⬜ NOT STARTED | ~5 days       | Public verification endpoint   |
-
-### Near-Term Exit Criteria
-- [ ] Products can be registered and assigned unique cryptographic identifiers
-- [ ] Verification API returns authenticity status for any minted product
-- [ ] Authentication controls access to minting and admin operations
-- [ ] Architecture documented and reviewed
-
-### Near-Term Risks
-| Risk                              | Likelihood | Impact | Mitigation                     |
-|-----------------------------------|------------|--------|--------------------------------|
-| Architecture scope creep          | Medium     | High   | Strict CP-002 acceptance criteria |
-| Crypto algorithm selection delays | Low        | Medium | Pre-research in CP-001          |
-| Auth complexity underestimated    | Medium     | Medium | Use established frameworks      |
+| CP     | Name                       | Status        | Est. Duration | Key Outcome                    |
+|--------|----------------------------|---------------|---------------|--------------------------------|
+| CP-000 | Project Operating System   | ✅ COMPLETE    | < 1 day       | Governance & state tracking    |
+| CP-001 | Architecture Lock          | ⏳ PENDING     | ~3 days       | Locked system architecture & C4|
+| CP-002 | Database Design            | ⬜ NOT STARTED | ~3 days       | DB schemas & ERDs locked       |
+| CP-003 | API Contracts              | ⬜ NOT STARTED | ~3 days       | OpenAPI / GraphQL specs locked |
+| CP-004 | Infrastructure             | ⬜ NOT STARTED | ~4 days       | Docker & env configs ready     |
+| CP-005 | Development Ready          | ⬜ NOT STARTED | ~2 days       | CI pipelines and workspace ready|
 
 ---
 
-## Phase 2: Medium-Term (CP-006 → CP-009)
+## Phase 2: Medium-Term Core Engines & APIs (CP-006 → CP-014)
 
-**Focus:** User interfaces, AI intelligence, and integrations.  
-**Goal:** A complete platform with dashboard, ML detection, and supply chain tracking.
+**Focus:** Core security (AuthN/AuthZ) and authentication/verification engines.  
+**Goal:** Implement auth primitives and the core anti-counterfeiting identification/verification flow.
 
-| CP     | Name                 | Status        | Est. Duration | Key Outcome                   |
-|--------|----------------------|---------------|---------------|-------------------------------|
-| CP-006 | Dashboard UI         | ⬜ NOT STARTED | ~7 days       | Admin & brand management UI   |
-| CP-007 | Blockchain Anchor    | ⬜ NOT STARTED | ~5 days       | On-chain proof anchoring      |
-| CP-008 | ML Detection         | ⬜ NOT STARTED | ~10 days      | AI counterfeit detection      |
-| CP-009 | Supply Chain Tracker | ⬜ NOT STARTED | ~7 days       | Product journey tracking      |
-
-### Medium-Term Exit Criteria
-- [ ] Brand owners can manage products via a web dashboard
-- [ ] Proofs are anchored to a public blockchain
-- [ ] ML models can flag suspected counterfeits with confidence scores
-- [ ] Full product journey is tracked from manufacturing to consumer
-
-### Medium-Term Risks
-| Risk                              | Likelihood | Impact | Mitigation                      |
-|-----------------------------------|------------|--------|---------------------------------|
-| ML model accuracy insufficient    | Medium     | High   | Iterative training pipeline     |
-| Blockchain gas costs too high     | Medium     | Medium | Batch anchoring strategy        |
-| UI/UX complexity                  | Low        | Medium | Component library approach      |
+| CP     | Name                       | Status        | Est. Duration | Key Outcome                    |
+|--------|----------------------------|---------------|---------------|--------------------------------|
+| CP-006 | Authentication             | ⬜ NOT STARTED | ~5 days       | JWT-based authentication       |
+| CP-007 | Authorization              | ⬜ NOT STARTED | ~4 days       | RBAC implementation            |
+| CP-008 | CPQ                        | ⬜ NOT STARTED | ~6 days       | Billing & quoting engine       |
+| CP-009 | GS1 Engine                 | ⬜ NOT STARTED | ~5 days       | GTIN & Digital Link management |
+| CP-010 | Mint Engine                | ⬜ NOT STARTED | ~5 days       | Cryptographic serial codes     |
+| CP-011 | QR Engine                  | ⬜ NOT STARTED | ~4 days       | Cryptographic QR code signs    |
+| CP-012 | Resolver                   | ⬜ NOT STARTED | ~5 days       | Digital Link routing engine    |
+| CP-013 | Transparency Log           | ⬜ NOT STARTED | ~6 days       | Merkle-tree log events         |
+| CP-014 | Verification               | ⬜ NOT STARTED | ~4 days       | Authenticity validation APIs   |
 
 ---
 
-## Phase 3: Long-Term (CP-010 → CP-020)
+## Phase 3: Long-Term Specialized Modules & Release (CP-015 → CP-023)
 
-**Focus:** Scale, harden, integrate, and launch.  
-**Goal:** Production-ready platform with mobile SDK, partner integrations, and GA.
+**Focus:** Machine learning intelligence, user interfaces, third-party integrations, pilot, and release.  
+**Goal:** Deploy clone detection algorithms, analytics dashboards, offline PWAs, supply chain integrations, run comprehensive quality verification, and release to production.
 
-| CP     | Name                  | Status        | Est. Duration | Key Outcome                  |
-|--------|-----------------------|---------------|---------------|------------------------------|
-| CP-010 | Mobile SDK            | ⬜ NOT STARTED | ~7 days       | Consumer verification app    |
-| CP-011 | Analytics Pipeline    | ⬜ NOT STARTED | ~5 days       | Data insights & reporting    |
-| CP-012 | Notification Service  | ⬜ NOT STARTED | ~3 days       | Real-time alerts             |
-| CP-013 | Partner Integration   | ⬜ NOT STARTED | ~7 days       | Third-party connectors       |
-| CP-014 | Compliance Module     | ⬜ NOT STARTED | ~5 days       | Regulatory compliance        |
-| CP-015 | Infrastructure / CI/CD| ⬜ NOT STARTED | ~5 days       | Deployment automation        |
-| CP-016 | Security Hardening    | ⬜ NOT STARTED | ~5 days       | Pen testing & hardening      |
-| CP-017 | Performance Tuning    | ⬜ NOT STARTED | ~5 days       | Load testing & optimization  |
-| CP-018 | Documentation Site    | ⬜ NOT STARTED | ~3 days       | Public docs & API reference  |
-| CP-019 | Beta Program          | ⬜ NOT STARTED | ~14 days      | Closed beta with partners    |
-| CP-020 | Production Launch     | ⬜ NOT STARTED | ~7 days       | General availability 🚀      |
-
-### Long-Term Exit Criteria
-- [ ] Mobile SDK available for iOS and Android
-- [ ] At least 3 partner integrations operational
-- [ ] Security audit passed with no critical findings
-- [ ] Performance benchmarks met under load
-- [ ] Beta program completed with positive partner feedback
-- [ ] Production environment live and monitored
-
-### Long-Term Risks
-| Risk                             | Likelihood | Impact | Mitigation                       |
-|----------------------------------|------------|--------|----------------------------------|
-| Partner integration complexity   | High       | High   | Standardized connector framework |
-| Compliance requirements vary     | High       | Medium | Modular compliance architecture  |
-| Beta feedback requires rework    | Medium     | High   | Build in buffer time             |
-| Scaling bottlenecks at launch    | Medium     | High   | Progressive rollout strategy     |
+| CP     | Name                       | Status        | Est. Duration | Key Outcome                    |
+|--------|----------------------------|---------------|---------------|--------------------------------|
+| CP-015 | Clone Detection            | ⬜ NOT STARTED | ~8 days       | AI counterfeit detection       |
+| CP-016 | Revocation                 | ⬜ NOT STARTED | ~4 days       | Code revocation API            |
+| CP-017 | Dashboards                 | ⬜ NOT STARTED | ~7 days       | Portal UI analytics            |
+| CP-018 | PWA                        | ⬜ NOT STARTED | ~7 days       | Consumer web verification app  |
+| CP-019 | TraceNet Integration       | ⬜ NOT STARTED | ~6 days       | Supply chain B2B tracking      |
+| CP-020 | AgriStack Integration      | ⬜ NOT STARTED | ~6 days       | Agricultural portal connector  |
+| CP-021 | Testing                    | ⬜ NOT STARTED | ~7 days       | Load & security pen-tests      |
+| CP-022 | Pilot Release              | ⬜ NOT STARTED | ~5 days       | Beta test in staging           |
+| CP-023 | Production Release         | ⬜ NOT STARTED | ~3 days       | General Availability live 🚀   |
 
 ---
 
 ## Timeline Summary
 
-| Phase       | Checkpoints     | Est. Total Duration | Target Completion |
-|-------------|-----------------|---------------------|-------------------|
-| Near-Term   | CP-000 → CP-005 | ~3 weeks            | TBD               |
-| Medium-Term | CP-006 → CP-009 | ~4 weeks            | TBD               |
-| Long-Term   | CP-010 → CP-020 | ~10 weeks           | TBD               |
-| **Total**   | **CP-000 → CP-020** | **~17 weeks**   | TBD               |
-
-> ⚠️ Estimates are preliminary and will be refined as each checkpoint is planned.
+| Phase       | Checkpoints     | Est. Total Duration | Status |
+|-------------|-----------------|---------------------|--------|
+| Near-Term   | CP-000 → CP-005 | ~16 days            | In Progress |
+| Medium-Term | CP-006 → CP-014 | ~44 days            | Not Started |
+| Long-Term   | CP-015 → CP-023 | ~53 days            | Not Started |
+| **Total**   | **CP-000 → CP-023** | **~113 days**       | Active |
 
 ---
 
 ## Cross-References
 
-| Document                                          | Purpose                        |
-|---------------------------------------------------|--------------------------------|
-| [MASTER_PLAN.md](../../governance/MASTER_PLAN.md) | Authoritative project roadmap  |
-| [MILESTONES.md](MILESTONES.md)                    | Detailed milestone descriptions|
-| [ACTIVE_CHECKPOINT.md](ACTIVE_CHECKPOINT.md)      | Current checkpoint status      |
-| [PROGRESS.md](PROGRESS.md)                        | Completion metrics             |
-| [SPRINT.md](SPRINT.md)                            | Sprint-level planning          |
+| Document | Purpose |
+|----------|---------|
+| [MASTER_PLAN.md](../../governance/MASTER_PLAN.md) | Authoritative project roadmap |
+| [MILESTONES.md](MILESTONES.md) | Detailed milestone descriptions |
+| [ACTIVE_CHECKPOINT.md](ACTIVE_CHECKPOINT.md) | Current checkpoint status |
+| [PROGRESS.md](PROGRESS.md) | Completion metrics |
+| [SPRINT.md](SPRINT.md) | Sprint-level planning |

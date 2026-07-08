@@ -1,9 +1,9 @@
 # CapMint — Next Task
 
 > **Last Updated:** 2026-07-08  
-> **Current Task:** CP-001 — Brain Complete  
+> **Current Task:** CP-001 — Architecture Lock  
 > **Priority:** 🔴 HIGH  
-> **Status:** ⏳ PENDING
+> **Status:** ⏳ PENDING  
 
 ---
 
@@ -11,100 +11,79 @@
 
 | Prerequisite                  | Status | Notes                              |
 |-------------------------------|--------|------------------------------------|
-| CP-000 Foundation Initialized | ✅ DONE | All foundation docs created        |
-| Governance docs in place      | ✅ DONE | MASTER_PLAN, MODULE_STATUS, ADRs   |
-| State tracking initialized    | ✅ DONE | BRAIN/state/ fully populated       |
-| AI rules defined              | ✅ DONE | AI_RULES.md committed              |
-| Git branching strategy set    | ✅ DONE | Trunk-based with feature branches  |
+| CP-000 Project Operating System | ✅ DONE | All OS docs, template scaffolding created and reviewed. |
+| Governance docs in place      | ✅ DONE | MASTER_PLAN, MODULE_STATUS, DEPENDENCY_GRAPH set up. |
+| State tracking initialized    | ✅ DONE | state/ trackers initialized. |
+| AI rules defined              | ✅ DONE | AI_RULES.md established. |
+| Git branching strategy set    | ✅ DONE | `main` ← `develop` ← `feature/*` flow defined. |
 
 **All prerequisites satisfied.** Ready to begin CP-001.
 
 ---
 
-## Task: CP-001 — Brain Complete
+## Task: CP-001 — Architecture Lock
 
 ### Objective
 
-Populate all `BRAIN/` subdirectories with their required documents, templates, and
-configuration files so the AI-driven development system is fully operational.
+Define and freeze the architecture and high-level structure of the CapMint platform. This involves mapping out the C4 Container and Component Diagrams, locking in interface definitions, identifying system flows, and compiling initial security threat vectors.
 
 ### Branch Strategy
 
+Work for CP-001 will proceed as follows:
+
 ```
-main (stable)
-  └── develop (integration)
-       └── feature/mint (CP-001 work)
+    develop (integration)
+       └── feature/architecture-lock (working branch)
 ```
 
-1. Create `develop` branch from `main`
-2. Create `feature/mint` branch from `develop`
-3. All CP-001 work happens on `feature/mint`
-4. PR: `feature/mint` → `develop` (requires review)
-5. PR: `develop` → `main` (requires checkpoint sign-off)
+1. Sync local `develop` branch.
+2. Checkout a new feature branch `feature/architecture-lock` from `develop`.
+3. All CP-001 documentation changes are made on `feature/architecture-lock`.
+4. PR is raised: `feature/architecture-lock` → `develop`.
+5. Upon approval and merge, CP-001 is declared complete.
 
 ### Scope
 
-| Subdirectory         | Required Contents                          | Status        |
-|----------------------|--------------------------------------------|---------------|
-| `BRAIN/state/`       | All state tracking docs                    | ✅ COMPLETE    |
-| `BRAIN/templates/`   | Issue, PR, ADR, checkpoint templates       | ⬜ NOT STARTED |
-| `BRAIN/checklists/`  | Pre-commit, review, deployment checklists  | ⬜ NOT STARTED |
-| `BRAIN/context/`     | Architecture context, tech stack, glossary | ⬜ NOT STARTED |
-| `BRAIN/decisions/`   | ADR index, decision log                    | ⬜ NOT STARTED |
-| `BRAIN/prompts/`     | AI agent prompt library                    | ⬜ NOT STARTED |
-| `BRAIN/runbooks/`    | Operational runbooks                       | ⬜ NOT STARTED |
-| `BRAIN/metrics/`     | KPI definitions, tracking templates        | ⬜ NOT STARTED |
+| Component / Task | Focus | Status |
+|------------------|-------|--------|
+| **C4 Diagrams** | Container model and Core verification component diagrams in `/architecture/C4/`. | ⬜ NOT STARTED |
+| **System Flow Diagram** | Define step-by-step product registration-to-verification loops. | ⬜ NOT STARTED |
+| **Security Threat Profile** | List STRIDE threats for core API gateways and resolvers. | ⬜ NOT STARTED |
+| **Tech Framework ADRs** | Approve and lock frameworks (Next.js, Express, etc.). | ⬜ NOT STARTED |
 
 ### Acceptance Criteria
 
-- [ ] All subdirectories listed above exist and contain their required documents
-- [ ] Every document follows the established template format
-- [ ] All cross-references between documents are valid and use relative paths
-- [ ] `BRAIN/README.md` indexes all subdirectories and their purposes
-- [ ] No placeholder or TODO content remains in any document
-- [ ] `CURRENT_STATE.md` updated to reflect CP-001 completion
-- [ ] `CHANGELOG.md` updated with CP-001 entry
-- [ ] All changes committed to `feature/mint` branch with conventional commits
-
-### Estimated Effort
-
-| Task                     | Estimate |
-|--------------------------|----------|
-| Templates creation       | 2 hours  |
-| Checklists creation      | 1 hour   |
-| Context documents        | 2 hours  |
-| Decisions framework      | 1 hour   |
-| Prompt library           | 2 hours  |
-| Runbooks                 | 1 hour   |
-| Metrics definitions      | 1 hour   |
-| Review & cross-ref audit | 1 hour   |
-| **Total**                | **~11 hours** |
+- [ ] Complete C4 Container diagrams locked.
+- [ ] Complete C4 Component diagrams for core verification loop.
+- = [ ] System flow design patterns documented.
+- [ ] Architecture decision records updated to show locked choices in `DECISIONS.md`.
+- [ ] Security architecture threat vectors listed.
+- [ ] All state files (`CURRENT_STATE.md`, `CHANGELOG.md`, `PROGRESS.md`, `SESSION.md`, `ACTIVE_CHECKPOINT.md`) updated.
 
 ---
 
 ## After CP-001
 
-The next checkpoint will be **CP-002: Core Architecture**, which defines the system
-architecture, API contracts, data models, and infrastructure design.
+The next checkpoint will be **CP-002: Database Design**, which defines database relational schemas, indexes, and migrations.
 
 ---
 
 ## Cross-References
 
-| Document                                           | Purpose                          |
-|----------------------------------------------------|----------------------------------|
-| [MASTER_PLAN.md](../governance/MASTER_PLAN.md)     | Full project roadmap             |
-| [CURRENT_STATE.md](CURRENT_STATE.md)               | Current project state            |
-| [ACTIVE_CHECKPOINT.md](state/ACTIVE_CHECKPOINT.md) | Checkpoint status & transitions  |
-| [CHANGELOG.md](CHANGELOG.md)                       | Change history                   |
-| [ROADMAP.md](state/ROADMAP.md)                     | Phased delivery roadmap          |
+| Document | Purpose |
+|----------|---------|
+| [MASTER_PLAN.md](../governance/MASTER_PLAN.md) | Full project roadmap |
+| [CURRENT_STATE.md](CURRENT_STATE.md) | Current project state |
+| [ACTIVE_CHECKPOINT.md](state/ACTIVE_CHECKPOINT.md) | Checkpoint status & transitions |
+| [CHANGELOG.md](CHANGELOG.md) | Change history |
+| [ROADMAP.md](state/ROADMAP.md) | Phased delivery roadmap |
+| [SESSION.md](SESSION.md) | Active session memory |
 
 ---
 
 ## Notes for AI Agents
 
-1. Read [CURRENT_STATE.md](CURRENT_STATE.md) before starting any work.
-2. Ensure you are on the correct branch (`feature/mint`) before making changes.
+1. Read [CURRENT_STATE.md](CURRENT_STATE.md) and [SESSION.md](SESSION.md) before starting any work.
+2. Ensure you are on the correct branch (`feature/architecture-lock`) before making changes.
 3. Commit frequently with conventional commit messages (`feat:`, `docs:`, `chore:`).
-4. Update state tracking documents as you complete each subdirectory.
-5. Run the cross-reference validation before marking CP-001 as complete.
+4. Update state tracking documents as you complete the deliverables.
