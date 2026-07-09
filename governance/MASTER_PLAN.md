@@ -134,7 +134,7 @@ main ← develop ← feature branches
 |----------|------|
 | Project Context | [`../BRAIN/PROJECT_CONTEXT.md`](file:///Users/nandyyy/project/CapMint/BRAIN/PROJECT_CONTEXT.md) |
 | Dependency Graph | [`DEPENDENCY_GRAPH.md`](file:///Users/nandyyy/project/CapMint/governance/DEPENDENCY_GRAPH.md) |
-| Roadmap | [`../BRAIN/state/ROADMAP.md`](file:///Users/nandyyy/project/CapMint/BRAIN/state/ROADMAP.md) |
+| Roadmap | [`../state/ROADMAP.md`](file:///Users/nandyyy/project/CapMint/state/ROADMAP.md) |
 | Module Status | [`MODULE_STATUS.md`](file:///Users/nandyyy/project/CapMint/governance/MODULE_STATUS.md) |
 | Quality Gates | [`QUALITY_GATES.md`](file:///Users/nandyyy/project/CapMint/governance/QUALITY_GATES.md) |
 | Session Log | [`../BRAIN/SESSION.md`](file:///Users/nandyyy/project/CapMint/BRAIN/SESSION.md) |

@@ -75,17 +75,17 @@ CapMint/
 │   ├── CHANGELOG.md           # Changelog keep-a-changelog record
 │   ├── NEXT_TASK.md           # Immediate next task details
 │   ├── SESSION.md             # Active AI developer session memory
-│   ├── LESSONS_LEARNED.md     # Living repository of engineering lessons
-│   │
-│   └── state/                 # State registers (Sprint, Roadmap, Milestones)
-│       ├── ACTIVE_CHECKPOINT.md
-│       ├── PROGRESS.md
-│       ├── ACTIVE_BRANCH.md
-│       ├── BLOCKERS.md
-│       ├── CURRENT.md
-│       ├── MILESTONES.md
-│       ├── ROADMAP.md
-│       └── SPRINT.md
+│   └── LESSONS_LEARNED.md     # Living repository of engineering lessons
+│
+├── state/                     # State registers (Sprint, Roadmap, Milestones)
+│   ├── ACTIVE_CHECKPOINT.md
+│   ├── PROGRESS.md
+│   ├── ACTIVE_BRANCH.md
+│   ├── BLOCKERS.md
+│   ├── CURRENT.md
+│   ├── MILESTONES.md
+│   ├── ROADMAP.md
+│   └── SPRINT.md
 │
 ├── governance/                # Operational planning and governance guides
 │   ├── MASTER_PLAN.md         # Phased checklist targets

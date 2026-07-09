@@ -19,6 +19,7 @@
 | `checkpoints/`                | @[tech-lead]  | @[product-owner]    | Checkpoint completion sign-offs          |
 | `docs/`                       | @[tech-lead]  | @[any-contributor]  | Public and developer manuals             |
 | `testing/`                    | @[qa-lead]    | @[owner]            | Workspace testing configuration scripts  |
+| `state/`                      | @[tech-lead]  | @[co-lead]          | Active project status, sprint, and milestones registries |
 
 > **Instructions:** Replace `@[handle]` placeholders with actual GitHub handles as team members are assigned.
 
@@ -60,6 +61,7 @@
 /checkpoints/               @[tech-lead]
 /docs/                      @[tech-lead]
 /testing/                   @[qa-lead]
+/state/                     @[tech-lead]
 ```
 
 ### 2.3 Review SLA
