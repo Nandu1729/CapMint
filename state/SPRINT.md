@@ -1,77 +1,95 @@
 # CapMint — Sprint Tracking
 
-> **Last Updated:** 2026-07-08  
-> **Current Sprint:** Sprint 1 — Architecture Lock  
-> **Previous Sprint:** Sprint 0 — Foundation ✅ COMPLETE
+> **Last Updated:** 2026-07-11  
+> **Current Sprint:** Sprint 7 — Quality Assurance  
+> **Previous Sprint:** Sprint 6 — Infrastructure ✅ COMPLETE
 
 ---
 
-## Active Sprint: Sprint 1 — Architecture Lock
+## Active Sprint: Sprint 7 — Quality Assurance
 
 | Property          | Value                                     |
 |-------------------|-------------------------------------------|
-| **Sprint**        | Sprint 1                                  |
-| **Goal**          | Complete CP-001: Architecture Lock        |
-| **Checkpoint**    | CP-001                                    |
-| **Start Date**    | 2026-07-08                                |
-| **End Date**      | TBD (~3 days estimated)                   |
-| **Branch**        | `feature/architecture-lock`               |
-| **Status**        | ⏳ NOT STARTED                             |
+| **Sprint**        | Sprint 7                                  |
+| **Goal**          | Complete CP-007: Quality Assurance & E2E Testing |
+| **Checkpoint**    | CP-007                                    |
+| **Start Date**    | 2026-07-11                                |
+| **End Date**      | TBD                                       |
+| **Branch**        | `feature/qa`                              |
+| **Status**        | 🔵 IN PROGRESS                            |
 
-### Sprint 1 Backlog
+### Sprint 7 Backlog
 
-| Task ID | Task | Priority | Status | Est. |
-|---------|------|----------|--------|------|
-| S1-01   | C4 Container Diagram creation | High | ⬜ NOT STARTED | 3 hours |
-| S1-02   | C4 Component Diagram for core verification loop | High | ⬜ NOT STARTED | 4 hours |
-| S1-03   | System flow diagram registration-to-verification | High | ⬜ NOT STARTED | 2 hours |
-| S1-04   | Document system design flow patterns | Medium | ⬜ NOT STARTED | 2 hours |
-| S1-05   | Finalize and lock tech framework ADRs | Medium | ⬜ NOT STARTED | 1 hour |
-| S1-06   | Security threat vectors profiling (STRIDE) | Medium | ⬜ NOT STARTED | 3 hours |
-| S1-07   | Update project state files for CP-001 | Low | ⬜ NOT STARTED | 1 hour |
+| Task ID | Task / Module | Priority | Status | Est. |
+|---------|---------------|----------|--------|------|
+| S7-01   | Integration E2E Tests | High | 🔵 IN PROGRESS | 3 days |
+| S7-02   | Telemetry Load Tests  | Medium | ⬜ NOT STARTED | 2 days |
 
-### Sprint 1 Acceptance Criteria
+### Sprint 7 Acceptance Criteria
 
-- [ ] Complete C4 Container diagrams locked.
-- [ ] Complete C4 Component diagrams for core verification loop.
-- [ ] System flow design patterns documented.
-- [ ] Architecture decision records updated to show locked choices in `DECISIONS.md`.
-- [ ] Security architecture threat vectors listed.
+- [ ] End-to-end user-flow simulation script executes successfully.
+- [ ] Concurrency load tests validating row locking integrity run green.
+
+---
+
+## Sprint 6 — Infrastructure & Integrations ✅ COMPLETE
+
+| Property          | Value                                     |
+|-------------------|-------------------------------------------|
+| **Sprint**        | Sprint 6                                  |
+| **Goal**          | Complete CP-006: Docker compose, Nginx reverse proxy, & external registries |
+| **Checkpoint**    | CP-006                                    |
+| **Start Date**    | 2026-07-11                                |
+| **End Date**      | 2026-07-11                                |
+| **Duration**      | ~1 day                                    |
+| **Status**        | ✅ COMPLETE                                |
+
+### Sprint 6 Completed Tasks
+
+- [x] M-014 TraceNet Integration (Fastify APEDA registry certificate checking active)
+- [x] M-015 AgriStack Integration (Digital Ecosystem farmer land search API client active)
+- [x] Multi-service `docker-compose.yml` configuration (all 7 microservices + pg + redis)
+- [x] Nginx reverse-proxy routing configurations registered in `nginx.conf`
+- [x] Terraform cloud blueprint definitions mapped in `main.tf`
+
+---
+
+## Sprint 5 — Frontend Implementation ✅ COMPLETE
+
+| Property          | Value                                     |
+|-------------------|-------------------------------------------|
+| **Sprint**        | Sprint 5                                  |
+| **Goal**          | Complete CP-005: Frontend dashboards & PWAs |
+| **Checkpoint**    | CP-005                                    |
+| **Start Date**    | 2026-07-11                                |
+| **End Date**      | 2026-07-11                                |
+| **Duration**      | ~1 day                                    |
+| **Status**        | ✅ COMPLETE                                |
+
+### Sprint 5 Completed Tasks
+
+- [x] M-012 Dashboards (Certifier key checks, lot invalidation controls, and Manufacturer quota widgets)
+- [x] M-013 PWA (Mobile scanner simulation with spatial velocity suspect flags)
+
+---
+
+## Sprint 4 — Backend Implementation ✅ COMPLETE
+
+---
+
+## Sprint 3 — API & Contract Design ✅ COMPLETE
+
+---
+
+## Sprint 2 — Domain & Database Design ✅ COMPLETE
+
+---
+
+## Sprint 1 — Architecture & AI OS ✅ COMPLETE
 
 ---
 
 ## Sprint 0 — Foundation ✅ COMPLETE
-
-| Property          | Value                                     |
-|-------------------|-------------------------------------------|
-| **Sprint**        | Sprint 0                                  |
-| **Goal**          | Complete CP-000: Project Operating System |
-| **Checkpoint**    | CP-000                                    |
-| **Start Date**    | 2026-07-08                                |
-| **End Date**      | 2026-07-08                                |
-| **Duration**      | < 1 day                                   |
-| **Status**        | ✅ COMPLETE                                |
-
-### Sprint 0 Completed Tasks
-
-| Task ID | Task | Status |
-|---------|------|--------|
-| S0-01   | Initialize Git repository | ✅ COMPLETE |
-| S0-02   | Create governance documents | ✅ COMPLETE |
-| S0-03   | Create BRAIN/ state tracking | ✅ COMPLETE |
-| S0-04   | Define AI Rules | ✅ COMPLETE |
-| S0-05   | Define Branching Strategy | ✅ COMPLETE |
-| S0-06   | Create initial templates | ✅ COMPLETE |
-| S0-07   | Create ADRs | ✅ COMPLETE |
-| S0-08   | Add SESSION.md & LESSONS_LEARNED.md | ✅ COMPLETE |
-
-### Sprint 0 Retrospective
-
-| Category | Notes |
-|---|---|
-| **Went Well** | Foundation established quickly and refined cleanly. |
-| **Improve** | Pre-task documentation check keeps updates synchronized. |
-| **Action** | Ensure strict adherence to binary status statement (no fake percentages). |
 
 ---
 
@@ -80,7 +98,12 @@
 | Sprint   | Checkpoint | Goal                    | Status     | Duration | Velocity |
 |----------|------------|-------------------------|------------|----------|----------|
 | Sprint 0 | CP-000     | OS & Foundation Init    | ✅ COMPLETE | < 1 day  | 1 CP     |
-| Sprint 1 | CP-001     | Architecture Lock       | ⏳ PENDING  | TBD      | —        |
+| Sprint 1 | CP-001     | Architecture & AI OS    | ✅ COMPLETE | ~2 days  | 1 CP     |
+| Sprint 2 | CP-002     | Domain & Database Design| ✅ COMPLETE | ~4 hours | 1 CP     |
+| Sprint 3 | CP-003     | API & Contract Design   | ✅ COMPLETE | ~1 day   | 1 CP     |
+| Sprint 4 | CP-004     | Backend Implementation  | ✅ COMPLETE | ~1 day   | 1 CP     |
+| Sprint 5 | CP-005     | Frontend Implementation | ✅ COMPLETE | ~1 day   | 1 CP     |
+| Sprint 6 | CP-006     | Infrastructure          | ✅ COMPLETE | ~1 day   | 1 CP     |
 
 ---
 
@@ -88,9 +111,9 @@
 
 | Metric | Value |
 |---|---|
-| Sprints Completed | 1 |
-| Status Statement | **Foundation Completed** |
-| Application Status | **Not Started** |
+| Sprints Completed | 7 |
+| Status Statement | **Integration & Testing In Progress** |
+| Application Status | **In Progress** |
 
 ---
 
@@ -98,10 +121,7 @@
 
 | Sprint   | Checkpoint | Goal                    | Est. Duration |
 |----------|------------|-------------------------|---------------|
-| Sprint 2 | CP-002     | Database Design         | ~3 days       |
-| Sprint 3 | CP-003     | API Contracts           | ~3 days       |
-| Sprint 4 | CP-004     | Infrastructure          | ~4 days       |
-| Sprint 5 | CP-005     | Development Ready       | ~2 days       |
+| Sprint 8 | CP-008     | Production Readiness    | ~1 week       |
 
 ---
 

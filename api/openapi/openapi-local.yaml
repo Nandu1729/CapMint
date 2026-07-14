@@ -1,0 +1,392 @@
+openapi: 3.0.3
+info:
+  title: CapMint Implemented API Specifications
+  version: 1.0.0
+  description: API specifications mapping actual endpoints running in the Docker containers gateway.
+servers:
+  - url: http://localhost:8000
+    description: Local API Gateway (Docker Nginx proxy)
+paths:
+  # 1. Auth Service
+  /api/v1/auth/register:
+    post:
+      summary: Register a user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+                - role
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum: [ADMIN, PRODUCER, PACK_HOUSE, CERTIFIER, LAB]
+                associated_entity_id:
+                  type: string
+      responses:
+        '201':
+          description: User registered successfully
+
+  /api/v1/auth/login:
+    post:
+      summary: Login user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                password:
+                  type: string
+      responses:
+        '200':
+          description: Login successful and JWT returned
+
+  /api/v1/auth/users:
+    get:
+      summary: Get all registered users
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: List of registered users
+
+  # 2. CPQ Service
+  /api/v1/budgets/propose:
+    post:
+      summary: Propose a crop yield quota budget
+      tags:
+        - Quota & Budgets (CPQ)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - producerId
+                - cropType
+                - limitKg
+              properties:
+                producerId:
+                  type: string
+                cropType:
+                  type: string
+                limitKg:
+                  type: number
+      responses:
+        '201':
+          description: Quota proposed successfully
+
+  /api/v1/budgets/approve:
+    post:
+      summary: Approve a proposed quota budget
+      tags:
+        - Quota & Budgets (CPQ)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - budgetId
+                - certifierId
+                - signature
+              properties:
+                budgetId:
+                  type: string
+                certifierId:
+                  type: string
+                signature:
+                  type: string
+      responses:
+        '200':
+          description: Quota approved and activated
+
+  /api/v1/budgets/drawdown:
+    post:
+      summary: Draw down capacity from active quota
+      tags:
+        - Quota & Budgets (CPQ)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - budgetId
+                - amountKg
+              properties:
+                budgetId:
+                  type: string
+                amountKg:
+                  type: number
+      responses:
+        '200':
+          description: Capacity locked and drawn down
+
+  /api/v1/budgets/{id}:
+    get:
+      summary: Retrieve a quota budget
+      tags:
+        - Quota & Budgets (CPQ)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Budget details returned
+
+  # 3. Mint Service
+  /api/v1/qr/mint:
+    post:
+      summary: Mint unique QR identity codes for a lot run
+      tags:
+        - Serialization & Minting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - budgetId
+                - cropType
+                - weightKg
+                - count
+                - gtin
+              properties:
+                budgetId:
+                  type: string
+                cropType:
+                  type: string
+                weightKg:
+                  type: number
+                count:
+                  type: number
+                gtin:
+                  type: string
+      responses:
+        '201':
+          description: Unique QR codes minted and lot generated
+
+  /api/v1/qr/lot/{id}:
+    get:
+      summary: Get details of a minted lot
+      tags:
+        - Serialization & Minting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Minted lot details returned
+
+  # 4. Resolver Service
+  /01/{gtin}/21/{serial}:
+    get:
+      summary: Resolve canonical GS1 Digital Link redirection
+      tags:
+        - Resolver Redirects
+      parameters:
+        - name: gtin
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: serial
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '302':
+          description: Redirects to consumer provenance verification interface
+
+  # 5. Transparency Service
+  /log/append:
+    post:
+      summary: Append a block to the auditable transparency log
+      tags:
+        - Transparency Log
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - entity_type
+                - entity_id
+                - event_type
+                - payload
+              properties:
+                entity_type:
+                  type: string
+                entity_id:
+                  type: string
+                event_type:
+                  type: string
+                payload:
+                  type: object
+      responses:
+        '201':
+          description: Cryptographic block appended to the log chain
+
+  /log/chain:
+    get:
+      summary: Retrieve the full transparency log chain
+      tags:
+        - Transparency Log
+      responses:
+        '200':
+          description: Entire block history returned
+
+  /log/verify:
+    get:
+      summary: Verify the integrity of the transparency ledger
+      tags:
+        - Transparency Log
+      responses:
+        '200':
+          description: Cryptographic chain check results returned
+
+  # 6. Verification Service
+  /api/v1/verify/{gtin}/{serial}:
+    post:
+      summary: Verify product authenticity & scan coordinates
+      tags:
+        - Verification & Clones
+      parameters:
+        - name: gtin
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: serial
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lat:
+                  type: number
+                lon:
+                  type: number
+                device_metadata:
+                  type: object
+      responses:
+        '200':
+          description: Code scan logged and verdict returned
+
+  /api/v1/revocation/lot:
+    post:
+      summary: Revoke an entire batch lot run (Cascades to all codes)
+      tags:
+        - Verification & Clones
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - lotId
+                - reason
+              properties:
+                lotId:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Batch lot and child codes successfully deactivated
+
+  /api/v1/revocation/code:
+    post:
+      summary: Revoke a single unit QR serial code
+      tags:
+        - Verification & Clones
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - gtin
+                - serial
+                - reason
+              properties:
+                gtin:
+                  type: string
+                serial:
+                  type: string
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Serial code deactivated successfully
+
+  # 7. Integration Service
+  /api/v1/integrations/tracenet/certificate/{id}:
+    get:
+      summary: Fetch NPOP organic farmer certification status
+      tags:
+        - External Integrations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: TraceNet record status returned
+
+  /api/v1/integrations/agristack/plot/{id}:
+    get:
+      summary: Fetch AgriStack verified land coordinates bounds
+      tags:
+        - External Integrations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: AgriStack parcel geometry returned

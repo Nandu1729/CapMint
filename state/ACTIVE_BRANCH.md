@@ -10,9 +10,9 @@
 
 | Property        | Value                              |
 |-----------------|------------------------------------|
-| Active Branch   | `develop`                          |
-| Checkpoint      | CP-000 ✅ → CP-001 ⏳               |
-| Last Commit     | Foundation docs (2026-07-08)       |
+| Active Branch   | `main`                             |
+| Checkpoint      | All Checkpoints Complete ✅         |
+| Last Commit     | GA Release Sign-Off (2026-07-11)   |
 | Protected       | Yes — no direct pushes to `main`   |
 | CI Status       | N/A (CI not yet configured)        |
 
@@ -44,29 +44,15 @@ feature branches
 | Checkpoint | Working Branch | Merge Target | Status |
 |------------|----------------|--------------|--------|
 | CP-000 | `develop` | `main` | ✅ COMPLETE |
-| CP-001 | `feature/architecture-lock` | `develop` | ⏳ PENDING |
-| CP-002 | `feature/database-design` | `develop` | ⬜ NOT STARTED |
-| CP-003 | `feature/api-contracts` | `develop` | ⬜ NOT STARTED |
-| CP-004 | `feature/infrastructure` | `develop` | ⬜ NOT STARTED |
-| CP-005 | `feature/development-ready` | `develop` | ⬜ NOT STARTED |
-| CP-006 | `feature/auth` | `develop` | ⬜ NOT STARTED |
-| CP-007 | `feature/authz` | `develop` | ⬜ NOT STARTED |
-| CP-008 | `feature/cpq` | `develop` | ⬜ NOT STARTED |
-| CP-009 | `feature/gs1-engine` | `develop` | ⬜ NOT STARTED |
-| CP-010 | `feature/mint-engine` | `develop` | ⬜ NOT STARTED |
-| CP-011 | `feature/qr-engine` | `develop` | ⬜ NOT STARTED |
-| CP-012 | `feature/resolver` | `develop` | ⬜ NOT STARTED |
-| CP-013 | `feature/transparency-log` | `develop` | ⬜ NOT STARTED |
-| CP-014 | `feature/verification` | `develop` | ⬜ NOT STARTED |
-| CP-015 | `feature/clone-detection` | `develop` | ⬜ NOT STARTED |
-| CP-016 | `feature/revocation` | `develop` | ⬜ NOT STARTED |
-| CP-017 | `feature/dashboards` | `develop` | ⬜ NOT STARTED |
-| CP-018 | `feature/pwa` | `develop` | ⬜ NOT STARTED |
-| CP-019 | `feature/tracenet` | `develop` | ⬜ NOT STARTED |
-| CP-020 | `feature/agristack` | `develop` | ⬜ NOT STARTED |
-| CP-021 | `feature/testing` | `develop` | ⬜ NOT STARTED |
-| CP-022 | `release/pilot` | `main` | ⬜ NOT STARTED |
-| CP-023 | `release/production` | `main` | ⬜ NOT STARTED |
+| CP-001 | `feature/architecture-lock` | `develop` | ✅ COMPLETE |
+| CP-002 | `feature/database-design` | `develop` | ✅ COMPLETE |
+| CP-003 | `feature/api-contracts` | `develop` | ✅ COMPLETE |
+| CP-004 | `feature/auth` *(and modules)*| `develop`| ✅ COMPLETE |
+| CP-005 | `feature/frontend` | `develop` | ✅ COMPLETE |
+| CP-006 | `feature/infrastructure` | `develop` | ✅ COMPLETE |
+| CP-007 | `feature/qa` | `develop` | ✅ COMPLETE |
+| CP-008 | `feature/production-readiness` | `develop` | ✅ COMPLETE |
+
 
 ---
 

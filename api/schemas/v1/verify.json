@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VerificationServiceSchemas",
+  "definitions": {
+    "recordScanRequest": {
+      "type": "object",
+      "properties": {
+        "unit_code_id": { "type": "string", "format": "uuid" },
+        "location": {
+          "type": "object",
+          "properties": {
+            "latitude": { "type": "number" },
+            "longitude": { "type": "number" },
+            "geohash": { "type": "string" }
+          }
+        },
+        "device_metadata": {
+          "type": "object",
+          "properties": {
+            "ipHash": { "type": "string" },
+            "userAgent": { "type": "string" },
+            "clientLanguage": { "type": "string" }
+          },
+          "required": ["ipHash", "userAgent"]
+        }
+      },
+      "required": ["unit_code_id", "device_metadata"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,656 @@
+openapi: 3.0.0
+info:
+  title: CapMint Core API Contracts
+  version: 1.0.0
+  description: Canonical REST API contracts and validation schemas for the CapMint anti-counterfeiting platform.
+
+servers:
+  - url: http://localhost:8000
+    description: Local API Gateway (Docker Nginx proxy)
+  - url: https://api.capmint.org/api/v1
+    description: Production Gateway
+
+paths:
+  /certifiers:
+    post:
+      summary: Register a Certifier
+      description: Registers a certified regulatory authority and their signing public key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCertifierRequest'
+      responses:
+        '201':
+          description: Certifier registered successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          $ref: '#/components/responses/ConflictError'
+
+  /certifiers/{id}/rotate-key:
+    post:
+      summary: Rotate Certifier Signing Key
+      description: Rotates the Ed25519 signing public key used to verify compliance budgets.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RotateKeyRequest'
+      responses:
+        '200':
+          description: Key rotated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /producers:
+    post:
+      summary: Onboard a Producer
+      description: Onboards a farmer, FPO, brand or pack house operator.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProducerRequest'
+      responses:
+        '201':
+          description: Producer onboarded successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /producers/{id}/plots:
+    post:
+      summary: Register a Plot
+      description: Registers geographical footprint coordinates of a cultivation site or apiary.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePlotRequest'
+      responses:
+        '201':
+          description: Plot registered successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /budgets:
+    post:
+      summary: Propose a Budget
+      description: Proposes a yield capacity quota budget (starts in DRAFT status).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProposeBudgetRequest'
+      responses:
+        '201':
+          description: Budget proposed successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /budgets/{id}/activate:
+    post:
+      summary: Activate a Budget
+      description: Activates a proposed capacity budget using a certifier's Ed25519 signature bundle.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ActivateBudgetRequest'
+      responses:
+        '200':
+          description: Budget activated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /budgets/{id}:
+    get:
+      summary: Query Budget Balance
+      description: Resolves the remaining capacity balance for a budget.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Current budget balances.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /lots:
+    post:
+      summary: Mint Serialization Lot Run
+      description: Draws down budget capacity to mint unit-level QR serials under a lot run.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLotRequest'
+      responses:
+        '201':
+          description: Lot packaged and units serialized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /lots/{id}:
+    get:
+      summary: Get Lot Details
+      description: Returns metadata, lab testing status, and child serial links.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Lot metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /lots/{id}/revoke:
+    post:
+      summary: Revoke a Lot Run
+      description: Invalidate a lot run batch, triggering cascade revocation of all child unit codes.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeLotRequest'
+      responses:
+        '200':
+          description: Lot run revoked.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /lots/{id}/lab-results:
+    post:
+      summary: Upload Lab Evidence
+      description: Upload NMR pesticide adulteration residue parameters and PDF document hash.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UploadLabResultRequest'
+      responses:
+        '201':
+          description: Lab result mapped to lot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /verify/{gtin}/{serial}:
+    get:
+      summary: Resolve Scan Query
+      description: Resolves public QR scans, runs clone heuristics, and returns the verdict.
+      parameters:
+        - name: gtin
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: serial
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: public scan resolution status verdict.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /scans:
+    post:
+      summary: Register Scan Telemetry
+      description: Logs geolocation, IP, and device metadata from a consumer scan query.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordScanRequest'
+      responses:
+        '201':
+          description: Telemetry logged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+components:
+  schemas:
+    CreateCertifierRequest:
+      type: object
+      required:
+        - name
+        - accreditation_details
+        - public_key
+      properties:
+        name:
+          type: string
+          minLength: 3
+        accreditation_details:
+          type: object
+          required:
+            - licenseNumber
+            - regulatoryScope
+            - validUntil
+          properties:
+            licenseNumber:
+              type: string
+            regulatoryScope:
+              type: array
+              items:
+                type: string
+            validUntil:
+              type: string
+              format: date-time
+        public_key:
+          type: string
+          pattern: '^[0-9a-fA-F]{64}$'
+
+    RotateKeyRequest:
+      type: object
+      required:
+        - new_public_key
+      properties:
+        new_public_key:
+          type: string
+          pattern: '^[0-9a-fA-F]{64}$'
+        revocation_reason:
+          type: string
+
+    CreateProducerRequest:
+      type: object
+      required:
+        - name
+        - type
+        - registry_references
+      properties:
+        name:
+          type: string
+          minLength: 3
+        type:
+          type: string
+          enum: [FARMER, FPO, BRAND, HIVE_OPERATOR]
+        registry_references:
+          type: object
+          properties:
+            agriStackId:
+              type: string
+            traceNetId:
+              type: string
+        contact_metadata:
+          type: object
+
+    CreatePlotRequest:
+      type: object
+      required:
+        - geo_boundary
+        - crop_type
+        - season_year
+      properties:
+        geo_boundary:
+          type: object
+          required:
+            - type
+            - coordinates
+          properties:
+            type:
+              type: string
+              enum: [Polygon, Point]
+            coordinates:
+              type: array
+              items:
+                type: number
+        crop_type:
+          type: string
+        season_year:
+          type: string
+        agristack_reference:
+          type: string
+
+    ProposeBudgetRequest:
+      type: object
+      required:
+        - producer_id
+        - certifier_id
+        - source_unit_type
+        - approved_quantity
+        - yield_assumptions
+        - effective_start_date
+        - effective_end_date
+      properties:
+        producer_id:
+          type: string
+          format: uuid
+        certifier_id:
+          type: string
+          format: uuid
+        source_unit_type:
+          type: string
+          enum: [WEIGHT_KG, VOLUME_L, UNIT_COUNT]
+        approved_quantity:
+          type: number
+          minimum: 0.01
+        yield_assumptions:
+          type: object
+          required:
+            - plotIds
+          properties:
+            plotIds:
+              type: array
+              items:
+                type: string
+                format: uuid
+        effective_start_date:
+          type: string
+          format: date-time
+        effective_end_date:
+          type: string
+          format: date-time
+
+    ActivateBudgetRequest:
+      type: object
+      required:
+        - signature_bundle
+      properties:
+        signature_bundle:
+          type: string
+          pattern: '^[0-9a-fA-F]{128}$'
+
+    CreateLotRequest:
+      type: object
+      required:
+        - producer_id
+        - budget_id
+        - batch_size
+        - product_metadata
+        - processing_dates
+      properties:
+        producer_id:
+          type: string
+          format: uuid
+        budget_id:
+          type: string
+          format: uuid
+        batch_size:
+          type: number
+          minimum: 0.01
+        product_metadata:
+          type: object
+          required:
+            - gtin
+            - commodityName
+          properties:
+            gtin:
+              type: string
+              pattern: '^[0-9]{14}$'
+            commodityName:
+              type: string
+            packageWeightKg:
+              type: number
+        processing_dates:
+          type: object
+          required:
+            - packagingDate
+          properties:
+            packagingDate:
+              type: string
+              format: date-time
+
+    RevokeLotRequest:
+      type: object
+      required:
+        - revocation_reason
+        - signature_bundle
+      properties:
+        revocation_reason:
+          type: string
+        signature_bundle:
+          type: string
+          pattern: '^[0-9a-fA-F]{128}$'
+
+    UploadLabResultRequest:
+      type: object
+      required:
+        - lab_name
+        - test_type
+        - result_summary
+        - report_hash
+        - report_reference
+      properties:
+        lab_name:
+          type: string
+        test_type:
+          type: string
+        result_summary:
+          type: string
+          enum: [PASS, FAIL]
+        report_hash:
+          type: string
+          pattern: '^[0-9a-fA-F]{64}$'
+        report_reference:
+          type: string
+          format: uri
+        decision_impact:
+          type: object
+
+    RecordScanRequest:
+      type: object
+      required:
+        - unit_code_id
+        - device_metadata
+      properties:
+        unit_code_id:
+          type: string
+          format: uuid
+        location:
+          type: object
+          properties:
+            latitude:
+              type: number
+            longitude:
+              type: number
+            geohash:
+              type: string
+        device_metadata:
+          type: object
+          required:
+            - ipHash
+            - userAgent
+          properties:
+            ipHash:
+              type: string
+            userAgent:
+              type: string
+
+    SuccessResponse:
+      type: object
+      required:
+        - success
+        - data
+        - meta
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+        meta:
+          type: object
+          required:
+            - timestamp
+            - requestId
+          properties:
+            timestamp:
+              type: string
+              format: date-time
+            requestId:
+              type: string
+              format: uuid
+
+    ProblemDetails:
+      type: object
+      required:
+        - success
+        - error
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          required:
+            - statusCode
+            - code
+            - message
+          properties:
+            statusCode:
+              type: integer
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: array
+              items:
+                type: object
+                required:
+                  - field
+                  - issue
+                properties:
+                  field:
+                    type: string
+                  issue:
+                    type: string
+
+  responses:
+    BadRequestError:
+      description: Invalid request syntax.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    NotFoundError:
+      description: Resource not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    ConflictError:
+      description: Unique constraint collision.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    ValidationError:
+      description: Business logic constraint validation failure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'

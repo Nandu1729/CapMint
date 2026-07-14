@@ -1,3 +1,19 @@
 # Next Task
 
-Implement the CapMint repository operating system foundation by maintaining the frozen directory structure, preserving ownership boundaries, and ensuring the required Brain, state, governance, architecture, and knowledge documents remain present and aligned.
+**Active Checkpoint**: CP-008 (Production Readiness)
+
+**Objective**:
+Audit deployment manifests, environment variables, secrets managers, and confirm monitoring checks before final release freeze.
+
+
+
+
+
+
+
+
+
+
+
+
+

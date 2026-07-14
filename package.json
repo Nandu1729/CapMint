@@ -1,0 +1,27 @@
+{
+  "name": "capmint",
+  "version": "1.0.0",
+  "description": "CapMint Anti-Counterfeiting Platform Monorepo",
+  "private": true,
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "workspaces": [
+    "packages/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev:infra": "./scripts/dev.sh up",
+    "down:infra": "./scripts/dev.sh down",
+    "bootstrap": "npm install",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "clean": "rm -rf node_modules **/node_modules **/dist"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0",
+    "typescript": "^5.1.0"
+  }
+}

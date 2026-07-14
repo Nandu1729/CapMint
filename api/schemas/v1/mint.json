@@ -1,0 +1,42 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MintingServiceSchemas",
+  "definitions": {
+    "createLotRequest": {
+      "type": "object",
+      "properties": {
+        "producer_id": { "type": "string", "format": "uuid" },
+        "budget_id": { "type": "string", "format": "uuid" },
+        "batch_size": { "type": "number", "minimum": 0.01 },
+        "product_metadata": {
+          "type": "object",
+          "properties": {
+            "gtin": { "type": "string", "pattern": "^[0-9]{14}$" },
+            "commodityName": { "type": "string" },
+            "packageWeightKg": { "type": "number" }
+          },
+          "required": ["gtin", "commodityName"]
+        },
+        "processing_dates": {
+          "type": "object",
+          "properties": {
+            "harvestDate": { "type": "string", "format": "date-time" },
+            "packagingDate": { "type": "string", "format": "date-time" }
+          },
+          "required": ["packagingDate"]
+        }
+      },
+      "required": ["producer_id", "budget_id", "batch_size", "product_metadata", "processing_dates"],
+      "additionalProperties": false
+    },
+    "revokeLotRequest": {
+      "type": "object",
+      "properties": {
+        "revocation_reason": { "type": "string" },
+        "signature_bundle": { "type": "string", "pattern": "^[0-9a-fA-F]{128}$" }
+      },
+      "required": ["revocation_reason", "signature_bundle"],
+      "additionalProperties": false
+    }
+  }
+}

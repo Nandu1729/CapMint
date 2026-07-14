@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "WebhookPayloadSchemas",
+  "definitions": {
+    "webhookEventEnvelope": {
+      "type": "object",
+      "properties": {
+        "eventId": { "type": "string", "format": "uuid" },
+        "eventType": { "type": "string", "enum": ["budget.activated", "budget.exhausted", "lot.revoked", "unit.clone_detected"] },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "payload": { "type": "object" }
+      },
+      "required": ["eventId", "eventType", "timestamp", "payload"],
+      "additionalProperties": false
+    },
+    "budgetEventPayload": {
+      "type": "object",
+      "properties": {
+        "budgetId": { "type": "string", "format": "uuid" },
+        "producerId": { "type": "string", "format": "uuid" },
+        "approvedQuantity": { "type": "number" },
+        "consumedQuantity": { "type": "number" }
+      },
+      "required": ["budgetId", "producerId"]
+    },
+    "lotEventPayload": {
+      "type": "object",
+      "properties": {
+        "lotId": { "type": "string", "format": "uuid" },
+        "revocationReason": { "type": "string" },
+        "revokedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["lotId", "revocationReason", "revokedAt"]
+    },
+    "cloneEventPayload": {
+      "type": "object",
+      "properties": {
+        "unitId": { "type": "string", "format": "uuid" },
+        "gtin": { "type": "string" },
+        "serial": { "type": "string" },
+        "anomalyScore": { "type": "number" },
+        "impossibleSpeedKmh": { "type": "number" }
+      },
+      "required": ["unitId", "gtin", "serial"]
+    }
+  }
+}

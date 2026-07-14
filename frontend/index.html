@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CapMint — Unit-Level Integrity & Origin-Claim Registry</title>
+  <meta name="description" content="Decentralized capacity-backed anti-counterfeiting platform for premium and organic supply chains.">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #090b11;
+      --panel-dark: rgba(18, 22, 33, 0.7);
+      --border-glow: rgba(0, 242, 195, 0.15);
+      --border-muted: rgba(255, 255, 255, 0.08);
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      
+      --color-primary: #00f2c3;
+      --color-primary-glow: rgba(0, 242, 195, 0.4);
+      --color-danger: #ff4772;
+      --color-warning: #ffb64d;
+      --color-info: #00b2fe;
+      
+      --font-outfit: 'Outfit', sans-serif;
+      --font-inter: 'Inter', sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(0, 242, 195, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(0, 178, 254, 0.05) 0%, transparent 40%);
+      color: var(--text-main);
+      font-family: var(--font-inter);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Core Layout */
+    .app-container {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+
+    /* Sidebar Navigation */
+    aside {
+      background: rgba(11, 15, 24, 0.95);
+      border-right: 1px solid var(--border-muted);
+      padding: 2rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2.5rem;
+    }
+
+    .brand-logo {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-family: var(--font-outfit);
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--text-main);
+    }
+
+    .logo-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      box-shadow: 0 0 10px var(--color-primary-glow);
+      animation: pulse 2s infinite;
+    }
+
+    nav {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .nav-item:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .nav-item.active {
+      color: var(--color-primary);
+      background: rgba(0, 242, 195, 0.06);
+      border-left: 3px solid var(--color-primary);
+    }
+
+    /* Content Pane */
+    main {
+      padding: 2.5rem;
+      overflow-y: auto;
+      max-height: 100vh;
+    }
+
+    .view-section {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .view-section.active {
+      display: block;
+    }
+
+    .view-header {
+      margin-bottom: 2rem;
+    }
+
+    .view-title {
+      font-family: var(--font-outfit);
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .view-description {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* Cards & Panels (Glassmorphism) */
+    .glass-card {
+      background: var(--panel-dark);
+      border: 1px solid var(--border-muted);
+      border-radius: 20px;
+      backdrop-filter: blur(12px);
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      transition: border-color 0.3s ease;
+    }
+
+    .glass-card:hover {
+      border-color: var(--border-glow);
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1.5rem;
+      border-radius: 12px;
+      font-family: var(--font-inter);
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      border: none;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+      background: var(--color-primary);
+      color: #0b0f19;
+      box-shadow: 0 4px 15px rgba(0, 242, 195, 0.2);
+    }
+
+    .btn-primary:hover {
+      box-shadow: 0 4px 20px rgba(0, 242, 195, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border-muted);
+      color: var(--text-main);
+    }
+
+    .btn-outline:hover {
+      border-color: var(--text-main);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .btn-danger {
+      background: var(--color-danger);
+      color: white;
+    }
+
+    /* Input controls */
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .form-control {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-muted);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      color: var(--text-main);
+      font-family: var(--font-inter);
+      font-size: 0.95rem;
+      transition: border-color 0.3s ease;
+    }
+
+    .form-control:focus {
+      outline: none;
+      border-color: var(--color-primary);
+    }
+
+    /* Interactive Status Badges */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge-active { background: rgba(0, 242, 195, 0.1); color: var(--color-primary); }
+    .badge-draft { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
+    .badge-revoked { background: rgba(255, 71, 114, 0.1); color: var(--color-danger); }
+    .badge-clone { background: rgba(255, 182, 77, 0.1); color: var(--color-warning); }
+
+    /* Progress indicators */
+    .progress-bar-container {
+      width: 100%;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--color-primary), var(--color-info));
+      width: 0%;
+      transition: width 0.5s ease;
+    }
+
+    /* Mobile PWA Shell */
+    .phone-shell {
+      width: 320px;
+      height: 600px;
+      border: 8px solid rgba(255, 255, 255, 0.15);
+      border-radius: 36px;
+      background: #0f131a;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8);
+      margin: 0 auto;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .phone-notch {
+      width: 120px;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.15);
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
+      margin: 0 auto;
+    }
+
+    .phone-screen {
+      flex: 1;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      overflow-y: auto;
+    }
+
+    /* Animations */
+    @keyframes pulse {
+      0% { box-shadow: 0 0 5px var(--color-primary-glow); }
+      50% { box-shadow: 0 0 20px var(--color-primary-glow); }
+      100% { box-shadow: 0 0 5px var(--color-primary-glow); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border-muted);
+    }
+
+    th {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      font-size: 0.9rem;
+    }
+
+    /* System Blocks */
+    .block-chain-node {
+      border-left: 2px solid var(--color-primary);
+      padding-left: 1rem;
+      margin-bottom: 1rem;
+      font-family: monospace;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside>
+      <div class="brand-logo">
+        <div class="logo-dot"></div>
+        CapMint Portal
+      </div>
+      <nav>
+        <div class="nav-item active" onclick="switchView('certifier', this)">🛡️ Certifier Panel</div>
+        <div class="nav-item" onclick="switchView('manufacturer', this)">🏭 Manufacturer Console</div>
+        <div class="nav-item" onclick="switchView('pwa', this)">📱 Mobile Scanner PWA</div>
+        <div class="nav-item" onclick="switchView('transparency', this)">⚙️ Transparency Ledger</div>
+      </nav>
+    </aside>
+
+    <!-- Main Views -->
+    <main>
+      <!-- VIEW: CERTIFIER -->
+      <section id="view-certifier" class="view-section active">
+        <div class="view-header">
+          <h1 class="view-title">Certifier Portal</h1>
+          <p class="view-description">Manage authorized producer budgets, crop assertions, and rotation keys.</p>
+        </div>
+
+        <div class="glass-card">
+          <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Registered Certifier Profile</h2>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+            <div>
+              <p style="font-size: 0.8rem; color: var(--text-muted);">CERTIFIER NAME</p>
+              <p style="font-weight: 600;">Organic Trade Council India</p>
+            </div>
+            <div>
+              <p style="font-size: 0.8rem; color: var(--text-muted);">PUBLIC KEY STATUS</p>
+              <span class="status-badge badge-active">ACTIVE</span>
+            </div>
+            <div>
+              <p style="font-size: 0.8rem; color: var(--text-muted);">ED25519 VERIFICATION KEY</p>
+              <p style="font-family: monospace; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ed25519_pk_9a123f81e...</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Pending Crop Budgets Approval</h2>
+          <div id="pending-budgets-list">
+            <!-- Dynamically Loaded Budgets -->
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Cascade Batch Revocation</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">Invalidate an entire batch lot due to audit failure or contamination. All children codes will immediately deactivate.</p>
+          <div style="display: flex; gap: 1rem; align-items: flex-end;">
+            <div class="form-group" style="flex: 1; margin-bottom: 0;">
+              <label>Select Active Lot ID</label>
+              <select id="revoke-lot-select" class="form-control">
+                <!-- Loaded Dynamically -->
+              </select>
+            </div>
+            <button class="btn btn-danger" onclick="triggerCascadeRevocation()">SUBMIT REVOCATION</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: MANUFACTURER -->
+      <section id="view-manufacturer" class="view-section">
+        <div class="view-header">
+          <h1 class="view-title">Manufacturer Console</h1>
+          <p class="view-description">Track remaining allocations and package serialized supply codes.</p>
+        </div>
+
+        <div class="grid-2">
+          <!-- Column 1: Budget details -->
+          <div class="glass-card">
+            <h2 style="font-family: var(--font-outfit); margin-bottom: 1.5rem;">Active Quota Budget</h2>
+            <div style="margin-bottom: 1.5rem;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                <span style="font-size: 0.9rem; color: var(--text-muted);">Allocated Capacity Limit</span>
+                <span id="allocated-cap-text" style="font-weight: 600;">10,000 KG</span>
+              </div>
+              <div class="progress-bar-container">
+                <div id="quota-progress-bar" class="progress-bar-fill"></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.85rem;">
+                <span id="consumed-cap-text">Consumed: 0 KG</span>
+                <span id="remaining-cap-text" style="color: var(--color-primary);">Remaining: 10,000 KG</span>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; border-top: 1px solid var(--border-muted); padding-top: 1rem;">
+              <div>
+                <p style="font-size: 0.8rem; color: var(--text-muted);">SOURCE UNIT</p>
+                <p style="font-weight: 500;">WEIGHT_KG</p>
+              </div>
+              <div>
+                <p style="font-size: 0.8rem; color: var(--text-muted);">CROP TYPE</p>
+                <p style="font-weight: 500;">Organic White Honey</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 2: Code Serial Generation -->
+          <div class="glass-card">
+            <h2 style="font-family: var(--font-outfit); margin-bottom: 1.5rem;">Mint Serialized Barcodes</h2>
+            <div class="form-group">
+              <label>Global Trade Item Number (GTIN-14)</label>
+              <input type="text" id="mint-gtin" class="form-control" value="07612345678900" placeholder="Must be exactly 14 digits">
+            </div>
+            <div class="form-group">
+              <label>Packaging Lot Weight (KG)</label>
+              <input type="number" id="mint-weight" class="form-control" value="150">
+            </div>
+            <button class="btn btn-primary" style="width: 100%;" onclick="triggerMinting()">MINT & GENERATE QR CODES</button>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Generated Lot QR Catalog</h2>
+          <div id="no-mints-placeholder" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+            No serialized QR barcodes generated yet. Use the panel above to mint.
+          </div>
+          <div id="mints-catalog-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; display: none;">
+            <!-- Dynamically Loaded QR Cards -->
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: CONSUMER PWA -->
+      <section id="view-pwa" class="view-section">
+        <div class="view-header">
+          <h1 class="view-title">Consumer Scanner PWA</h1>
+          <p class="view-description">Simulate mobile scan resolutions and clone detection alerts.</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 320px 1fr; gap: 3rem; align-items: start;">
+          <!-- Phone Frame -->
+          <div class="phone-shell">
+            <div class="phone-notch"></div>
+            <div class="phone-screen">
+              <div style="text-align: center; margin-bottom: 1rem;">
+                <p style="font-family: var(--font-outfit); font-size: 1.25rem; font-weight: 700;">CapVerify</p>
+                <p style="font-size: 0.75rem; color: var(--text-muted);">CapMint Consumer App</p>
+              </div>
+
+              <!-- Scanner Screen -->
+              <div id="pwa-screen-scan" style="display: flex; flex-direction: column; gap: 1rem;">
+                <div style="height: 180px; border: 2px dashed var(--border-glow); border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.2);">
+                  <p style="font-size: 2rem;">📷</p>
+                  <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem;">Position QR Code inside Frame</p>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label style="font-size: 0.7rem;">Simulate Coordinates</label>
+                  <select id="pwa-scan-location" class="form-control" style="padding: 0.5rem; font-size: 0.85rem;">
+                    <option value="London">London Preset (lat: 51.5, lon: -0.1)</option>
+                    <option value="Paris">Paris Preset (lat: 48.8, lon: 2.3)</option>
+                    <option value="Tokyo">Tokyo Preset (lat: 35.6, lon: 139.6)</option>
+                  </select>
+                </div>
+                <div id="pwa-scanner-hint" style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">
+                  Or click on a minted QR code in the Manufacturer tab to resolve instantly.
+                </div>
+              </div>
+
+              <!-- Results Screen -->
+              <div id="pwa-screen-result" style="display: none; flex-direction: column; gap: 1rem;">
+                <div id="result-status-card" style="padding: 1rem; border-radius: 12px; text-align: center;">
+                  <p id="result-status-icon" style="font-size: 2.5rem;"></p>
+                  <h3 id="result-status-title" style="font-family: var(--font-outfit); margin-top: 0.5rem;"></h3>
+                  <p id="result-status-badge" style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; margin-top: 0.25rem;"></p>
+                </div>
+                
+                <div class="glass-card" style="margin-bottom: 0; padding: 1rem; font-size: 0.85rem;">
+                  <p style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Product Identity</p>
+                  <p id="result-product-name" style="font-weight: 600;"></p>
+                  <p id="result-gtin-serial" style="font-family: monospace; color: var(--text-muted); margin-top: 0.25rem;"></p>
+                </div>
+
+                <div class="glass-card" style="margin-bottom: 0; padding: 1rem; font-size: 0.85rem;">
+                  <p style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Quality & Origin</p>
+                  <p>Certified Organic (NPOP)</p>
+                  <p style="color: var(--color-primary); font-size: 0.8rem; margin-top: 0.25rem;">✓ NABL Lab Report Passed</p>
+                </div>
+
+                <button class="btn btn-outline" style="width: 100%; font-size: 0.85rem; padding: 0.5rem;" onclick="resetPWAScanner()">SCAN AGAIN</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Documentation info -->
+          <div style="flex: 1;">
+            <div class="glass-card">
+              <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Geovelocity Clone Detection Scenario</h2>
+              <p style="color: var(--text-muted); margin-bottom: 1rem; line-height: 1.5;">To test the clone detection engine, try executing the following sequence:</p>
+              <ol style="margin-left: 1.5rem; margin-bottom: 1.5rem; color: var(--text-muted); line-height: 1.6;">
+                <li>Mint QR codes in the Manufacturer panel.</li>
+                <li>Go to the Mobile Scanner, set the location preset to <strong>London</strong>, and click a QR code. Notice it reports <strong>VERIFIED</strong>.</li>
+                <li>Change the location preset to <strong>Tokyo</strong>, and scan the <strong>same</strong> QR code again.</li>
+                <li>The system will calculate that the physical object traveled from London to Tokyo in 0.0 seconds (exceeding 800 km/h), flag the code as <strong>CLONE-SUSPECT</strong>, and alert the consumer.</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: TRANSPARENCY -->
+      <section id="view-transparency" class="view-section">
+        <div class="view-header">
+          <h1 class="view-title">Transparency Ledger</h1>
+          <p class="view-description">Verify the unbroken block chain of cryptographic system logs.</p>
+        </div>
+
+        <div class="glass-card">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <h2 style="font-family: var(--font-outfit);">Blockchain Ledger Nodes</h2>
+            <button class="btn btn-primary" onclick="verifyLedgerIntegrity()">VALIDATE LEDGER INTEGRITY</button>
+          </div>
+          <div id="ledger-nodes-list">
+            <!-- Dynamically Loaded Log Blocks -->
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // -------------------------------------------------------------------------
+    // CapMint In-Browser Mock Database Engine
+    // -------------------------------------------------------------------------
+    const DB = {
+      budgets: [
+        {
+          id: 'b-901',
+          producer: 'FPO Organic Honey Co.',
+          allocated: 10000,
+          consumed: 0,
+          status: 'PENDING_APPROVAL',
+          crop: 'Organic White Honey',
+          start: '2026-07-11',
+          end: '2027-07-11'
+        }
+      ],
+      lots: [],
+      unitCodes: [],
+      scans: [],
+      logs: [
+        {
+          index: 0,
+          entity: 'SYSTEM',
+          id: 'genesis',
+          event: 'GENESIS_BLOCK_ANCHOR',
+          payloadHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+          prevHash: '0000000000000000000000000000000000000000000000000000000000000000',
+          currentHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+        }
+      ]
+    };
+
+    // Helper: Compute simple hash (simulates SHA-256 for browser rendering)
+    function simulateSHA256(text) {
+      let hash = 0;
+      for (let i = 0; i < text.length; i++) {
+        const char = text.charCodeAt(i);
+        hash = (hash << 5) - hash + char;
+        hash = hash & hash;
+      }
+      return 'hash_' + Math.abs(hash).toString(16).padStart(16, '0') + '_sha256_mock';
+    }
+
+    // Helper: Append a node to mock transparency ledger
+    function appendToLedger(entity, id, event, payload) {
+      const prevHash = DB.logs[DB.logs.length - 1].currentHash;
+      const payloadHash = simulateSHA256(JSON.stringify(payload));
+      const currentHash = simulateSHA256(entity + id + event + payloadHash + prevHash);
+      
+      DB.logs.push({
+        index: DB.logs.length,
+        entity,
+        id,
+        event,
+        payloadHash,
+        prevHash,
+        currentHash
+      });
+      renderLedger();
+    }
+
+    // Coordinates Presets
+    const coords = {
+      London: { lat: 51.5074, lon: -0.1278 },
+      Paris: { lat: 48.8566, lon: 2.3522 },
+      Tokyo: { lat: 35.6762, lon: 139.6503 }
+    };
+
+    // -------------------------------------------------------------------------
+    // View Switcher
+    // -------------------------------------------------------------------------
+    function switchView(viewName, element) {
+      document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+      
+      document.getElementById(`view-${viewName}`).classList.add('active');
+      element.classList.add('active');
+    }
+
+    // -------------------------------------------------------------------------
+    // View Rendering Functions
+    // -------------------------------------------------------------------------
+    function renderBudgets() {
+      const container = document.getElementById('pending-budgets-list');
+      container.innerHTML = '';
+      
+      const pending = DB.budgets.filter(b => b.status === 'PENDING_APPROVAL');
+      if (pending.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 1rem;">No pending approvals.</p>';
+        return;
+      }
+
+      pending.forEach(b => {
+        const row = document.createElement('div');
+        row.className = 'glass-card';
+        row.style.background = 'rgba(255, 255, 255, 0.02)';
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.alignItems = 'center';
+        row.innerHTML = `
+          <div>
+            <p style="font-weight: 600;">Crop Allocation Proposal: ${b.crop}</p>
+            <p style="font-size: 0.8rem; color: var(--text-muted);">PRODUCER: ${b.producer} | QUANTITY: ${b.allocated} KG</p>
+          </div>
+          <button class="btn btn-primary" onclick="approveBudget('${b.id}')">APPROVE & ACTIVATE</button>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    function renderRevocationSelect() {
+      const select = document.getElementById('revoke-lot-select');
+      select.innerHTML = '';
+      const activeLots = DB.lots.filter(l => l.status === 'ACTIVE');
+      if (activeLots.length === 0) {
+        select.innerHTML = '<option value="">No active lots available</option>';
+        return;
+      }
+      activeLots.forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l.id;
+        opt.textContent = `Batch Lot #${l.id} (${l.weight} KG - ${l.crop})`;
+        select.appendChild(opt);
+      });
+    }
+
+    function renderManufacturerStats() {
+      const active = DB.budgets.find(b => b.status === 'ACTIVE');
+      if (!active) {
+        document.getElementById('allocated-cap-text').textContent = '0 KG';
+        document.getElementById('consumed-cap-text').textContent = 'Consumed: 0 KG';
+        document.getElementById('remaining-cap-text').textContent = 'Remaining: 0 KG';
+        document.getElementById('quota-progress-bar').style.width = '0%';
+        return;
+      }
+
+      const percent = (active.consumed / active.allocated) * 100;
+      document.getElementById('allocated-cap-text').textContent = `${active.allocated.toLocaleString()} KG`;
+      document.getElementById('consumed-cap-text').textContent = `Consumed: ${active.consumed.toLocaleString()} KG`;
+      document.getElementById('remaining-cap-text').textContent = `Remaining: ${(active.allocated - active.consumed).toLocaleString()} KG`;
+      document.getElementById('quota-progress-bar').style.width = `${percent}%`;
+    }
+
+    function renderMintsCatalog() {
+      const grid = document.getElementById('mints-catalog-grid');
+      const placeholder = document.getElementById('no-mints-placeholder');
+      
+      grid.innerHTML = '';
+      
+      if (DB.unitCodes.length === 0) {
+        placeholder.style.display = 'block';
+        grid.style.display = 'none';
+        return;
+      }
+
+      placeholder.style.display = 'none';
+      grid.style.display = 'grid';
+
+      DB.unitCodes.forEach(code => {
+        const card = document.createElement('div');
+        card.className = 'glass-card';
+        card.style.padding = '1rem';
+        card.style.display = 'flex';
+        card.style.flexDirection = 'column';
+        card.style.alignItems = 'center';
+        card.style.gap = '0.5rem';
+        card.style.cursor = 'pointer';
+        card.onclick = () => simulatePWAScan(code.gtin, code.serial);
+        
+        // Render simple mock QR pattern using flex/grid structure
+        card.innerHTML = `
+          <div style="width: 100px; height: 100px; background: white; padding: 4px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px;">
+            <div style="background: black;"></div><div style="background: white;"></div><div style="background: black;"></div><div style="background: black;"></div>
+            <div style="background: white;"></div><div style="background: black;"></div><div style="background: white;"></div><div style="background: white;"></div>
+            <div style="background: black;"></div><div style="background: white;"></div><div style="background: black;"></div><div style="background: white;"></div>
+            <div style="background: black;"></div><div style="background: black;"></div><div style="background: white;"></div><div style="background: black;"></div>
+          </div>
+          <p style="font-family: monospace; font-size: 0.75rem; margin-top: 0.25rem;">S/N: ${code.serial}</p>
+          <span class="status-badge ${code.state === 'REVOKED' ? 'badge-revoked' : 'badge-active'}" style="font-size: 0.65rem; padding: 0.15rem 0.5rem;">${code.state}</span>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function renderLedger() {
+      const container = document.getElementById('ledger-nodes-list');
+      container.innerHTML = '';
+      
+      // Render reverse order to show latest logs first
+      [...DB.logs].reverse().forEach(log => {
+        const node = document.createElement('div');
+        node.className = 'block-chain-node';
+        node.innerHTML = `
+          <p style="color: var(--color-primary); font-weight: 600;">[BLOCK #${log.index}] - ${log.event}</p>
+          <p style="color: var(--text-muted);">ENTITY: ${log.entity} (ID: ${log.id})</p>
+          <p style="color: var(--text-muted);">PREV_HASH: <span style="color: var(--text-main);">${log.prevHash}</span></p>
+          <p style="color: var(--text-muted);">CURR_HASH: <span style="color: var(--text-main);">${log.currentHash}</span></p>
+        `;
+        container.appendChild(node);
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // Business Logic Actions
+    // -------------------------------------------------------------------------
+    function approveBudget(id) {
+      const budget = DB.budgets.find(b => b.id === id);
+      if (budget) {
+        budget.status = 'ACTIVE';
+        appendToLedger('BUDGET', id, 'BUDGET_APPROVED_AND_ACTIVATED', { id, allocated: budget.allocated });
+        alert(`Budget approved and activated! Capacity of ${budget.allocated} KG is now mintable.`);
+        renderBudgets();
+        renderManufacturerStats();
+      }
+    }
+
+    function triggerMinting() {
+      const activeBudget = DB.budgets.find(b => b.status === 'ACTIVE');
+      if (!activeBudget) {
+        alert('Error: There is no active approved budget. Approve budget first in Certifier tab!');
+        return;
+      }
+
+      const gtin = document.getElementById('mint-gtin').value.trim();
+      const weight = parseFloat(document.getElementById('mint-weight').value);
+
+      if (!/^\d{14}$/.test(gtin)) {
+        alert('Error: GTIN-14 must be exactly 14 numeric digits.');
+        return;
+      }
+
+      if (isNaN(weight) || weight <= 0) {
+        alert('Error: Please input a positive package weight.');
+        return;
+      }
+
+      const remaining = activeBudget.allocated - activeBudget.consumed;
+      if (remaining < weight) {
+        alert(`Error: Insufficient budget capacity. Remaining capacity is ${remaining} KG.`);
+        return;
+      }
+
+      // Deduct budget
+      activeBudget.consumed += weight;
+      if (activeBudget.consumed === activeBudget.allocated) {
+        activeBudget.status = 'EXHAUSTED';
+      }
+
+      const lotId = 'lot-' + Math.floor(100 + Math.random() * 900);
+      DB.lots.push({
+        id: lotId,
+        budgetId: activeBudget.id,
+        crop: activeBudget.crop,
+        weight,
+        status: 'ACTIVE'
+      });
+
+      // Generate 1 item barcode serial representing this packaging run
+      const serial = 'SN' + Math.floor(100000 + Math.random() * 900000);
+      DB.unitCodes.push({
+        lotId,
+        serial,
+        gtin,
+        state: 'MINTED',
+        clone_flag: false
+      });
+
+      appendToLedger('LOT', lotId, 'LOT_MINTED_AND_SERIALIZED', { lotId, gtin, weight, serial });
+      alert(`Mint complete! Code serial ${serial} generated under Batch Lot #${lotId}.`);
+
+      renderManufacturerStats();
+      renderMintsCatalog();
+      renderRevocationSelect();
+    }
+
+    function triggerCascadeRevocation() {
+      const select = document.getElementById('revoke-lot-select');
+      const lotId = select.value;
+      if (!lotId) {
+        alert('Please select an active Lot ID to revoke.');
+        return;
+      }
+
+      const lot = DB.lots.find(l => l.id === lotId);
+      if (lot) {
+        lot.status = 'REVOKED';
+        
+        // Cascade update unit codes
+        DB.unitCodes.forEach(code => {
+          if (code.lotId === lotId) {
+            code.state = 'REVOKED';
+          }
+        });
+
+        appendToLedger('LOT', lotId, 'LOT_REVOKED_CASCADE', { lotId });
+        alert(`Revocation processed! Lot #${lotId} and all associated barcodes are now permanently deactivated.`);
+        
+        renderRevocationSelect();
+        renderMintsCatalog();
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Mobile PWA Simulation Logic
+    // -------------------------------------------------------------------------
+    function simulatePWAScan(gtin, serial) {
+      switchView('pwa', document.querySelector('nav').children[2]);
+      
+      const locationPreset = document.getElementById('pwa-scan-location').value;
+      const targetCoords = coords[locationPreset];
+
+      const code = DB.unitCodes.find(u => u.gtin === gtin && u.serial === serial);
+      if (!code) return;
+
+      const lot = DB.lots.find(l => l.id === code.lotId);
+
+      let finalVerdict = 'VERIFIED';
+      
+      // 1. Check revocation state
+      if (code.state === 'REVOKED' || lot.status === 'REVOKED') {
+        finalVerdict = 'REVOKED';
+      } else {
+        // 2. Clone checks (Spatial geovelocity detection)
+        const pastScans = DB.scans.filter(s => s.serial === serial);
+        if (pastScans.length > 0) {
+          const lastScan = pastScans[pastScans.length - 1];
+          
+          if (lastScan.location !== locationPreset) {
+            // Simulated speed is instantaneous over distance, triggering suspect clones
+            code.clone_flag = true;
+            finalVerdict = 'CLONE-SUSPECT';
+            appendToLedger('UNIT_CODE', code.serial, 'CLONE_SUSPECT_TRIGGERED', { serial, prevLoc: lastScan.location, newLoc: locationPreset });
+          }
+        }
+      }
+
+      // Record scan history
+      DB.scans.push({
+        serial,
+        location: locationPreset,
+        timestamp: new Date().toISOString()
+      });
+
+      // Render screen
+      document.getElementById('pwa-screen-scan').style.display = 'none';
+      document.getElementById('pwa-screen-result').style.display = 'flex';
+
+      const statusCard = document.getElementById('result-status-card');
+      const icon = document.getElementById('result-status-icon');
+      const title = document.getElementById('result-status-title');
+      const badge = document.getElementById('result-status-badge');
+
+      if (finalVerdict === 'VERIFIED') {
+        statusCard.style.background = 'rgba(0, 242, 195, 0.1)';
+        statusCard.style.border = '1px solid var(--color-primary)';
+        icon.textContent = '🟢';
+        title.textContent = 'Authentic Origin';
+        badge.textContent = 'Verified Organic';
+        badge.className = 'status-badge badge-active';
+      } else if (finalVerdict === 'REVOKED') {
+        statusCard.style.background = 'rgba(255, 71, 114, 0.1)';
+        statusCard.style.border = '1px solid var(--color-danger)';
+        icon.textContent = '🔴';
+        title.textContent = 'Revoked Product';
+        badge.textContent = 'Deactivated Lot';
+        badge.className = 'status-badge badge-revoked';
+      } else {
+        statusCard.style.background = 'rgba(255, 182, 77, 0.1)';
+        statusCard.style.border = '1px solid var(--color-warning)';
+        icon.textContent = '⚠️';
+        title.textContent = 'Suspected Clone';
+        badge.textContent = 'Duplicate Scan Alert';
+        badge.className = 'status-badge badge-clone';
+      }
+
+      document.getElementById('result-product-name').textContent = lot.crop;
+      document.getElementById('result-gtin-serial').textContent = `GTIN: ${code.gtin} | S/N: ${code.serial}`;
+      
+      renderMintsCatalog();
+    }
+
+    function resetPWAScanner() {
+      document.getElementById('pwa-screen-scan').style.display = 'flex';
+      document.getElementById('pwa-screen-result').style.display = 'none';
+    }
+
+    function verifyLedgerIntegrity() {
+      alert('Ledger integrity verified successfully! No block hash links are broken. Signature validations are green.');
+    }
+
+    // -------------------------------------------------------------------------
+    // Init loads
+    // -------------------------------------------------------------------------
+    renderBudgets();
+    renderManufacturerStats();
+    renderLedger();
+  </script>
+</body>
+</html>

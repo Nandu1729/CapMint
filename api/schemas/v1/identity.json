@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IdentityServiceSchemas",
+  "definitions": {
+    "createCertifierRequest": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 3, "maxLength": 255 },
+        "accreditation_details": {
+          "type": "object",
+          "properties": {
+            "licenseNumber": { "type": "string" },
+            "regulatoryScope": { "type": "array", "items": { "type": "string" } },
+            "validUntil": { "type": "string", "format": "date-time" }
+          },
+          "required": ["licenseNumber", "regulatoryScope", "validUntil"]
+        },
+        "public_key": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" }
+      },
+      "required": ["name", "accreditation_details", "public_key"],
+      "additionalProperties": false
+    },
+    "rotateKeyRequest": {
+      "type": "object",
+      "properties": {
+        "new_public_key": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
+        "revocation_reason": { "type": "string" }
+      },
+      "required": ["new_public_key"],
+      "additionalProperties": false
+    },
+    "createProducerRequest": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "minLength": 3, "maxLength": 255 },
+        "type": { "type": "string", "enum": ["FARMER", "FPO", "BRAND", "HIVE_OPERATOR"] },
+        "registry_references": {
+          "type": "object",
+          "properties": {
+            "agriStackId": { "type": "string" },
+            "traceNetId": { "type": "string" }
+          }
+        },
+        "contact_metadata": {
+          "type": "object",
+          "properties": {
+            "phone": { "type": "string" },
+            "email": { "type": "string", "format": "email" },
+            "address": { "type": "string" }
+          }
+        }
+      },
+      "required": ["name", "type", "registry_references"],
+      "additionalProperties": false
+    },
+    "createPlotRequest": {
+      "type": "object",
+      "properties": {
+        "geo_boundary": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["Polygon", "Point"] },
+            "coordinates": { "type": "array" }
+          },
+          "required": ["type", "coordinates"]
+        },
+        "crop_type": { "type": "string" },
+        "season_year": { "type": "string" },
+        "agristack_reference": { "type": "string" }
+      },
+      "required": ["geo_boundary", "crop_type", "season_year"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BudgetServiceSchemas",
+  "definitions": {
+    "proposeBudgetRequest": {
+      "type": "object",
+      "properties": {
+        "producer_id": { "type": "string", "format": "uuid" },
+        "certifier_id": { "type": "string", "format": "uuid" },
+        "source_unit_type": { "type": "string", "enum": ["WEIGHT_KG", "VOLUME_L", "UNIT_COUNT"] },
+        "approved_quantity": { "type": "number", "minimum": 0.01 },
+        "yield_assumptions": {
+          "type": "object",
+          "properties": {
+            "plotIds": { "type": "array", "items": { "type": "string", "format": "uuid" } },
+            "areaHectares": { "type": "number" },
+            "expectedYieldMultiplier": { "type": "number" }
+          },
+          "required": ["plotIds"]
+        },
+        "effective_start_date": { "type": "string", "format": "date-time" },
+        "effective_end_date": { "type": "string", "format": "date-time" }
+      },
+      "required": ["producer_id", "certifier_id", "source_unit_type", "approved_quantity", "yield_assumptions", "effective_start_date", "effective_end_date"],
+      "additionalProperties": false
+    },
+    "activateBudgetRequest": {
+      "type": "object",
+      "properties": {
+        "signature_bundle": { "type": "string", "pattern": "^[0-9a-fA-F]{128}$" }
+      },
+      "required": ["signature_bundle"],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,191 @@
+version: '3.8'
+
+services:
+  # 1. Database: PostgreSQL 15 (Operational Relational Storage)
+  postgres:
+    image: postgres:15-alpine
+    container_name: capmint-postgres
+    environment:
+      POSTGRES_DB: capmint_dev
+      POSTGRES_USER: capmint_admin
+      POSTGRES_PASSWORD: capmint_secure_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../database/schema/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U capmint_admin -d capmint_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - capmint-network
+    restart: unless-stopped
+
+  # 2. Cache & Broker: Redis
+  redis:
+    image: redis:7-alpine
+    container_name: capmint-redis
+    command: redis-server --appendonly yes --requirepass capmint_redis_secure_password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "capmint_redis_secure_password", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - capmint-network
+    restart: unless-stopped
+
+  # 3. Auth Service
+  auth-service:
+    build:
+      context: ../../
+      dockerfile: services/auth-service/Dockerfile
+    container_name: capmint-auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - DATABASE_URL=postgres://capmint_admin:capmint_secure_password@postgres:5432/capmint_dev
+      - JWT_SECRET=super_secure_jwt_secret_phrase
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - capmint-network
+
+  # 4. CPQ Service
+  cpq-service:
+    build:
+      context: ../../
+      dockerfile: services/cpq-service/Dockerfile
+    container_name: capmint-cpq-service
+    ports:
+      - "8082:8082"
+    environment:
+      - PORT=8082
+      - DATABASE_URL=postgres://capmint_admin:capmint_secure_password@postgres:5432/capmint_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - capmint-network
+
+  # 5. Mint Service
+  mint-service:
+    build:
+      context: ../../
+      dockerfile: services/mint-service/Dockerfile
+    container_name: capmint-mint-service
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=8083
+      - DATABASE_URL=postgres://capmint_admin:capmint_secure_password@postgres:5432/capmint_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - capmint-network
+
+  # 6. Resolver Service
+  resolver-service:
+    build:
+      context: ../../
+      dockerfile: services/resolver-service/Dockerfile
+    container_name: capmint-resolver-service
+    ports:
+      - "8084:8084"
+    environment:
+      - PORT=8084
+      - DATABASE_URL=postgres://capmint_admin:capmint_secure_password@postgres:5432/capmint_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - capmint-network
+
+  # 7. Transparency Service
+  transparency-service:
+    build:
+      context: ../../
+      dockerfile: services/transparency-service/Dockerfile
+    container_name: capmint-transparency-service
+    ports:
+      - "8085:8085"
+    environment:
+      - PORT=8085
+      - DATABASE_URL=postgres://capmint_admin:capmint_secure_password@postgres:5432/capmint_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - capmint-network
+
+  # 8. Verification Service
+  verification-service:
+    build:
+      context: ../../
+      dockerfile: services/verification-service/Dockerfile
+    container_name: capmint-verification-service
+    ports:
+      - "8086:8086"
+    environment:
+      - PORT=8086
+      - DATABASE_URL=postgres://capmint_admin:capmint_secure_password@postgres:5432/capmint_dev
+      - REDIS_URL=redis://:capmint_redis_secure_password@redis:6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - capmint-network
+
+  # 9. Integration Service
+  integration-service:
+    build:
+      context: ../../
+      dockerfile: services/integration-service/Dockerfile
+    container_name: capmint-integration-service
+    ports:
+      - "8087:8087"
+    environment:
+      - PORT=8087
+    networks:
+      - capmint-network
+
+  # 10. API Gateway (Nginx)
+  nginx:
+    image: nginx:alpine
+    container_name: capmint-nginx
+    ports:
+      - "8000:80"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - auth-service
+      - cpq-service
+      - mint-service
+      - resolver-service
+      - transparency-service
+      - verification-service
+      - integration-service
+    networks:
+      - capmint-network
+
+volumes:
+  postgres_data:
+    name: capmint_postgres_data
+  redis_data:
+    name: capmint_redis_data
+
+networks:
+  capmint-network:
+    name: capmint_network
+    driver: bridge

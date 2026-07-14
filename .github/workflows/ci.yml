@@ -1,0 +1,64 @@
+# CapMint Continuous Integration Pipeline (.github/workflows/ci.yml)
+
+name: CapMint CI
+
+on:
+  push:
+    branches: [ develop, main ]
+  pull_request:
+    branches: [ develop, main ]
+
+jobs:
+  validate-and-test:
+    name: Workspace Verification & Testing
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: capmint_test
+          POSTGRES_USER: capmint_admin
+          POSTGRES_PASSWORD: capmint_secure_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install Monorepo Dependencies
+        run: npm ci
+
+      - name: Lint Workspace Styles
+        run: npm run lint --if-present
+
+      - name: Compile Workspace Packages
+        run: npm run build --if-present
+
+      - name: Run Test Suites
+        env:
+          DATABASE_URL: postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_test
+          REDIS_URL: redis://localhost:6379/0
+        run: npm run test --if-present
