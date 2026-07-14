@@ -218,22 +218,29 @@ server.post('/api/v1/mint', {
       [newConsumed, newStatus, budgetId]
     );
 
-    // 4. Generate unique serials & digital link URIs
+    // 4. Generate unique serials, digital link URIs, secure verification URLs, and local QR codes
     const serialsList: string[] = [];
     const digitalLinksList: string[] = [];
+    const verificationUrlsList: string[] = [];
+    const qrCodesList: string[] = [];
 
     for (let i = 0; i < mintCount; i++) {
       const serial = generateSerial();
       const digitalLinkUri = `https://id.capmint.io/01/${gtin}/21/${serial}`;
+      const publicIdentifier = crypto.randomUUID();
+      const verificationUrl = `https://verify.capmint.com/v/${publicIdentifier}`;
+      const qrCodeDataUri = await qr.toDataURL(verificationUrl);
       
       await client.query(
-        `INSERT INTO unit_codes (lot_id, serial, gtin, digital_link_uri, current_state)
-         VALUES ($1, $2, $3, $4, 'MINTED')`,
-        [lot_id, serial, gtin, digitalLinkUri]
+        `INSERT INTO unit_codes (lot_id, serial, gtin, digital_link_uri, public_identifier, verification_url, qr_code_data_uri, current_state)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'MINTED')`,
+        [lot_id, serial, gtin, digitalLinkUri, publicIdentifier, verificationUrl, qrCodeDataUri]
       );
 
       serialsList.push(serial);
       digitalLinksList.push(digitalLinkUri);
+      verificationUrlsList.push(verificationUrl);
+      qrCodesList.push(qrCodeDataUri);
     }
 
     // Commit transaction
@@ -245,7 +252,9 @@ server.post('/api/v1/mint', {
         gtin,
         mintedCount: mintCount,
         serials: serialsList,
-        digitalLinks: digitalLinksList
+        digitalLinks: digitalLinksList,
+        verificationUrls: verificationUrlsList,
+        qrCodes: qrCodesList
       },
       meta: {
         timestamp: new Date().toISOString(),
@@ -299,4 +308,6 @@ const start = async () => {
   }
 };
 
-start();
+if (process.env.NODE_ENV !== 'test') {
+  start();
+}

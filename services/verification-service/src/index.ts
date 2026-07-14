@@ -189,6 +189,93 @@ server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
   };
 });
 
+// Route: Public Verification lookup by secure public identifier
+server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
+  const { public_identifier } = request.params as any;
+  const { lat, lon, device_metadata } = request.body as any;
+
+  // Validate UUIDv4 format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[45][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (!public_identifier || !uuidRegex.test(public_identifier)) {
+    return reply.status(400).send({
+      success: false,
+      error: {
+        statusCode: 400,
+        code: 'INVALID_IDENTIFIER',
+        message: 'The provided public identifier is malformed or invalid.'
+      }
+    });
+  }
+
+  // 1. Query unit code & lot & budget context using public_identifier
+  const query = `
+    SELECT u.id, u.serial, u.gtin, u.current_state, u.clone_flag,
+           l.id as lot_id, l.revocation_status, l.lab_status,
+           b.effective_end_date,
+           r.result_summary, r.report_reference
+    FROM unit_codes u
+    JOIN lots l ON u.lot_id = l.id
+    JOIN budgets b ON l.budget_id = b.id
+    LEFT JOIN lab_results r ON r.lot_id = l.id
+    WHERE u.public_identifier = $1
+  `;
+  const result = await pgPool.query(query, [public_identifier]);
+
+  if (result.rowCount === 0) {
+    return reply.status(404).send({
+      success: false,
+      error: {
+        statusCode: 404,
+        code: 'UNKNOWN_CODE',
+        message: 'The requested product QR code identity record was not found.'
+      }
+    });
+  }
+
+  const codeRecord = result.rows[0];
+  let finalStatus = 'VERIFIED';
+  let isCloneSuspect = codeRecord.clone_flag;
+
+  // 2. Evaluate validity states: VERIFIED, REVOKED, EXPIRED, UNKNOWN
+  const isExpired = new Date(codeRecord.effective_end_date) < new Date();
+  
+  if (codeRecord.revocation_status === 'REVOKED' || codeRecord.current_state === 'REVOKED') {
+    finalStatus = 'REVOKED';
+  } else if (isExpired) {
+    finalStatus = 'EXPIRED';
+  }
+
+  // Define default risk level based on clone_flag (LOW or CRITICAL)
+  const finalRisk = isCloneSuspect ? 'CRITICAL' : 'LOW';
+
+  // 3. Save this scan event
+  await pgPool.query(
+    `INSERT INTO scan_events (unit_code_id, location, device_metadata, verdict)
+     VALUES ($1, $2, $3, $4)`,
+    [
+      codeRecord.id,
+      JSON.stringify(lat !== undefined && lon !== undefined ? { lat, lon } : null),
+      JSON.stringify(device_metadata || {}),
+      finalStatus
+    ]
+  );
+
+  return {
+    success: true,
+    data: {
+      status: finalStatus,
+      risk: finalRisk,
+      gtin: codeRecord.gtin,
+      serial: codeRecord.serial,
+      productMetadata: codeRecord.product_metadata,
+      labResult: codeRecord.result_summary ? {
+        status: codeRecord.result_summary,
+        reportUrl: codeRecord.report_reference
+      } : null
+    }
+  };
+});
+
 // Route: Cascade Revocation (M-011)
 server.post('/api/v1/lots/:id/revoke', {
   preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
@@ -249,4 +336,6 @@ const start = async () => {
   }
 };
 
-start();
+if (process.env.NODE_ENV !== 'test') {
+  start();
+}

@@ -14,7 +14,7 @@ vi.mock('pg', () => {
 
 vi.mock('ioredis', () => {
   return {
-    default: vi.fn(() => ({
+    Redis: vi.fn(() => ({
       get: vi.fn(),
       set: vi.fn()
     }))

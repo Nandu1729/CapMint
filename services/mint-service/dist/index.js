@@ -185,16 +185,23 @@ server.post('/api/v1/mint', {
         const newRemaining = approved - newConsumed;
         const newStatus = newRemaining === 0 ? 'EXHAUSTED' : 'ACTIVE';
         await client.query(`UPDATE budgets SET consumed_quantity = $1, status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`, [newConsumed, newStatus, budgetId]);
-        // 4. Generate unique serials & digital link URIs
+        // 4. Generate unique serials, digital link URIs, secure verification URLs, and local QR codes
         const serialsList = [];
         const digitalLinksList = [];
+        const verificationUrlsList = [];
+        const qrCodesList = [];
         for (let i = 0; i < mintCount; i++) {
             const serial = generateSerial();
             const digitalLinkUri = `https://id.capmint.io/01/${gtin}/21/${serial}`;
-            await client.query(`INSERT INTO unit_codes (lot_id, serial, gtin, digital_link_uri, current_state)
-         VALUES ($1, $2, $3, $4, 'MINTED')`, [lot_id, serial, gtin, digitalLinkUri]);
+            const publicIdentifier = crypto.randomUUID();
+            const verificationUrl = `https://verify.capmint.com/v/${publicIdentifier}`;
+            const qrCodeDataUri = await qr.toDataURL(verificationUrl);
+            await client.query(`INSERT INTO unit_codes (lot_id, serial, gtin, digital_link_uri, public_identifier, verification_url, qr_code_data_uri, current_state)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, 'MINTED')`, [lot_id, serial, gtin, digitalLinkUri, publicIdentifier, verificationUrl, qrCodeDataUri]);
             serialsList.push(serial);
             digitalLinksList.push(digitalLinkUri);
+            verificationUrlsList.push(verificationUrl);
+            qrCodesList.push(qrCodeDataUri);
         }
         // Commit transaction
         await client.query('COMMIT');
@@ -204,7 +211,9 @@ server.post('/api/v1/mint', {
                 gtin,
                 mintedCount: mintCount,
                 serials: serialsList,
-                digitalLinks: digitalLinksList
+                digitalLinks: digitalLinksList,
+                verificationUrls: verificationUrlsList,
+                qrCodes: qrCodesList
             },
             meta: {
                 timestamp: new Date().toISOString(),
