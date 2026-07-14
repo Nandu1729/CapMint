@@ -9,6 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="qrious.min.js"></script>
+  
   
   <style>
     :root {
@@ -513,6 +515,13 @@
                     <option value="Tokyo">Tokyo Preset (lat: 35.6, lon: 139.6)</option>
                   </select>
                 </div>
+                <div class="form-group" style="margin-top: 0.5rem; margin-bottom: 0;">
+                  <label style="font-size: 0.7rem; color: var(--text-muted);">Paste Scanned URL or Public ID</label>
+                  <div style="display: flex; gap: 0.5rem;">
+                    <input type="text" id="pwa-scan-url-input" class="form-control" placeholder="https://verify.capmint.com/v/..." style="padding: 0.4rem; font-size: 0.8rem; flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--border-muted); color: var(--text-main); border-radius: 6px;">
+                    <button class="btn" style="padding: 0.4rem 0.8rem; font-size: 0.8rem;" onclick="handleManualURLScan()">SCAN</button>
+                  </div>
+                </div>
                 <div id="pwa-scanner-hint" style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">
                   Or click on a minted QR code in the Manufacturer tab to resolve instantly.
                 </div>
@@ -749,13 +758,9 @@
         card.style.cursor = 'pointer';
         card.onclick = () => simulatePWAScan(code.gtin, code.serial);
         
-        // Render simple mock QR pattern using flex/grid structure
         card.innerHTML = `
-          <div style="width: 100px; height: 100px; background: white; padding: 4px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px;">
-            <div style="background: black;"></div><div style="background: white;"></div><div style="background: black;"></div><div style="background: black;"></div>
-            <div style="background: white;"></div><div style="background: black;"></div><div style="background: white;"></div><div style="background: white;"></div>
-            <div style="background: black;"></div><div style="background: white;"></div><div style="background: black;"></div><div style="background: white;"></div>
-            <div style="background: black;"></div><div style="background: black;"></div><div style="background: white;"></div><div style="background: black;"></div>
+          <div style="width: 100px; height: 100px; background: white; padding: 4px; display: flex; align-items: center; justify-content: center;">
+            <img src="${code.qrCodeDataUri}" style="width: 100%; height: 100%; object-fit: contain;" />
           </div>
           <p style="font-family: monospace; font-size: 0.75rem; margin-top: 0.25rem;">S/N: ${code.serial}</p>
           <span class="status-badge ${code.state === 'REVOKED' ? 'badge-revoked' : 'badge-active'}" style="font-size: 0.65rem; padding: 0.15rem 0.5rem;">${code.state}</span>
@@ -837,17 +842,35 @@
         status: 'ACTIVE'
       });
 
+      // Client-side UUIDv4 generator
+      const publicIdentifier = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+      const verificationUrl = `https://verify.capmint.com/v/${publicIdentifier}`;
+      
+      // Dynamic QR code generation using QRious
+      const qrObj = new QRious({
+        value: verificationUrl,
+        size: 200
+      });
+      const qrCodeDataUri = qrObj.toDataURL();
+
       // Generate 1 item barcode serial representing this packaging run
       const serial = 'SN' + Math.floor(100000 + Math.random() * 900000);
       DB.unitCodes.push({
         lotId,
         serial,
         gtin,
+        public_identifier: publicIdentifier,
+        verification_url: verificationUrl,
+        qrCodeDataUri: qrCodeDataUri,
         state: 'MINTED',
         clone_flag: false
       });
 
-      appendToLedger('LOT', lotId, 'LOT_MINTED_AND_SERIALIZED', { lotId, gtin, weight, serial });
+      appendToLedger('LOT', lotId, 'LOT_MINTED_AND_SERIALIZED', { lotId, gtin, weight, serial, verificationUrl });
       alert(`Mint complete! Code serial ${serial} generated under Batch Lot #${lotId}.`);
 
       renderManufacturerStats();
@@ -959,6 +982,27 @@
       document.getElementById('result-gtin-serial').textContent = `GTIN: ${code.gtin} | S/N: ${code.serial}`;
       
       renderMintsCatalog();
+    }
+
+    function handleManualURLScan() {
+      const input = document.getElementById('pwa-scan-url-input').value.trim();
+      if (!input) {
+        alert('Please paste a verification URL or public identifier.');
+        return;
+      }
+      
+      let uuid = input;
+      if (input.includes('/v/')) {
+        uuid = input.substring(input.lastIndexOf('/v/') + 3);
+      }
+      
+      const code = DB.unitCodes.find(u => u.public_identifier === uuid || u.serial === uuid);
+      if (!code) {
+        alert('Verification Failed: Scanned identifier was not found in the CapMint Registry.');
+        return;
+      }
+      
+      simulatePWAScan(code.gtin, code.serial);
     }
 
     function resetPWAScanner() {
