@@ -7,6 +7,15 @@ dotenv.config();
 const server = Fastify({
     logger: true
 });
+// Configure CORS headers manually to support client-side fetch from frontend
+server.addHook('onRequest', async (request, reply) => {
+    reply.header('Access-Control-Allow-Origin', '*');
+    reply.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+    reply.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+    if (request.method === 'OPTIONS') {
+        return reply.status(204).send();
+    }
+});
 // Configure JWT plugin
 server.register(jwt, {
     secret: process.env.JWT_SECRET || 'capmint_development_jwt_secret_must_be_minimum_32_bytes_long'
@@ -273,5 +282,7 @@ const start = async () => {
         process.exit(1);
     }
 };
-start();
+if (process.env.NODE_ENV !== 'test') {
+    start();
+}
 //# sourceMappingURL=index.js.map
