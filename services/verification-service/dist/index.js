@@ -177,7 +177,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
     // 1. Query unit code & lot & budget context using public_identifier
     const query = `
     SELECT u.id, u.serial, u.gtin, u.current_state, u.clone_flag,
-           l.id as lot_id, l.revocation_status, l.lab_status,
+           l.id as lot_id, l.revocation_status, l.lab_status, l.product_metadata,
            b.effective_end_date,
            r.result_summary, r.report_reference
     FROM unit_codes u
@@ -232,6 +232,70 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
             } : null
         }
     };
+});
+// Route: Public simulation registration for Manufacturer Console (persists generated QR/record in DB)
+server.post('/api/v1/verify/register', async (request, reply) => {
+    const { public_identifier, gtin, serial, verification_url, qr_code_data_uri, product_metadata } = request.body;
+    if (!public_identifier || !gtin || !serial || !verification_url) {
+        return reply.status(400).send({
+            success: false,
+            error: {
+                statusCode: 400,
+                code: 'BAD_REQUEST',
+                message: 'Missing public_identifier, gtin, serial, or verification_url in request body.'
+            }
+        });
+    }
+    const client = await pgPool.connect();
+    try {
+        await client.query('BEGIN');
+        // 1. Insert default Certifier if not exists
+        await client.query(`
+      INSERT INTO certifiers (id, name, accreditation_details, public_key, key_status)
+      VALUES ('00000000-0000-0000-0000-000000000001', 'Organic Trade Council India', '{}', 'pk_default', 'ACTIVE')
+      ON CONFLICT (id) DO NOTHING
+    `);
+        // 2. Insert default Producer if not exists
+        await client.query(`
+      INSERT INTO producers (id, name, type, registry_references)
+      VALUES ('00000000-0000-0000-0000-000000000002', 'Premium Farms', 'FARMER', '{}')
+      ON CONFLICT (id) DO NOTHING
+    `);
+        // 3. Insert default Budget if not exists
+        await client.query(`
+      INSERT INTO budgets (id, producer_id, certifier_id, source_unit_type, approved_quantity, signature_bundle, effective_start_date, effective_end_date, status, yield_assumptions)
+      VALUES ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'UNIT_COUNT', 1000000, 'sig_default', '2026-07-11T00:00:00Z', '2027-07-11T00:00:00Z', 'ACTIVE', '{}')
+      ON CONFLICT (id) DO NOTHING
+    `);
+        // 4. Insert default Lot if not exists
+        await client.query(`
+      INSERT INTO lots (id, producer_id, budget_id, product_metadata, batch_size, processing_dates, lab_status)
+      VALUES ('00000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003', $1, 10000, '{}', 'PASSED')
+      ON CONFLICT (id) DO NOTHING
+    `, [JSON.stringify(product_metadata || { name: 'Organic White Honey', manufacturer: 'Premium Farms' })]);
+        // 5. Insert Lab Result for the default Lot if not exists
+        await client.query(`
+      INSERT INTO lab_results (lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
+      VALUES ('00000000-0000-0000-0000-000000000004', 'Intertek India Labs', 'Purity Certification Test', 'PASS', 'hash_lab_default', 'NABL-INTK-2026-10492')
+      ON CONFLICT (lot_id) DO NOTHING
+    `);
+        // 6. Insert Unit Code
+        const digital_link_uri = `https://id.capmint.io/01/${gtin}/21/${serial}`;
+        await client.query(`
+      INSERT INTO unit_codes (lot_id, serial, gtin, digital_link_uri, public_identifier, verification_url, qr_code_data_uri, current_state)
+      VALUES ('00000000-0000-0000-0000-000000000004', $1, $2, $3, $4, $5, $6, 'MINTED')
+      ON CONFLICT (public_identifier) DO NOTHING
+    `, [serial, gtin, digital_link_uri, public_identifier, verification_url, qr_code_data_uri]);
+        await client.query('COMMIT');
+        return { success: true, message: 'Verification record persisted successfully.' };
+    }
+    catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    }
+    finally {
+        client.release();
+    }
 });
 // Route: Cascade Revocation (M-011)
 server.post('/api/v1/lots/:id/revoke', {

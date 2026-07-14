@@ -970,6 +970,47 @@
 
       // Generate 1 item barcode serial representing this packaging run
       const serial = 'SN' + Math.floor(100000 + Math.random() * 900000);
+
+      // Construct product specifications for database persistence
+      const productMetadata = {
+        name: activeBudget.crop,
+        manufacturer: 'Premium Farms',
+        country_of_origin: 'India',
+        batch_id: lotId,
+        packaging_date: new Date().toISOString().split('T')[0],
+        expiry_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
+        net_weight: `${weight} KG`,
+        organic_certificate_number: 'NPOP-OTC-2026-8802',
+        certifying_authority: 'Organic Trade Council India',
+        scan_count: '0',
+        mint_date: new Date().toISOString().split('T')[0]
+      };
+
+      // Persist verification record to real database
+      fetch(`${API_BASE_URL}/api/v1/verify/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          public_identifier: publicIdentifier,
+          gtin: gtin,
+          serial: serial,
+          verification_url: verificationUrl,
+          qr_code_data_uri: qrCodeDataUri,
+          product_metadata: productMetadata
+        })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.success) {
+          console.error('Database persistence failed:', res.error);
+        }
+      })
+      .catch(err => {
+        console.error('Network error during database persistence:', err);
+      });
+
       DB.unitCodes.push({
         lotId,
         serial,
