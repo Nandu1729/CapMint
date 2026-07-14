@@ -161,7 +161,7 @@ flowchart TD
 
 - **Verification $\rightarrow$ *Any Write Operation***: The Verification module is strictly read-only for core business logic; it is prohibited from mutating budget capacities, lot structures, or actor records.
 - **Registry $\rightarrow$ Minting**: The Registry is a core leaf node; it must never import or depend on unit serialization logic.
-- **Clone Detection $\rightarrow$ Registry**: Clone Detection must operate solely on scan events and cache states; it is prohibited from modifying core registries.
+- **Risk Assessment $\rightarrow$ Registry**: Risk Assessment must operate solely on scan events and telemetry cache states; it is prohibited from modifying core registries or performing automatic write updates.
 
 ---
 

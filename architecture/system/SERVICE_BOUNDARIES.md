@@ -76,8 +76,8 @@ CapMint is composed of the following Bounded Contexts (domains):
 
 ### 4. Verification Context
 - **Purpose**: Evaluates public legitimacy queries.
-- **Business Responsibility**: Ingesting scan attempts, running clone detection checks, and returning verdicts.
-- **Owned Concepts**: Scan Event, Verification Verdict, Telemetry Profile.
+- **Business Responsibility**: Ingesting scan attempts, running product validity verification, evaluating behavioral risk, and returning results.
+- **Owned Concepts**: Scan Event, Verification Status, Telemetry Profile, Authenticity Risk Level.
 - **Dependencies**: Mint Context, Evidence Context.
 
 ### 5. Evidence Context
@@ -133,12 +133,12 @@ CapMint is composed of the following Bounded Contexts (domains):
 
 ### 3. Verification Service
 - **Mission**: Resolve public scans instantly and reliably.
-- **Business Capabilities**: Public scan resolution, verdict computation, clone suspect analytics.
-- **Inputs**: Serial code, scan telemetry (timestamp, geohash, client metadata).
-- **Outputs**: Verdict response (`VERIFIED`, `REVOKED`, `EXHAUSTED`, `CLONE-SUSPECT`, `MISMATCH`).
-- **Owned Business Rules**: Verdict calculation based on code status, scan counts, and spatial-temporal clone analysis.
-- **Owned Lifecycle**: Scan recording, verdict generation.
-- **Owned Invariants**: Verdict output is constrained to the five-word vocabulary.
+- **Business Capabilities**: Public scan resolution, validity state evaluation, authenticity risk assessment.
+- **Inputs**: Serial code, scan telemetry (timestamp, device fingerprint, client metadata, geographic coordinates).
+- **Outputs**: Validity state (`VERIFIED`, `REVOKED`, `EXPIRED`, `UNKNOWN`) and Authenticity Risk level (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
+- **Owned Business Rules**: Evaluation of validity based on registry status and product expiration; evaluation of risk level based on multi-signal scan patterns. No automatic revocation.
+- **Owned Lifecycle**: Scan recording, validity and risk determination, human investigation flagging.
+- **Owned Invariants**: Verification response reports validity status and authenticity risk level independently.
 - **Failure Impact**: Public trust experiences degradation.
 - **Recovery Expectations**: Automatic fallback to edge read-replicas.
 

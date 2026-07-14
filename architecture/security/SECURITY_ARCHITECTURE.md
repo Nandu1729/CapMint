@@ -91,7 +91,7 @@ CapMint classifies entities into distinct trust boundaries:
 
 ### 3. QR Code Cloning (Double Scanning)
 - *Threat*: A producer prints the same QR code across thousands of conventional packages.
-- *Mitigation*: The Verification Service processes scan events through a Clone Detection algorithm that flags impossible movement (spatial-temporal anomalies), transitioning the status to `CLONE-SUSPECT`.
+- *Mitigation*: The Verification Service processes scan events and delegates behavioral patterns to an independent Risk Engine. If cumulative risk anomalies (e.g., impossible travel, multiple fingerprints, scan frequency anomalies) exceed safety thresholds, the QR's authenticity risk is flagged as HIGH or CRITICAL. This alerts administrative systems for human review and explicit certifier revocation, avoiding automatic deactivation.
 
 ### 4. Certifier Signature Forgery
 - *Threat*: An attacker drafts a budget and attempts to activate it by submitting a fake signature.
@@ -160,12 +160,12 @@ CapMint applies a strict Role-Based Access Control (RBAC) policy:
 
 | Role | Target Endpoint Access | Execution Boundary Constraints |
 |---|---|---|
-| **Consumer** | Verification query | Restricted to read-only scan records. No administrative access. |
-| **Producer** | Operator portal | Restricted to viewing own budgets and submitting lot details. Cannot activate budgets. |
-| **Pack House** | Minting & State update | Restricted to minting within signed capacity limits. |
-| **Lab** | Lab evidence API | Restricted to posting certificate metadata for designated lots. |
-| **Certifier** | Budget signing, Lot revocation | Authorized to sign budgets and submit revocations. |
-| **Admin** | System configuration, log audit | Global read access; authorized to override configurations but cannot bypass log chaining. |
+| **Consumer** | Verification query | Can verify products only. Restricted to read-only status and risk metadata. |
+| **Retailer** | Verification query | Can verify products only. Accesses standard consumer-facing authenticity results. |
+| **Manufacturer** | Operator portal / Minting | Can mint codes within signed capacity limits and request investigations or revocations. |
+| **Certifier** | Budget signing / Revocation | Authorized to sign budgets and approve or reject revocation requests. |
+| **System Administrator** | System override | Global read access; authorized for emergency administrative overrides only. Cannot bypass log chaining. |
+| **Transparency Ledger** | Domain events logging | Permanent, non-destructive ledger recording every lifecycle state change, scan, investigation, and revocation approval. |
 
 ---
 
@@ -302,7 +302,7 @@ Distributed request tracing maps transactions across system boundaries:
 ### Alerts
 Automatic notification rules are triggered by operational anomalies:
 - **Severity 1 (Critical)**: Successive signature failures, KMS connection loss, or detection of database tamper events.
-- **Severity 2 (High)**: Spikes in clone-suspect scans, verification latency exceeding 500ms, or Redis memory exhaustion.
+- **Severity 2 (High)**: Spikes in HIGH or CRITICAL risk evaluation events, verification latency exceeding 500ms, or Redis memory exhaustion.
 - **Severity 3 (Warning)**: Queue depth exceeding threshold, budget approaching 90% depletion.
 
 ---
@@ -311,7 +311,7 @@ Automatic notification rules are triggered by operational anomalies:
 
 - **No Unsigned Budgets**: Budgets cannot activate and authorize minting without verification of the certifier's cryptographic signature.
 - **Unchangeable Logs**: Log entries in Postgres must remain write-only; deletion commands must be blocked at the database role level.
-- **Strict Public Verdicts**: Public verifications must only return one of the five approved verdicts.
+- **Strict Public Verdicts**: Public verifications must only return defined validity states (VERIFIED, REVOKED, EXPIRED, UNKNOWN) and independent risk scores (LOW, MEDIUM, HIGH, CRITICAL). No automated code deactivation may occur.
 
 ---
 

@@ -52,10 +52,9 @@ flowchart TD
     E --> F[Group into Lot]
     F --> G[Attach lab test certificate]
     G --> H[Public Scan event]
-    H --> I{Check status & log chain}
-    I -- Valid --> J[VERIFIEDVerdict]
-    I -- Revoked --> K[REVOKEDVerdict]
-    I -- Anomaly --> L[CLONE-SUSPECTVerdict]
+    H --> I{Check validity & risk}
+    I --> J[Return product status: VERIFIED / REVOKED / EXPIRED / UNKNOWN]
+    I --> K[Return risk score: LOW / MEDIUM / HIGH / CRITICAL]
 ```
 
 ---
@@ -116,14 +115,14 @@ flowchart TD
 - **Recovery Expectations**: Reject file upload; log security alert.
 
 ### 6. Public Verification
-- **Actors**: Consumer Browser, Verification Service, Clone Detection.
-- **Inputs**: Serial identifier, GTIN, scan metadata (IP, user-agent, geohash).
+- **Actors**: Consumer / Retailer Browser, Verification Service, Risk Engine.
+- **Inputs**: Serial identifier, GTIN, scan metadata (IP, user-agent, device fingerprint, geographic coordinates).
 - **Validation**: Verify serial format, check registration status in database.
-- **Transformations**: Computes verdict based on unit state, log chain status, and scan history.
-- **Outputs**: Verdict payload.
+- **Transformations**: Computes product validity status and authenticity risk level based on registry data and multi-signal telemetry logs.
+- **Outputs**: Independent Product Status and Authenticity Risk payload.
 - **State Changes**: Scan logged in telemetry cache.
 - **Failure Conditions**: Invalid format or missing serial records.
-- **Recovery Expectations**: Return `MISMATCH` verdict.
+- **Recovery Expectations**: Return `UNKNOWN` status.
 
 ### 7. Lot Revocation
 - **Actors**: Certifier, Minting Service, Verification Service.
@@ -135,11 +134,11 @@ flowchart TD
 - **Failure Conditions**: Missing signature; lot already revoked.
 - **Recovery Expectations**: Fail closed.
 
-### 8. Clone Detection
-- **Actors**: Verification Service, Cache/Redis, Analytics Worker.
-- **Inputs**: Current scan event parameters, historical scan event logs for the serial.
-- **Outputs**: Anomaly detection alerts.
-- **State Changes**: Target unit code flagged as `CLONE-SUSPECT` if spatial/temporal checks are breached.
+### 8. Risk Assessment
+- **Actors**: Verification Service, Risk Engine, Human Investigator.
+- **Inputs**: Current scan event parameters, historical scan event logs, device fingerprints, geographic parameters.
+- **Outputs**: Authenticity risk score evaluation.
+- **State Changes**: Flags the unit code for human investigation in the Manufacturer/Operations portal if risk reaches `HIGH` or `CRITICAL`. The code is never automatically deactivated or revoked.
 - **Failure Conditions**: Redis telemetry cache loss.
 - **Recovery Expectations**: Query scan database replica.
 
@@ -236,40 +235,33 @@ stateDiagram-v2
     Revoked --> [*]
 ```
 
-### Unit Lifecycle State Machine
+### QR Lifecycle (Append-Only Assets)
 ```mermaid
 stateDiagram-v2
-    [*] --> Minted
-    Minted --> Packed
-    Packed --> Distributed
-    Distributed --> Sold
-    Minted --> Scanned
-    Packed --> Scanned
-    Distributed --> Scanned
-    Sold --> Scanned
-    Minted --> Revoked
-    Packed --> Revoked
-    Distributed --> Revoked
-    Sold --> Revoked
-    Scanned --> Revoked
-    Revoked --> [*]
+    [*] --> Generated : QR code minted conceptually
+    Generated --> Printed : Physically applied to packaging
+    Printed --> Activated : Lot registered & capacity drawn
+    Activated --> Verified : Scanned & verified publicly
+    Verified --> HighRiskInvestigation : Anomaly flagged by Risk Engine
+    HighRiskInvestigation --> Revoked : Human review confirms fraud
+    HighRiskInvestigation --> Active : Human review clears alert
+    Active --> Verified : Normal usage resumes
+    Verified --> Archived : Product shelf life ends
+    Revoked --> Archived : Deactivated code preserved
+    Archived --> [*]
 ```
+> [!IMPORTANT]
+> QR records are immutable, append-only assets. When a QR is revoked or archived, the record is never deleted from the database.
 
-### Verification Result Lifecycle
+### Verification Validity Lifecycle
 ```mermaid
 stateDiagram-v2
-    [*] --> Unresolved
-    Unresolved --> Verified
-    Unresolved --> Mismatch
-    Unresolved --> CloneSuspect
-    Unresolved --> Revoked
-    Unresolved --> Exhausted
-    Verified --> CloneSuspect
-    Verified --> Revoked
-    CloneSuspect --> Revoked
-    Exhausted --> [*]
-    Revoked --> [*]
-    Mismatch --> [*]
+    [*] --> UNKNOWN : Initial check or scan not found
+    UNKNOWN --> VERIFIED : Code exists and belongs to active product
+    UNKNOWN --> REVOKED : Code is deactivated by certifier
+    UNKNOWN --> EXPIRED : Product shelf life has expired
+    VERIFIED --> REVOKED : Explicit business revocation decision
+    VERIFIED --> EXPIRED : Product expires
 ```
 
 ---
@@ -331,8 +323,8 @@ sequenceDiagram
         Log-->>API: Integrity confirmation
         API->>Cache: Save status
     end
-    API->>API: Run clone detection rules
-    API-->>Browser: Render verdict web page
+    API->>API: Run validity checks & risk engine
+    API-->>Browser: Render verification status and risk page
 ```
 
 ---
@@ -352,7 +344,7 @@ Logical components are constrained by transaction rules and security policies. F
 ## 16. Cross-Cutting Concerns
 
 - **Consistent Reads**: Verification results utilize read-through caching in Redis to prevent database latency spikes.
-- **Retention Rules**: Raw scan telemetry is pruned from the Redis queue after clone evaluation. Summarized metrics are retained long-term in Postgres for auditing.
+- **Retention Rules**: Raw scan telemetry is pruned from the Redis queue after risk level evaluation. Summarized metrics are retained long-term in Postgres for auditing.
 
 ---
 

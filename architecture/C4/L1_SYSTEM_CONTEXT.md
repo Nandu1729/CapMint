@@ -41,7 +41,7 @@ CapMint's human and system actors are grouped by their operational and verificat
 ### Authority Actors
 - **Certifier**: Authorized external organic certification body. Reviews crop registrations, verifies agricultural context, and cryptographically signs budgets to authorize unit serialization. Can initiate lot-level revocations.
 - **Auditor / Regulator**: Compliance official who reviews system allocations, cross-checks transparency logs, and validates supply chain provenance records.
-- **Administrator**: High-privilege platform technician who registers actors, sets system parameters, and monitors security and clone alerts.
+- **Administrator**: High-privilege platform technician who registers actors, sets system parameters, and monitors security and high-risk anomalies.
 
 ### Supporting Actors
 - **Testing Laboratory**: Accredited laboratory (NABL). Conducts chemical analysis on lots and posts certificates of analysis (test parameters and file hashes) to support lot provenance.
@@ -107,8 +107,8 @@ For the physical container mappings and cryptographic key details of these bound
 ### CapMint Guarantees
 - **✓ Budget Enforcement**: No unit-level serial code can be issued once a budget's approved capacity reaches zero.
 - **✓ Unique Serialization**: Every physical unit is assigned a cryptographically unique, non-sequential identifier.
-- **✓ Verification**: Resolves scans to one of five narrow, fixed verdicts.
-- **✓ Transparency**: Computes impossible temporal or spatial scan anomalies to identify clones.
+- **✓ Verification**: Resolves scans to independent product validity status states (VERIFIED, REVOKED, EXPIRED, UNKNOWN).
+- **✓ Risk Assessment**: Evaluates multiple behavioral signals to compute authenticity risk levels (LOW, MEDIUM, HIGH, CRITICAL) without performing automated deactivation.
 - **✓ Immutable Audit**: Records all state-changing events in an append-only, tamper-evident log.
 
 ### CapMint Does NOT Guarantee

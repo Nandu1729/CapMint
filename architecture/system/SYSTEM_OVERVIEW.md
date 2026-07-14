@@ -184,25 +184,24 @@ CapMint enforces cryptographic trust boundaries at its network and API limits to
     Revoked --> [*]
 ```
 
-#### Unit Lifecycle
+#### QR Lifecycle (Append-Only Assets)
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Minted
-    Minted --> Packed
-    Packed --> Distributed
-    Distributed --> Sold
-    Minted --> Scanned
-    Packed --> Scanned
-    Distributed --> Scanned
-    Sold --> Scanned
-    Minted --> Revoked
-    Packed --> Revoked
-    Distributed --> Revoked
-    Sold --> Revoked
-    Scanned --> Revoked
-    Revoked --> [*]
+    [*] --> Generated : QR code minted conceptually
+    Generated --> Printed : Physically applied to packaging
+    Printed --> Activated : Lot registered & capacity drawn
+    Activated --> Verified : Scanned & verified publicly
+    Verified --> HighRiskInvestigation : Anomaly flagged by Risk Engine
+    HighRiskInvestigation --> Revoked : Human review confirms fraud
+    HighRiskInvestigation --> Active : Human review clears alert
+    Active --> Verified : Normal usage resumes
+    Verified --> Archived : Product shelf life ends
+    Revoked --> Archived : Deactivated code preserved
+    Archived --> [*]
 ```
+> [!IMPORTANT]
+> QR records are immutable, append-only assets. When a QR is revoked or archived, the record is never deleted from the database.
 
 #### Lot Lifecycle
 
@@ -221,22 +220,16 @@ stateDiagram-v2
     Revoked --> [*]
 ```
 
-#### Verification Result Lifecycle
+#### Verification Validity Lifecycle
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Unresolved
-    Unresolved --> Verified
-    Unresolved --> Mismatch
-    Unresolved --> CloneSuspect
-    Unresolved --> Revoked
-    Unresolved --> Exhausted
-    Verified --> CloneSuspect
-    Verified --> Revoked
-    CloneSuspect --> Revoked
-    Exhausted --> [*]
-    Revoked --> [*]
-    Mismatch --> [*]
+    [*] --> UNKNOWN : Initial check or scan not found
+    UNKNOWN --> VERIFIED : Code exists and belongs to active product
+    UNKNOWN --> REVOKED : Code is deactivated by certifier
+    UNKNOWN --> EXPIRED : Product shelf life has expired
+    VERIFIED --> REVOKED : Explicit business revocation decision
+    VERIFIED --> EXPIRED : Product expires
 ```
 
 ## 7. Core System Components & Domain Events
@@ -251,7 +244,7 @@ API requests traverse strict validation and database commit paths. For step-by-s
 
 An end-to-end journey begins when a producer or operator is registered along with the relevant plot or hive cluster. Source production context is used to compute a conservative budget. A certifier approves and co-signs that budget, after which the producer or pack-house workflow can mint unit-level QR identities within remaining capacity.
 
-As goods are packed and moved, units progress through lifecycle states and remain attached to their lot. Lab evidence can be attached later and can also trigger lot-level revocation. Once a code is printed on a physical unit, any buyer can scan it in a browser without installing an app. The public verifier returns a narrow verdict and provenance summary. If evidence later invalidates the lot, future scans resolve publicly as `REVOKED`. If suspicious reuse appears, scans can resolve as `CLONE-SUSPECT`.
+As goods are packed and moved, units progress through lifecycle states and remain attached to their lot. Lab evidence can be attached later and can also trigger lot-level revocation. Once a code is printed on a physical unit, any buyer can scan it in a browser without installing an app. The public verifier returns the product validity status (VERIFIED, REVOKED, EXPIRED, UNKNOWN) and a distinct authenticity risk level (LOW, MEDIUM, HIGH, CRITICAL) calculated by the Risk Engine. If suspicious reuse appears, the risk level escalates to trigger human investigation and potential certifier revocation.
 
 ## 10. Major Modules & Ownership Table
 
@@ -265,8 +258,8 @@ The following matrix maps the ownership, dependencies, and consumption relations
 | **Mint Service** | Core Platform Team | Budget Computation, Registry, Transparency Log, KMS | Pack-House Intake, Operator workflows | Issue unique serials, enforce capacity check, format GS1 DL. |
 | **Code Lifecycle** | Product Workflows Team | Registry, Transparency Log | Verification Service, Revocation | Manage status states (Minted, Packed, Distributed, Sold). |
 | **Revocation** | Operations Team | Certifier authority, Lab Evidence, Code Lifecycle | Code Lifecycle, Verification Service | Invalidate lots and cascade state changes to attached units. |
-| **Public Verifier** | Verification & Edge Team | Registry, Transparency Log, Scan Telemetry | Consumer Browser UI | Resolve public code to a verdict and supporting provenance. |
-| **Clone Detection** | Security & Analytics Team | Scan events, Redis | Public Verifier, Admin Alerting | Identify suspicious repeated scans or impossible geolocations. |
+| **Public Verifier** | Verification & Edge Team | Registry, Transparency Log, Scan Telemetry | Consumer Browser UI | Resolve public code to validity status and authenticity risk. |
+| **Risk Assessment** | Security & Analytics Team | Scan events, Telemetry profiles | Public Verifier, Admin Alerting | Calculate product authenticity risk based on multiple behavioral signals. |
 | **Lab Evidence Handling** | Integrations Team | Registry, NABL Labs API | Revocation, Lot Management | Bind lab report metadata and hashes to lot structures. |
 | **Transparency Log** | Security & Cryptography | Core Services, Public Anchor Channel | Mint Service, Code Lifecycle, Revocation, Verification | Maintain a cryptographically chained, append-only history. |
 | **Offline Field Capture** | Mobile & Field Apps Team | Operator PWA, Sync queue, Registry | Field Operators | Queue registration/evidence locally for deferred sync. |
@@ -284,8 +277,8 @@ This master planning table defines CapMint's core capabilities, their domain own
 | **Unit Serial Minting (GS1 DL)** | Mint Service | P0 | Planned | Mint serials in standard-aligned GS1 Digital Link format. |
 | **Code Lifecycle State Transitions** | Code Lifecycle | P1 | Planned | Progress units through Minted, Packed, Distributed, Sold, and Scanned. |
 | **Lot-Level Invalidation (Revocation)** | Revocation | P0 | Planned | Revoke a batch and automatically cascade status to all child units. |
-| **Public QR Code Verification** | Public Verifier | P0 | Planned | Resolve scan requests to one of five narrow verdicts. |
-| **Suspicious Scan Clone Detection** | Clone Detection | P1 | Planned | Analyze geolocation and timestamp signals to flag duplicates. |
+| **Public QR Code Verification** | Public Verifier | P0 | Planned | Resolve scan requests to a product validity status and independent risk score. |
+| **Suspicious Scan Risk Assessment** | Risk Assessment | P1 | Planned | Analyze multi-signal telemetry (location, fingerprint, frequency) to compute authenticity risk. |
 | **NABL Lab Evidence Ingestion** | Lab Evidence Handling | P1 | Planned | Store lab certificate metadata and secure document hash. |
 | **Tamper-Evident Hashed Log** | Transparency Log | P0 | Planned | Cryptographically chain all state changes in an append-only log. |
 | **Offline Field Capture & Sync** | Offline Field Capture | P2 | Planned | Allow offline queueing and eventual sync for field registration. |
@@ -392,18 +385,19 @@ The system should evolve by deepening integrity and operational robustness, not 
 - Append-only history: A record model where corrections are expressed as new events rather than destructive edits.
 - Budget: The approved issuance capacity that constrains how many unit identities may be minted.
 - Certifier: The trusted authority that approves budgets and can revoke on evidence or error.
-- Clone-suspect: A public verdict indicating suspicious repeated scans or impossible movement patterns.
+ - Authenticity Risk: The likelihood that a QR code represents a counterfeit, evaluated by the Risk Engine across multiple behavioral signals (LOW, MEDIUM, HIGH, CRITICAL).
 - Digital Link: The GS1 QR-compatible URI format used for public code resolution.
 - Exhausted: A capacity state indicating no additional issuance is allowed against the relevant budget.
+- Expired: The verification status indicating the product has exceeded its designated shelf-life.
 - Lab evidence: Lot-linked test information and report hashes carried by the system.
 - Lot: A batch-level grouping of goods to which many unit codes can belong.
-- Mismatch: The public verdict for invalid, malformed, tampered, or unresolved codes.
 - Producer: The operating entity responsible for production or management of goods.
-- Revoked: The public verdict for product invalidated by evidence or operational error.
+- Revoked: The verification status indicating the QR code has been explicitly deactivated by a certifier decision.
 - Scan event: A recorded verification interaction used for audit and anomaly detection.
 - Transparency log: The append-only hash-chained event history for material system actions.
 - Unit code: The unique serialized identity for one physical unit.
-- Verified: The public verdict indicating a valid, issued, non-revoked code with known supporting metadata.
+- Unknown: The verification status for invalid, malformed, tampered, or unresolved codes.
+- Verified: The verification status indicating a valid, active QR code registered in the database.
 
 ## 27. Architecture Freeze
 

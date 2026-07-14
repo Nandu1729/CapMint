@@ -140,7 +140,7 @@ flowchart TD
 
 ### 3. Application Backend (Fastify API)
 - **Purpose**: Core application logic and execution engine.
-- **Responsibilities**: Validates user requests, calculates budgets, manages code serialization, processes lifecycle transitions, performs clone analysis, and writes log chains.
+- **Responsibilities**: Validates user requests, calculates budgets, manages code serialization, processes lifecycle transitions, evaluates authenticity risk patterns, and writes log chains.
 - **Owned Business Capabilities**: Budget enforcement, identity serialization, state engine, audit log serialization.
 - **Inputs**: Structured JSON payloads from client applications and external APIs.
 - **Outputs**: Cryptographically signed serial outputs, verdict payloads, transaction logs.
@@ -161,7 +161,7 @@ flowchart TD
 - **Dependencies**: None.
 - **Communication Style**: TCP Redis Protocol.
 - **Scaling Considerations**: Clustered Redis replication for high read availability.
-- **Failure Impact**: Verification latency spikes; rate-limiting is bypassed; clone detection is delayed.
+- **Failure Impact**: Verification latency spikes; rate-limiting is bypassed; authenticity risk calculation is delayed.
 - **Recovery Expectations**: Automatically reloads from Postgres persistent state on restart.
 
 ### 5. Primary Database (Postgres)
@@ -213,7 +213,7 @@ All user-facing read/write requests operate synchronously:
 
 ### Asynchronous Communication Pattern
 - **Offline Sync Queue**: Operator PWAs capture registration and batch data locally, queueing them in browser IndexedDB. These are pushed asynchronously to the Application Backend when connection allows.
-- **Clone Detection**: Verification requests trigger an asynchronous fire-and-forget scan log write to Redis. A background queue worker processes these logs to evaluate geolocation/temporal anomalies.
+- **Risk Assessment**: Verification requests trigger an asynchronous fire-and-forget scan log write to Redis. A background queue worker processes these logs to evaluate multi-signal anomalies (travel speed, device fingerprints, frequency) and compute authenticity risk levels without automatic deactivation.
 - **External Anchoring**: Log root publication is executed via an out-of-band asynchronous worker.
 
 ```mermaid
