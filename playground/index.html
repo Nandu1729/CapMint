@@ -84,7 +84,7 @@
     window.onload = function() {
       // Build a system that defines the local Nginx proxy server as the primary server target
       const ui = SwaggerUIBundle({
-        url: "../api/openapi/openapi-local.yaml",
+        url: "../api/openapi/openapi-local.yaml?v=" + new Date().getTime(),
         dom_id: '#swagger-ui',
         deepLinking: true,
         presets: [
