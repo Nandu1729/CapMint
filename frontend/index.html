@@ -410,14 +410,25 @@
         <div class="glass-card">
           <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Cascade Batch Revocation</h2>
           <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">Invalidate an entire batch lot due to audit failure or contamination. All children codes will immediately deactivate.</p>
-          <div style="display: flex; gap: 1rem; align-items: flex-end;">
-            <div class="form-group" style="flex: 1; margin-bottom: 0;">
-              <label>Select Active Lot ID</label>
-              <select id="revoke-lot-select" class="form-control">
-                <!-- Loaded Dynamically -->
-              </select>
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div style="display: flex; gap: 1rem; align-items: flex-end;">
+              <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                <label>Select Active Lot ID</label>
+                <select id="revoke-lot-select" class="form-control">
+                  <!-- Loaded Dynamically -->
+                </select>
+              </div>
+              <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                <label>Select Revocation Reason</label>
+                <select id="revoke-reason-select" class="form-control">
+                  <option value="Organic certification withdrawn">Organic certification withdrawn</option>
+                  <option value="Quality compliance failure">Quality compliance failure</option>
+                  <option value="Counterfeit investigation confirmed">Counterfeit investigation confirmed</option>
+                  <option value="Regulatory recall">Regulatory recall</option>
+                </select>
+              </div>
             </div>
-            <button class="btn btn-danger" onclick="triggerCascadeRevocation()">SUBMIT REVOCATION</button>
+            <button class="btn btn-danger" style="align-self: flex-end;" onclick="triggerCascadeRevocation()">SUBMIT REVOCATION</button>
           </div>
         </div>
       </section>
@@ -632,6 +643,35 @@
 
               <!-- Short Trust Summary Checklist -->
               <div id="verify-trust-summary" style="display: flex; flex-direction: column; gap: 0.5rem; text-align: left; align-self: stretch; padding: 0.85rem 1.15rem; border-radius: 12px; background: rgba(255, 255, 255, 0.02); font-size: 0.85rem; border: 1px solid var(--border-muted);">
+              </div>
+            </div>
+
+            <!-- Revoked Card (Warning Experience) -->
+            <div id="verify-card-revoked" class="glass-card" style="display: none; padding: 1.5rem; flex-direction: column; gap: 1.25rem; align-items: center; text-align: center; border: 2px solid var(--color-danger); background: rgba(239, 68, 68, 0.08); border-radius: 16px;">
+              <div style="font-size: 3rem; margin-bottom: -0.5rem;">🔴</div>
+              <h2 style="margin: 0; font-family: var(--font-outfit); font-size: 1.6rem; font-weight: 800; color: #ef4444; text-transform: uppercase; letter-spacing: 0.05em;">PRODUCT REVOKED</h2>
+              <p style="margin: 0; font-size: 0.95rem; color: var(--text-main); font-weight: 600; line-height: 1.4;">
+                This product has been officially revoked.<br>
+                <span style="color: #ef4444; font-weight: 700;">Do NOT purchase, consume, or trust this product.</span>
+              </p>
+
+              <!-- Revoked consumer explanation message -->
+              <div style="font-size: 0.85rem; color: var(--text-muted); background: rgba(0, 0, 0, 0.2); padding: 0.85rem; border-radius: 8px; width: 100%; border: 1px solid rgba(239, 68, 68, 0.2); line-height: 1.4; text-align: left;">
+                <strong>Explanation:</strong><br>
+                This product has been officially revoked by the certifying authority. Please do not purchase, consume, or distribute this product.<br><br>
+                <strong>Reason for Revocation:</strong><br>
+                <span id="revocation-reason-text" style="color: #ef4444; font-weight: 600;"></span>
+              </div>
+
+              <!-- Essential Identity Details for Revoked State -->
+              <div style="display: flex; flex-direction: column; gap: 0.6rem; width: 100%; font-size: 0.85rem; border-top: 1px solid rgba(239, 68, 68, 0.2); padding-top: 1rem; text-align: left;">
+                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Product Name</span><strong id="rev-prod-name" style="color: var(--text-main);"></strong></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Manufacturer</span><span id="rev-prod-manufacturer" style="color: var(--text-main);"></span></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Country of Origin</span><span id="rev-prod-country" style="color: var(--text-main);"></span></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Batch Number</span><span id="rev-prod-batch" style="color: var(--text-main); font-family: monospace;"></span></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">GTIN</span><span id="rev-prod-gtin" style="color: var(--text-main); font-family: monospace;"></span></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Revocation Date</span><span id="rev-prod-revdate" style="color: var(--text-main);"></span></div>
+                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Revoked By</span><span id="rev-prod-revby" style="color: var(--text-main);">Organic Trade Council India</span></div>
               </div>
             </div>
 
@@ -1050,12 +1090,14 @@
 
     function triggerCascadeRevocation() {
       const select = document.getElementById('revoke-lot-select');
+      const reasonSelect = document.getElementById('revoke-reason-select');
       const lotId = select.value;
       if (!lotId) {
         alert('Please select an active Lot ID to revoke.');
         return;
       }
 
+      const reasonVal = reasonSelect ? reasonSelect.value : 'Organic certification withdrawn';
       const lot = DB.lots.find(l => l.id === lotId);
       if (lot) {
         // Persist revocation to real backend database
@@ -1064,7 +1106,7 @@
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ batch_id: lotId })
+          body: JSON.stringify({ batch_id: lotId, reason: reasonVal })
         })
         .then(r => r.json())
         .then(res => {
@@ -1077,6 +1119,8 @@
         });
 
         lot.status = 'REVOKED';
+        lot.reason = reasonVal;
+        lot.revocationDate = new Date().toISOString().split('T')[0];
         
         // Cascade update unit codes
         DB.unitCodes.forEach(code => {
@@ -1288,9 +1332,9 @@
         color: '#10b981'
       });
 
-      // 3. Laboratory Quality Verified
+      // 3. Laboratory Verified
       events.push({
-        name: 'Laboratory Quality Verified',
+        name: 'Laboratory Verified',
         date: mintDate,
         time: '01:15 PM',
         status: '✓ Completed',
@@ -1306,16 +1350,7 @@
         color: '#10b981'
       });
 
-      // 5. Shipment Released
-      events.push({
-        name: 'Shipment Released',
-        date: mintDate,
-        time: '06:00 PM',
-        status: '✓ Completed',
-        color: '#10b981'
-      });
-
-      // 6. Distribution Started
+      // 5. Distribution Started
       events.push({
         name: 'Distribution Started',
         date: mintDate,
@@ -1324,7 +1359,7 @@
         color: '#10b981'
       });
 
-      // 7. Verification events
+      // 6. Verification events
       if (scanCount > 0 && prevScanTime !== 'N/A') {
         const parts = prevScanTime.split(' ');
         const sDate = parts[0] || mintDate;
@@ -1356,20 +1391,20 @@
         }
       }
 
-      // 8. Investigation & Revocation statuses
+      // 7. Investigation & Revocation statuses
       if (data.status === 'REVOKED') {
         events.push({
           name: 'Investigation Started',
-          date: new Date().toISOString().split('T')[0],
+          date: metadata.revocation_date ? metadata.revocation_date.split('T')[0] : new Date().toISOString().split('T')[0],
           time: '09:00 AM',
-          status: '⚠ Under Investigation',
+          status: '⚠ Investigation Opened',
           color: '#f59e0b'
         });
         events.push({
           name: 'Lot Deactivated & Revoked',
-          date: new Date().toISOString().split('T')[0],
+          date: metadata.revocation_date ? metadata.revocation_date.split('T')[0] : new Date().toISOString().split('T')[0],
           time: '11:00 AM',
-          status: '✖ Revoked',
+          status: '✖ Product Revoked',
           color: '#ef4444'
         });
       } else if (data.risk === 'HIGH' || data.risk === 'CRITICAL') {
@@ -1377,7 +1412,7 @@
           name: 'Geovelocity Alarm Tripped',
           date: new Date().toISOString().split('T')[0],
           time: '04:00 PM',
-          status: '⚠ Under Investigation',
+          status: '⚠ Investigation Opened',
           color: '#f59e0b'
         });
       } else {
@@ -1492,83 +1527,96 @@
         document.getElementById('arrow-acc-specifications').style.transform = 'rotate(0deg)';
         document.getElementById('arrow-acc-advanced-info').style.transform = 'rotate(0deg)';
 
-        // Populate Single Primary Verification Card (Level 1)
-        const statusCard = document.getElementById('verify-badge-card');
-        const largeBadge = document.getElementById('verify-large-badge');
-        const riskVal = document.getElementById('verify-risk-value');
-        const cardTitle = document.getElementById('verify-badge-title');
-        const trustSummary = document.getElementById('verify-trust-summary');
+        const status = data.status || 'UNKNOWN';
 
-        if (statusCard && largeBadge && riskVal && cardTitle && trustSummary) {
-          const status = data.status || 'UNKNOWN';
-          const risk = data.risk || 'LOW';
-          const name = metadata.name || 'Organic White Honey';
+        if (status === 'REVOKED') {
+          // Hide normal card, spec panel, identity panel
+          document.getElementById('verify-badge-card').style.display = 'none';
+          document.getElementById('verify-card-revoked').style.display = 'flex';
+          document.getElementById('panel-specifications').style.display = 'none';
+          document.getElementById('panel-identity').style.display = 'none';
 
-          cardTitle.textContent = name;
-          riskVal.textContent = risk;
+          setSafeText('rev-prod-name', metadata.name || 'Organic White Honey');
+          setSafeText('rev-prod-manufacturer', metadata.manufacturer || 'Premium Farms');
+          setSafeText('rev-prod-country', metadata.country_of_origin || 'India');
+          setSafeText('rev-prod-batch', metadata.batch_id || 'B-LOT-901');
+          setSafeText('rev-prod-gtin', data.gtin);
+          
+          const revDate = metadata.revocation_date ? metadata.revocation_date.split('T')[0] : new Date().toISOString().split('T')[0];
+          setSafeText('rev-prod-revdate', revDate);
+          
+          const revReason = metadata.revocation_reason || 'Organic certification withdrawn';
+          setSafeText('revocation-reason-text', revReason);
+        } else {
+          // Show normal card, spec panel, identity panel
+          document.getElementById('verify-badge-card').style.display = 'flex';
+          document.getElementById('verify-card-revoked').style.display = 'none';
+          document.getElementById('panel-specifications').style.display = 'block';
+          document.getElementById('panel-identity').style.display = 'flex';
 
-          if (status === 'VERIFIED') {
-            statusCard.style.background = 'rgba(16, 185, 129, 0.05)';
-            statusCard.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-            largeBadge.textContent = 'VERIFIED';
-            largeBadge.style.background = 'rgba(16, 185, 129, 0.1)';
-            largeBadge.style.color = '#10b981';
-            largeBadge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
-            riskVal.style.color = '#10b981';
-            
-            trustSummary.innerHTML = `
-              <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Genuine Product</div>
-              <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Organic Certified</div>
-              <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Laboratory Verified</div>
-              <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Supply Chain Traceable</div>
-            `;
-          } else if (status === 'REVOKED') {
-            statusCard.style.background = 'rgba(239, 68, 68, 0.05)';
-            statusCard.style.borderColor = 'rgba(239, 68, 68, 0.3)';
-            largeBadge.textContent = 'REVOKED';
-            largeBadge.style.background = 'rgba(239, 68, 68, 0.1)';
-            largeBadge.style.color = '#ef4444';
-            largeBadge.style.border = '1px solid rgba(239, 68, 68, 0.3)';
-            riskVal.style.color = '#ef4444';
+          // Populate Single Primary Verification Card (Level 1)
+          const statusCard = document.getElementById('verify-badge-card');
+          const largeBadge = document.getElementById('verify-large-badge');
+          const riskVal = document.getElementById('verify-risk-value');
+          const cardTitle = document.getElementById('verify-badge-title');
+          const trustSummary = document.getElementById('verify-trust-summary');
 
-            trustSummary.innerHTML = `
-              <div style="color: #ef4444; display: flex; align-items: center; gap: 0.5rem;"><span>✗</span> Product Revoked</div>
-              <div style="color: #ef4444; display: flex; align-items: center; gap: 0.5rem;"><span>✗</span> Not Safe to Trust</div>
-              <div style="color: #ef4444; display: flex; align-items: center; gap: 0.5rem;"><span>✗</span> Inactive Batch Lot</div>
-            `;
-          } else {
-            statusCard.style.background = 'rgba(245, 158, 11, 0.05)';
-            statusCard.style.borderColor = 'rgba(245, 158, 11, 0.3)';
-            largeBadge.textContent = 'CLONE SUSPECT';
-            largeBadge.style.background = 'rgba(245, 158, 11, 0.1)';
-            largeBadge.style.color = '#f59e0b';
-            largeBadge.style.border = '1px solid rgba(245, 158, 11, 0.3)';
-            riskVal.style.color = '#f59e0b';
+          if (statusCard && largeBadge && riskVal && cardTitle && trustSummary) {
+            const risk = data.risk || 'LOW';
+            const name = metadata.name || 'Organic White Honey';
 
-            trustSummary.innerHTML = `
-              <div style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span>⚠️</span> Duplicate Scan Warning</div>
-              <div style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span>⚠️</span> Geographically Inconsistent</div>
-              <div style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span>⚠️</span> Counterfeit Risk</div>
-            `;
+            cardTitle.textContent = name;
+            riskVal.textContent = risk;
+
+            if (status === 'VERIFIED') {
+              statusCard.style.background = 'rgba(16, 185, 129, 0.05)';
+              statusCard.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+              largeBadge.textContent = 'VERIFIED';
+              largeBadge.style.background = 'rgba(16, 185, 129, 0.1)';
+              largeBadge.style.color = '#10b981';
+              largeBadge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+              riskVal.style.color = '#10b981';
+              
+              trustSummary.innerHTML = `
+                <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Genuine Product</div>
+                <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Organic Certified</div>
+                <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Laboratory Verified</div>
+                <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Supply Chain Traceable</div>
+              `;
+            } else {
+              statusCard.style.background = 'rgba(245, 158, 11, 0.05)';
+              statusCard.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+              largeBadge.textContent = 'CLONE SUSPECT';
+              largeBadge.style.background = 'rgba(245, 158, 11, 0.1)';
+              largeBadge.style.color = '#f59e0b';
+              largeBadge.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+              riskVal.style.color = '#f59e0b';
+
+              trustSummary.innerHTML = `
+                <div style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span>⚠️</span> Duplicate Scan Warning</div>
+                <div style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span>⚠️</span> Geographically Inconsistent</div>
+                <div style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span>⚠️</span> Counterfeit Risk</div>
+              `;
+            }
           }
+
+          // LEVEL 1: Core Product Identity details (hide if empty)
+          updateFieldRow('row-prod-name', 'verify-prod-name', metadata.name);
+          updateFieldRow('row-prod-manufacturer', 'verify-prod-manufacturer', metadata.manufacturer);
+          updateFieldRow('row-prod-country', 'verify-prod-country', metadata.country_of_origin);
+          updateBadgeRow('row-prod-organic', 'verify-cert-status-badge', metadata.organic_certificate_status || 'ACTIVE', 'cert');
+          updateBadgeRow('row-prod-lab', 'verify-lab-status-badge', labResult.status || 'PASSED', 'lab');
+
+          // LEVEL 2: Specifications details (hide if empty)
+          updateFieldRow('row-spec-gtin', 'verify-prod-gtin', data.gtin);
+          updateFieldRow('row-spec-batch', 'verify-prod-batch', metadata.batch_id);
+          updateFieldRow('row-spec-serial', 'verify-prod-serial', data.serial);
+          updateFieldRow('row-spec-packdate', 'verify-prod-packdate', metadata.packaging_date);
+          updateFieldRow('row-spec-expdate', 'verify-prod-expdate', metadata.expiry_date);
+          updateFieldRow('row-spec-weight', 'verify-prod-weight', metadata.net_weight);
+          updateFieldRow('row-spec-cert-auth', 'verify-cert-auth', metadata.certifying_authority);
+          updateFieldRow('row-spec-cert-num', 'verify-cert-num', metadata.organic_certificate_number);
         }
-
-        // LEVEL 1: Core Product Identity details (hide if empty)
-        updateFieldRow('row-prod-name', 'verify-prod-name', metadata.name);
-        updateFieldRow('row-prod-manufacturer', 'verify-prod-manufacturer', metadata.manufacturer);
-        updateFieldRow('row-prod-country', 'verify-prod-country', metadata.country_of_origin);
-        updateBadgeRow('row-prod-organic', 'verify-cert-status-badge', metadata.organic_certificate_status || 'ACTIVE', 'cert');
-        updateBadgeRow('row-prod-lab', 'verify-lab-status-badge', labResult.status || 'PASSED', 'lab');
-
-        // LEVEL 2: Specifications details (hide if empty)
-        updateFieldRow('row-spec-gtin', 'verify-prod-gtin', data.gtin);
-        updateFieldRow('row-spec-batch', 'verify-prod-batch', metadata.batch_id);
-        updateFieldRow('row-spec-serial', 'verify-prod-serial', data.serial);
-        updateFieldRow('row-spec-packdate', 'verify-prod-packdate', metadata.packaging_date);
-        updateFieldRow('row-spec-expdate', 'verify-prod-expdate', metadata.expiry_date);
-        updateFieldRow('row-spec-weight', 'verify-prod-weight', metadata.net_weight);
-        updateFieldRow('row-spec-cert-auth', 'verify-cert-auth', metadata.certifying_authority);
-        updateFieldRow('row-spec-cert-num', 'verify-cert-num', metadata.organic_certificate_number);
 
         // LEVEL 3: Transparency Summary & Journey Timeline (always visible, user-friendly)
         const summaryStatus = document.getElementById('trans-summary-status');

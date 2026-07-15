@@ -307,7 +307,7 @@ server.post('/api/v1/verify/register', async (request, reply) => {
 });
 // Route: Public simulation revocation for Manufacturer Console
 server.post('/api/v1/verify/revoke', async (request, reply) => {
-    const { batch_id } = request.body;
+    const { batch_id, reason } = request.body;
     if (!batch_id) {
         return reply.status(400).send({
             success: false,
@@ -325,8 +325,13 @@ server.post('/api/v1/verify/revoke', async (request, reply) => {
         const lotRes = await client.query(`SELECT id FROM lots WHERE product_metadata->>'batch_id' = $1`, [batch_id]);
         if (lotRes.rowCount !== null && lotRes.rowCount > 0) {
             const lotIds = lotRes.rows.map(row => row.id);
-            // 2. Update revocation status on these lots
-            await client.query(`UPDATE lots SET revocation_status = 'REVOKED', updated_at = CURRENT_TIMESTAMP WHERE id = ANY($1)`, [lotIds]);
+            const revocationReason = reason || 'Organic certification withdrawn';
+            // 2. Update revocation status and metadata on these lots
+            await client.query(`UPDATE lots 
+         SET revocation_status = 'REVOKED', 
+             product_metadata = product_metadata || jsonb_build_object('revocation_reason', $2::text, 'revocation_date', CURRENT_TIMESTAMP),
+             updated_at = CURRENT_TIMESTAMP 
+         WHERE id = ANY($1)`, [lotIds, revocationReason]);
             // 3. Update associated unit codes to REVOKED state
             await client.query(`UPDATE unit_codes SET current_state = 'REVOKED', revoked_at = CURRENT_TIMESTAMP WHERE lot_id = ANY($1)`, [lotIds]);
         }
