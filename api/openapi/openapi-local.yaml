@@ -360,6 +360,68 @@ paths:
         '200':
           description: Serial code deactivated successfully
 
+  /api/v1/verify/investigations:
+    get:
+      summary: List all risk investigations (Certifier only)
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of investigation cases returned
+
+  /api/v1/verify/investigations/{id}:
+    get:
+      summary: Get details and evidence for a specific investigation (Certifier only)
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Investigation details and evidence logs returned
+
+  /api/v1/verify/investigations/{id}/approve:
+    post:
+      summary: Approve product revocation for an investigation (Certifier only)
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Revocation approved and product identity deactivated
+
+  /api/v1/verify/investigations/{id}/dismiss:
+    post:
+      summary: Dismiss an investigation case (Certifier only)
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Investigation case dismissed
+
   # 7. Integration Service
   /api/v1/integrations/tracenet/certificate/{id}:
     get:
