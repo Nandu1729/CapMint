@@ -1470,71 +1470,73 @@
       const code = DB.unitCodes.find(u => u.gtin === gtin && u.serial === serial);
       if (!code) return;
 
-      const lot = DB.lots.find(l => l.id === code.lotId);
-
-      let finalVerdict = 'VERIFIED';
-      
-      // 1. Check revocation state
-      if (code.state === 'REVOKED' || lot.status === 'REVOKED') {
-        finalVerdict = 'REVOKED';
-      } else {
-        // 2. Clone checks (Spatial geovelocity detection)
-        const pastScans = DB.scans.filter(s => s.serial === serial);
-        if (pastScans.length > 0) {
-          const lastScan = pastScans[pastScans.length - 1];
-          
-          if (lastScan.location !== locationPreset) {
-            // Simulated speed is instantaneous over distance, triggering suspect clones
-            code.clone_flag = true;
-            finalVerdict = 'CLONE-SUSPECT';
-            appendToLedger('UNIT_CODE', code.serial, 'CLONE_SUSPECT_TRIGGERED', { serial, prevLoc: lastScan.location, newLoc: locationPreset });
+      // Call verification service real backend route
+      fetch(`${API_BASE_URL}/api/v1/verify/v/${code.public_identifier}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          lat: targetCoords.lat,
+          lon: targetCoords.lon,
+          device_metadata: {
+            user_agent: navigator.userAgent,
+            browser_location: locationPreset
           }
+        })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (!res.success) {
+          alert(`Scan failed: ${res.error?.message || 'Unknown error'}`);
+          return;
         }
-      }
 
-      // Record scan history
-      DB.scans.push({
-        serial,
-        location: locationPreset,
-        timestamp: new Date().toISOString()
+        const scanData = res.data;
+        const finalVerdict = scanData.status === 'REVOKED' ? 'REVOKED' : (scanData.risk === 'CRITICAL' ? 'CLONE-SUSPECT' : 'VERIFIED');
+
+        // Render screen
+        document.getElementById('pwa-screen-scan').style.display = 'none';
+        document.getElementById('pwa-screen-result').style.display = 'flex';
+
+        const statusCard = document.getElementById('result-status-card');
+        const icon = document.getElementById('result-status-icon');
+        const title = document.getElementById('result-status-title');
+        const badge = document.getElementById('result-status-badge');
+
+        if (finalVerdict === 'VERIFIED') {
+          statusCard.style.background = 'rgba(0, 242, 195, 0.1)';
+          statusCard.style.border = '1px solid var(--color-primary)';
+          icon.textContent = '🟢';
+          title.textContent = 'Authentic Origin';
+          badge.textContent = 'Verified Organic';
+          badge.className = 'status-badge badge-active';
+        } else if (finalVerdict === 'REVOKED') {
+          statusCard.style.background = 'rgba(255, 71, 114, 0.1)';
+          statusCard.style.border = '1px solid var(--color-danger)';
+          icon.textContent = '🔴';
+          title.textContent = 'Revoked Product';
+          badge.textContent = 'Deactivated Lot';
+          badge.className = 'status-badge badge-revoked';
+        } else {
+          statusCard.style.background = 'rgba(255, 182, 77, 0.1)';
+          statusCard.style.border = '1px solid var(--color-warning)';
+          icon.textContent = '⚠️';
+          title.textContent = 'Suspected Clone';
+          badge.textContent = 'Duplicate Scan Alert';
+          badge.className = 'status-badge badge-clone';
+        }
+
+        document.getElementById('result-product-name').textContent = scanData.productMetadata?.name || 'Organic White Honey';
+        document.getElementById('result-gtin-serial').textContent = `GTIN: ${scanData.gtin} | S/N: ${scanData.serial}`;
+
+        // Reload data to reflect state changes and new investigations instantly
+        loadAllData();
+      })
+      .catch(err => {
+        console.error('Scan request failed:', err);
+        alert('Network error during scan simulation.');
       });
-
-      // Render screen
-      document.getElementById('pwa-screen-scan').style.display = 'none';
-      document.getElementById('pwa-screen-result').style.display = 'flex';
-
-      const statusCard = document.getElementById('result-status-card');
-      const icon = document.getElementById('result-status-icon');
-      const title = document.getElementById('result-status-title');
-      const badge = document.getElementById('result-status-badge');
-
-      if (finalVerdict === 'VERIFIED') {
-        statusCard.style.background = 'rgba(0, 242, 195, 0.1)';
-        statusCard.style.border = '1px solid var(--color-primary)';
-        icon.textContent = '🟢';
-        title.textContent = 'Authentic Origin';
-        badge.textContent = 'Verified Organic';
-        badge.className = 'status-badge badge-active';
-      } else if (finalVerdict === 'REVOKED') {
-        statusCard.style.background = 'rgba(255, 71, 114, 0.1)';
-        statusCard.style.border = '1px solid var(--color-danger)';
-        icon.textContent = '🔴';
-        title.textContent = 'Revoked Product';
-        badge.textContent = 'Deactivated Lot';
-        badge.className = 'status-badge badge-revoked';
-      } else {
-        statusCard.style.background = 'rgba(255, 182, 77, 0.1)';
-        statusCard.style.border = '1px solid var(--color-warning)';
-        icon.textContent = '⚠️';
-        title.textContent = 'Suspected Clone';
-        badge.textContent = 'Duplicate Scan Alert';
-        badge.className = 'status-badge badge-clone';
-      }
-
-      document.getElementById('result-product-name').textContent = lot.crop;
-      document.getElementById('result-gtin-serial').textContent = `GTIN: ${code.gtin} | S/N: ${code.serial}`;
-      
-      renderMintsCatalog();
     }
 
     function handleManualURLScan() {

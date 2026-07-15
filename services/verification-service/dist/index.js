@@ -209,6 +209,36 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
     else if (isExpired) {
         finalStatus = 'EXPIRED';
     }
+    // 1.5 Dynamic geovelocity clone detection
+    const lastScanQuery = `
+    SELECT timestamp, location
+    FROM scan_events
+    WHERE unit_code_id = $1
+    ORDER BY timestamp DESC
+    LIMIT 1
+  `;
+    const lastScanResult = await pgPool.query(lastScanQuery, [codeRecord.id]);
+    if (lastScanResult.rows.length > 0 && lat !== undefined && lon !== undefined) {
+        const prevScan = lastScanResult.rows[0];
+        let prevLoc = null;
+        try {
+            prevLoc = typeof prevScan.location === 'string' ? JSON.parse(prevScan.location) : prevScan.location;
+        }
+        catch (e) { }
+        if (prevLoc && prevLoc.lat !== undefined && prevLoc.lon !== undefined) {
+            const distance = getHaversineDistance(prevLoc.lat, prevLoc.lon, parseFloat(lat), parseFloat(lon));
+            const timeDiffMs = Date.now() - new Date(prevScan.timestamp).getTime();
+            const hours = timeDiffMs / (1000 * 60 * 60);
+            // If scanned in a different location in less than a minimal threshold, or speed > 500 km/h
+            if (distance > 5) {
+                const speed = hours > 0 ? distance / hours : Infinity;
+                if (speed > 500 || hours < 0.05) {
+                    isCloneSuspect = true;
+                    await pgPool.query('UPDATE unit_codes SET clone_flag = true WHERE id = $1', [codeRecord.id]);
+                }
+            }
+        }
+    }
     // Define default risk level based on clone_flag (LOW or CRITICAL)
     const finalRisk = isCloneSuspect ? 'CRITICAL' : 'LOW';
     // 3. Save this scan event
