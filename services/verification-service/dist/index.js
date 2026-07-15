@@ -717,6 +717,107 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
         client.release();
     }
 });
+// Route: Register Lab Results
+server.post('/api/v1/verify/lab-results', {
+    preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
+}, async (request, reply) => {
+    const { lot_id, lab_name, test_type, result_summary, report_hash, report_reference } = request.body;
+    if (!lot_id || !lab_name || !test_type || !result_summary || !report_hash) {
+        return reply.status(400).send({
+            success: false,
+            error: { statusCode: 400, code: 'BAD_REQUEST', message: 'Missing required lab result fields.' }
+        });
+    }
+    const client = await pgPool.connect();
+    try {
+        await client.query('BEGIN');
+        // 1. Check if lot exists
+        const lotCheck = await client.query('SELECT id FROM lots WHERE id = $1', [lot_id]);
+        if (lotCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return reply.status(404).send({
+                success: false,
+                error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' }
+            });
+        }
+        // 2. Insert lab result
+        const insertRes = await client.query(`
+      INSERT INTO lab_results (id, lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
+      VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `, [lot_id, lab_name, test_type, result_summary, report_reference || '']);
+        // 3. Update the lot's lab status in PostgreSQL
+        await client.query(`UPDATE lots SET lab_status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [lot_id, result_summary === 'PASSED' ? 'PASSED' : 'FAILED']);
+        // 4. If result is FAILED, trigger dynamic revocation
+        if (result_summary === 'FAILED') {
+            // Cascade revocation
+            await client.query(`UPDATE unit_codes SET current_state = 'REVOKED', revoked_at = CURRENT_TIMESTAMP WHERE lot_id = $1`, [lot_id]);
+            await client.query(`UPDATE lots 
+         SET revocation_status = 'REVOKED', 
+             product_metadata = product_metadata || jsonb_build_object('revocation_reason', 'Laboratory test failed: ' || $2::text, 'revocation_date', CURRENT_TIMESTAMP),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`, [lot_id, test_type]);
+            // Append log entry to Transparency Ledger
+            try {
+                await fetch('http://transparency-service:8085/api/v1/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        entity_type: 'LOT',
+                        entity_id: lot_id,
+                        event_type: 'LOT_LAB_TEST_FAILED_CASCADING_REVOCATION',
+                        payload: {
+                            lot_id,
+                            lab_name,
+                            test_type,
+                            report_hash
+                        }
+                    })
+                });
+            }
+            catch (logErr) {
+                server.log.error(logErr, 'Failed to append failed lab test event to ledger');
+            }
+        }
+        else {
+            // Append standard lab test passed log event
+            try {
+                await fetch('http://transparency-service:8085/api/v1/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        entity_type: 'LOT',
+                        entity_id: lot_id,
+                        event_type: 'LOT_LAB_TEST_PASSED',
+                        payload: {
+                            lot_id,
+                            lab_name,
+                            test_type,
+                            report_hash
+                        }
+                    })
+                });
+            }
+            catch (logErr) {
+                server.log.error(logErr, 'Failed to append passed lab test event to ledger');
+            }
+        }
+        await client.query('COMMIT');
+        return {
+            success: true,
+            data: {
+                labResult: insertRes.rows[0]
+            }
+        };
+    }
+    catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    }
+    finally {
+        client.release();
+    }
+});
 // Start the server
 const start = async () => {
     try {

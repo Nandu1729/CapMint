@@ -360,6 +360,43 @@ paths:
         '200':
           description: Serial code deactivated successfully
 
+  /api/v1/verify/lab-results:
+    post:
+      summary: Upload laboratory result reports and bind PDF hash (Certifier/Lab only)
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - lot_id
+                - lab_name
+                - test_type
+                - result_summary
+                - report_hash
+              properties:
+                lot_id:
+                  type: string
+                lab_name:
+                  type: string
+                test_type:
+                  type: string
+                result_summary:
+                  type: string
+                  enum: [PASSED, FAILED]
+                report_hash:
+                  type: string
+                report_reference:
+                  type: string
+      responses:
+        '200':
+          description: Lab result registered and PDF hash bound successfully
+
   /api/v1/verify/investigations:
     get:
       summary: List all risk investigations (Certifier only)

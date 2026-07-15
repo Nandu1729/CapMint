@@ -267,5 +267,7 @@ const start = async () => {
         process.exit(1);
     }
 };
-start();
+if (process.env.NODE_ENV !== 'test') {
+    start();
+}
 //# sourceMappingURL=index.js.map

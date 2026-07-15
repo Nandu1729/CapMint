@@ -375,6 +375,12 @@
 
     <!-- Main Views -->
     <main>
+      <!-- Offline Sync Queue Banner -->
+      <div id="offline-sync-banner" style="display: none; background: linear-gradient(95deg, var(--color-warning), #ff6b4a); color: #0a0a0a; font-weight: 700; text-align: center; padding: 0.75rem; font-size: 0.85rem; border-radius: 12px; margin-bottom: 1.5rem; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 20px rgba(255, 107, 74, 0.2);">
+        <span>⚠️ Offline Mode: <span id="offline-pending-count">0</span> pending actions queued.</span>
+        <button class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: #0a0a0a; color: var(--color-warning); font-weight: bold; border: none; border-radius: 4px; cursor: pointer;" onclick="triggerSyncNow()">SYNC NOW</button>
+      </div>
+
       <!-- VIEW: CERTIFIER -->
       <section id="view-certifier" class="view-section active">
         <div class="view-header">
@@ -489,6 +495,47 @@
               </div>
             </div>
             <button class="btn btn-danger" style="align-self: flex-end;" onclick="triggerCascadeRevocation()">SUBMIT REVOCATION</button>
+          </div>
+        </div>
+
+        <div class="glass-card">
+          <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Laboratory Report & PDF Hash Binding</h2>
+          <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">Submit official laboratory residue or NMR panel reports. Uploading a PDF will automatically compute its SHA-256 hash to cryptographically lock the certificate evidence to the lot registry.</p>
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Select Lot ID</label>
+                <select id="lab-lot-select" class="form-control">
+                  <!-- Loaded Dynamically -->
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Laboratory Name</label>
+                <input type="text" id="lab-name-input" class="form-control" placeholder="e.g. NABL Accredited Labs India">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Test Type / Panel</label>
+                <input type="text" id="lab-test-input" class="form-control" placeholder="e.g. NMR Honey Adulteration Panel">
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; align-items: flex-end;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Test Result Summary</label>
+                <select id="lab-result-select" class="form-control">
+                  <option value="PASSED">PASSED (Organic Verification Green)</option>
+                  <option value="FAILED">FAILED (Organic Verification Revoked)</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Upload PDF Report</label>
+                <input type="file" id="lab-pdf-file" class="form-control" accept="application/pdf" style="padding: 0.35rem;">
+              </div>
+              <div class="form-group" style="margin-bottom: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+                <label>Computed SHA-256 Hash</label>
+                <input type="text" id="lab-hash-display" class="form-control" readonly placeholder="PDF SHA-256 (computed in-browser)" style="background: rgba(255,255,255,0.02); color: var(--text-muted);">
+              </div>
+            </div>
+            <button class="btn" style="align-self: flex-end; background: var(--color-primary); color: #0a0a0a; font-weight: bold;" onclick="submitLabResult()">BIND LAB EVIDENCE</button>
           </div>
         </div>
       </section>
@@ -1149,6 +1196,77 @@
       }
     }
 
+    async function submitLabResult() {
+      const lotId = document.getElementById('lab-lot-select').value;
+      const labName = document.getElementById('lab-name-input').value.trim();
+      const testType = document.getElementById('lab-test-input').value.trim();
+      const resultSummary = document.getElementById('lab-result-select').value;
+      const reportHash = document.getElementById('lab-hash-display').value;
+
+      if (!lotId) {
+        alert('Please select an active Lot ID.');
+        return;
+      }
+      if (!labName || !testType) {
+        alert('Please enter laboratory name and test type.');
+        return;
+      }
+      if (!reportHash) {
+        alert('Please select a PDF report to compute its SHA-256 hash.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/verify/lab-results`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + AUTH_TOKEN
+          },
+          body: JSON.stringify({
+            lot_id: lotId,
+            lab_name: labName,
+            test_type: testType,
+            result_summary: resultSummary,
+            report_hash: reportHash,
+            report_reference: 'report_' + lotId.substring(0,8) + '.pdf'
+          })
+        });
+        const res = await response.json();
+        if (res.success) {
+          alert(`Lab result registered successfully! Bound PDF Hash: ${reportHash}.`);
+          // Clear inputs
+          document.getElementById('lab-name-input').value = '';
+          document.getElementById('lab-test-input').value = '';
+          document.getElementById('lab-pdf-file').value = '';
+          document.getElementById('lab-hash-display').value = '';
+          await loadAllData();
+        } else {
+          alert('Failed to register lab result: ' + (res.error?.message || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('Error submitting lab result:', err);
+        alert('Failed to submit lab result due to network error.');
+      }
+    }
+
+    // Attach PDF Hash calculation listener
+    window.addEventListener('DOMContentLoaded', () => {
+      const fileInput = document.getElementById('lab-pdf-file');
+      if (fileInput) {
+        fileInput.addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          
+          const arrayBuffer = await file.arrayBuffer();
+          const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+          document.getElementById('lab-hash-display').value = hashHex;
+        });
+      }
+    });
+
     // Coordinates Presets
     const coords = {
       London: { lat: 51.5074, lon: -0.1278 },
@@ -1200,10 +1318,14 @@
 
     function renderRevocationSelect() {
       const select = document.getElementById('revoke-lot-select');
+      const labSelect = document.getElementById('lab-lot-select');
       select.innerHTML = '';
+      if (labSelect) labSelect.innerHTML = '';
+      
       const activeLots = DB.lots.filter(l => l.status === 'ACTIVE');
       if (activeLots.length === 0) {
         select.innerHTML = '<option value="">No active lots available</option>';
+        if (labSelect) labSelect.innerHTML = '<option value="">No active lots available</option>';
         return;
       }
       activeLots.forEach(l => {
@@ -1211,6 +1333,13 @@
         opt.value = l.id;
         opt.textContent = `Batch Lot #${l.id} (${l.weight} KG - ${l.crop})`;
         select.appendChild(opt);
+
+        if (labSelect) {
+          const labOpt = document.createElement('option');
+          labOpt.value = l.id;
+          labOpt.textContent = `Batch Lot #${l.id} (${l.weight} KG - ${l.crop})`;
+          labSelect.appendChild(labOpt);
+        }
       });
     }
 
@@ -1290,15 +1419,9 @@
     // Business Logic Actions
     // -------------------------------------------------------------------------
     function approveBudget(id) {
-      fetch(`${API_BASE_URL}/api/v1/budgets/${id}/activate`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + AUTH_TOKEN
-        }
-      })
-      .then(r => r.json())
+      executePost('Approve Budget', `${API_BASE_URL}/api/v1/budgets/${id}/activate`, {}, true)
       .then(res => {
+        if (res.offline) return;
         if (res.success) {
           appendToLedger('BUDGET', id, 'BUDGET_APPROVED_AND_ACTIVATED', { id, allocated: res.data.budget.approved_quantity || 10000 });
           alert(`Budget approved and activated! Capacity is now mintable.`);
@@ -1306,10 +1429,6 @@
         } else {
           alert(`Activation failed: ${res.error?.message || 'Unknown error'}`);
         }
-      })
-      .catch(err => {
-        console.error('Failed to approve budget:', err);
-        alert('Failed to approve budget due to network error.');
       });
     }
 
@@ -1433,28 +1552,16 @@
 
       const reasonVal = reasonSelect ? reasonSelect.value : 'Organic certification withdrawn';
       
-      // Persist revocation to real backend database
-      fetch(`${API_BASE_URL}/api/v1/verify/revoke`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ batch_id: lotId, reason: reasonVal })
-      })
-      .then(r => r.json())
+      executePost('Cascade Revocation', `${API_BASE_URL}/api/v1/verify/revoke`, { batch_id: lotId, reason: reasonVal })
       .then(res => {
+        if (res.offline) return;
         if (res.success) {
           appendToLedger('LOT', lotId, 'LOT_REVOKED_CASCADE', { lotId });
           alert(`Revocation processed! Lot #${lotId} and all associated barcodes are now permanently deactivated.`);
           loadUnitCodes();
         } else {
-          console.error('Database revocation failed:', res.error);
           alert('Revocation failed: ' + (res.error?.message || 'Unknown error'));
         }
-      })
-      .catch(err => {
-        console.error('Network error during database revocation:', err);
-        alert('Revocation failed due to network error.');
       });
     }
 
@@ -1599,6 +1706,107 @@
     // -------------------------------------------------------------------------
     const VITE_VERIFY_BASE_URL = window.VITE_VERIFY_BASE_URL || window.location.origin || 'http://localhost:8080';
     const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
+
+    // -------------------------------------------------------------------------
+    // Offline Sync Queue Engine
+    // -------------------------------------------------------------------------
+    let OFFLINE_QUEUE = JSON.parse(localStorage.getItem('capmint_sync_queue') || '[]');
+
+    function updateOfflineBanner() {
+      const banner = document.getElementById('offline-sync-banner');
+      const countSpan = document.getElementById('offline-pending-count');
+      if (!banner || !countSpan) return;
+
+      if (!navigator.onLine || OFFLINE_QUEUE.length > 0) {
+        banner.style.display = 'flex';
+        countSpan.textContent = OFFLINE_QUEUE.length.toString();
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
+    window.addEventListener('online', () => {
+      updateOfflineBanner();
+      triggerSyncNow();
+    });
+
+    window.addEventListener('offline', () => {
+      updateOfflineBanner();
+    });
+
+    // Initialize banner display
+    window.addEventListener('DOMContentLoaded', () => {
+      updateOfflineBanner();
+    });
+
+    function queueAction(action, url, options) {
+      OFFLINE_QUEUE.push({ id: Date.now(), action, url, options });
+      localStorage.setItem('capmint_sync_queue', JSON.stringify(OFFLINE_QUEUE));
+      updateOfflineBanner();
+      alert(`Device Offline: "${action}" has been safely saved in the offline queue. It will automatically sync when network is restored.`);
+    }
+
+    async function triggerSyncNow() {
+      if (!navigator.onLine || OFFLINE_QUEUE.length === 0) {
+        updateOfflineBanner();
+        return;
+      }
+
+      const itemsToSync = [...OFFLINE_QUEUE];
+      OFFLINE_QUEUE = [];
+      localStorage.setItem('capmint_sync_queue', JSON.stringify([]));
+      updateOfflineBanner();
+
+      let successCount = 0;
+      for (const item of itemsToSync) {
+        try {
+          const response = await fetch(item.url, item.options);
+          const res = await response.json();
+          if (res.success) {
+            successCount++;
+          } else {
+            OFFLINE_QUEUE.push(item);
+          }
+        } catch (err) {
+          console.error('Failed to sync item:', err);
+          OFFLINE_QUEUE.push(item);
+        }
+      }
+
+      localStorage.setItem('capmint_sync_queue', JSON.stringify(OFFLINE_QUEUE));
+      updateOfflineBanner();
+
+      if (successCount > 0) {
+        alert(`Network Restored: ${successCount} queued actions synchronized successfully with the CapMint registry!`);
+        await loadAllData();
+      }
+    }
+
+    function executePost(actionName, url, body, auth = false) {
+      const options = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      };
+      if (auth) {
+        options.headers['Authorization'] = 'Bearer ' + AUTH_TOKEN;
+      }
+
+      if (!navigator.onLine) {
+        queueAction(actionName, url, options);
+        return Promise.resolve({ success: false, offline: true });
+      }
+
+      return fetch(url, options)
+        .then(r => r.json())
+        .catch(err => {
+          console.warn('Network call failed, queueing action:', err);
+          queueAction(actionName, url, options);
+          return { success: false, offline: true };
+        });
+    }
 
     function formatCustomDate(dateStr) {
       if (!dateStr || dateStr === 'N/A') return '15 Jul 2026';
