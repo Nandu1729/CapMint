@@ -10,7 +10,7 @@
 
 ---
 
-## Scope
+## Scope [PC-001]
 
 This document establishes the permanent technical context required to understand and engineer CapMint. 
 
@@ -30,7 +30,7 @@ It explicitly does NOT define:
 
 ---
 
-## 1. Product Overview & System Purpose
+## 1. Product Overview & System Purpose [PC-002]
 
 CapMint is a unit-level integrity and origin-claim registry for premium agricultural commodities. It bridges physical packing operations with digital certification bodies by preventing supply chain over-issuance. 
 
@@ -38,7 +38,7 @@ The system operates as a cryptographic gatekeeper, ensuring physical QR codes (c
 
 ---
 
-## 2. Engineering Principles & Philosophy
+## 2. Engineering Principles & Philosophy [PC-003]
 
 CapMint's engineering culture is governed by ten core principles that prioritize system correctness, safety, and long-term maintainability:
 
@@ -54,7 +54,7 @@ CapMint's engineering culture is governed by ten core principles that prioritize
 
 ---
 
-## Engineering Decision Hierarchy
+## Engineering Decision Hierarchy [PC-004]
 
 The architectural decision hierarchy defines how design trade-offs must be evaluated. Lower-priority concerns must never compromise higher-priority principles:
 
@@ -69,7 +69,7 @@ The architectural decision hierarchy defines how design trade-offs must be evalu
 
 ---
 
-## 3. AI Engineering Context
+## 3. AI Engineering Context [PC-005]
 
 To safely operate within this repository, AI agents must adhere to the following guidelines:
 
@@ -80,7 +80,7 @@ To safely operate within this repository, AI agents must adhere to the following
 
 ---
 
-## Architecture Consumption Order
+## Architecture Consumption Order [PC-006]
 
 AI agents must consume architectural specifications in the following order before starting any implementation. Implementation must never begin before the relevant architectural documents have been understood:
 
@@ -98,7 +98,7 @@ AI agents must consume architectural specifications in the following order befor
 
 ---
 
-## 4. Repository & Documentation Structure
+## 4. Repository & Documentation Structure [PC-007]
 
 CapMint's documentation is organized hierarchically to keep definitions decoupled and readable:
 
@@ -113,7 +113,7 @@ For folder-level ownership and allowed/forbidden contents, reference the directo
 
 ---
 
-## 5. High-Level Engineering Workflow
+## 5. High-Level Engineering Workflow [PC-008]
 
 Every engineering task must execute through this standard validation lifecycle:
 
@@ -148,7 +148,7 @@ Every engineering task must execute through this standard validation lifecycle:
 
 ---
 
-## Context Boundaries
+## Context Boundaries [PC-009]
 
 `PROJECT_CONTEXT.md` owns only the permanent engineering context. It must never contain:
 - Project identity (defined in [PROJECT_BRAIN.md](PROJECT_BRAIN.md)).

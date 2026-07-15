@@ -1,6 +1,6 @@
 # TECHNOLOGY_STACK
 
-## Scope
+## Scope [TS-001]
 
 This document owns:
 - System technology choices (TypeScript, Node.js, Fastify, Postgres, Redis, KMS)
@@ -17,7 +17,7 @@ This document intentionally does NOT define:
 - JWT authentication schemas or RBAC permissions grids (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
 - Repository directory layouts or workspace tools (defined in [DIRECTORY_OWNERSHIP.md](./DIRECTORY_OWNERSHIP.md))
 
-## 1. Purpose
+## 1. Purpose [TS-002]
 
 This document defines the technology stack for the CapMint platform. It outlines the core runtime environments, databases, libraries, and standards chosen to build, operate, and maintain the system.
 
@@ -30,7 +30,7 @@ This document defines the technology stack for the CapMint platform. It outlines
 
 ---
 
-## 2. Technology Philosophy
+## 2. Technology Philosophy [TS-003]
 
 CapMint's technology selection is guided by the following principles:
 
@@ -40,7 +40,7 @@ CapMint's technology selection is guided by the following principles:
 
 ---
 
-## 3. Technology Stack Summary
+## 3. Technology Stack Summary [TS-004]
 
 The table below lists the technologies designated for the CapMint platform.
 
@@ -64,7 +64,7 @@ The table below lists the technologies designated for the CapMint platform.
 
 ---
 
-## 4. Technology Decisions
+## 4. Technology Decisions [TS-005]
 
 ### 1. Programming Language: TypeScript
 - **Purpose**: Application code execution.
@@ -103,7 +103,7 @@ The table below lists the technologies designated for the CapMint platform.
 
 ---
 
-## 5. Technology Boundaries
+## 5. Technology Boundaries [TS-006]
 
 ```
 [ Operator PWA / HTML & Vanilla CSS ]  --> served via Cloudflare CDN edge
@@ -122,46 +122,46 @@ The table below lists the technologies designated for the CapMint platform.
 
 ---
 
-## 6. Core Runtime Technologies
+## 6. Core Runtime Technologies [TS-007]
 - **Execution Model**: Single-threaded event loop (Node.js).
 - **Application Language**: TypeScript compiled to ESNext.
 
 ---
 
-## 7. Data Technologies
+## 7. Data Technologies [TS-008]
 - **ACID Database**: Postgres.
 - **In-Memory Cache**: Redis.
 - **Blob Store**: Object Storage (for unstructured PDFs).
 
 ---
 
-## 8. Security Technologies
+## 8. Security Technologies [TS-009]
 - **Signature Scheme**: Ed25519.
 - **Hash Functions**: SHA-256.
 - **Transport Protection**: HTTPS / TLS 1.3.
 
 ---
 
-## 9. Frontend Technologies
+## 9. Frontend Technologies [TS-010]
 - **Operator App**: Installable PWA built with HTML, Vanilla CSS, and JavaScript/TypeScript.
 - **Public Verifier**: Lightweight Web App designed for mobile browsers.
 
 ---
 
-## 10. Backend Technologies
+## 10. Backend Technologies [TS-011]
 - **API Engine**: Fastify.
 - **Framework Core**: Node.js.
 
 ---
 
-## 11. Integration Technologies
+## 11. Integration Technologies [TS-012]
 - **Identity Link Format**: GS1 Digital Link Standard.
 - **External Registries**: AgriStack JSON API, APEDA TraceNet API.
 - **Lab Standard**: NABL Laboratory Webhook endpoints.
 
 ---
 
-## 12. Technology Constraints
+## 12. Technology Constraints [TS-013]
 
 - **Single-Language Boundary**: All custom logic is restricted to TypeScript.
 - **Zero Client-Side App Downloads**: Public verification must work natively in standard mobile browsers.
@@ -169,7 +169,7 @@ The table below lists the technologies designated for the CapMint platform.
 
 ---
 
-## 13. Technology Decision Matrix
+## 13. Technology Decision Matrix [TS-014]
 
 The table below outlines the trade-offs evaluated during tech stack selection:
 
@@ -182,21 +182,21 @@ The table below outlines the trade-offs evaluated during tech stack selection:
 
 ---
 
-## 14. Future Technology Evolution
+## 14. Future Technology Evolution [TS-015]
 
 - **CDN Edge Workers**: Moving public verifications to Cloudflare Workers to eliminate backend load during scan spikes.
 - **Direct Database Replacements**: If write volume exceeds Postgres single-instance limits, the platform can evolve to run on horizontally scalable Postgres engines (e.g., Citus/Spackle-like models).
 
 ---
 
-## 15. Assumptions
+## 15. Assumptions [TS-016]
 
 - **NAML JSON Capabilities**: We assume testing labs can deliver certificates in structured JSON formats alongside PDF reports.
 - **Client PWA Runtime**: We assume target mobile browsers support modern Service Workers and IndexedDB.
 
 ---
 
-## 16. Glossary
+## 16. Glossary [TS-017]
 
 - **ACID**: Atomicity, Consistency, Isolation, Durability guarantees for database transactions.
 - **Ed25519**: Elliptic curve signature scheme.
@@ -207,7 +207,7 @@ The table below outlines the trade-offs evaluated during tech stack selection:
 
 ---
 
-## 17. Architecture Freeze
+## 17. Architecture Freeze [TS-018]
 
 > [!IMPORTANT]
 > This section formally freezes the CapMint Technology Stack Version 1.0. Any downstream changes to programming languages, database engines, or cryptographic schemes must follow the formal RFC process.

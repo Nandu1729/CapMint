@@ -1,6 +1,6 @@
 # DIRECTORY_OWNERSHIP
 
-## Scope
+## Scope [DO-001]
 
 This document owns:
 - Physical directory structure layout (`apps/`, `libs/`, `config/`, `docs/`)
@@ -17,7 +17,7 @@ This document intentionally does NOT define:
 - Cryptographic signature execution, RBAC authorization, or secrets management (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
 - Programming languages or technical framework choices (defined in [TECHNOLOGY_STACK.md](./TECHNOLOGY_STACK.md))
 
-## 1. Purpose
+## 1. Purpose [DO-002]
 
 This document defines the physical repository layout and folder ownership rules for the CapMint codebase. It specifies the architectural purpose of each directory, maps logical domains to physical paths, and enforces import boundaries to maintain clean layering and modularity as the codebase grows.
 
@@ -29,7 +29,7 @@ This document defines the physical repository layout and folder ownership rules 
 
 ---
 
-## 2. Repository Philosophy
+## 2. Repository Philosophy [DO-003]
 
 CapMint's codebase structure is organized around the following rules:
 
@@ -39,7 +39,7 @@ CapMint's codebase structure is organized around the following rules:
 
 ---
 
-## 3. Repository Organization
+## 3. Repository Organization [DO-004]
 
 ```mermaid
 graph TD
@@ -65,7 +65,7 @@ graph TD
 
 ---
 
-## 4. Directory Catalog
+## 4. Directory Catalog [DO-005]
 
 The table below catalogs CapMint's directory organization:
 
@@ -79,7 +79,7 @@ The table below catalogs CapMint's directory organization:
 
 ---
 
-## 5. Directory Responsibilities
+## 5. Directory Responsibilities [DO-006]
 
 ### 1. `apps/` (Application Entry Points)
 - **Mission**: Serves as the execution boundary for deployable units.
@@ -110,7 +110,7 @@ The table below catalogs CapMint's directory organization:
 
 ---
 
-## 6. Ownership Rules
+## 6. Ownership Rules [DO-007]
 
 ### Core Domain Logic
 - Core business rules (e.g., drawdown calculations) reside strictly in `libs/core/budget/`. Only the Budget Team owns changes to this directory.
@@ -123,7 +123,7 @@ The table below catalogs CapMint's directory organization:
 
 ---
 
-## 7. Dependency Rules
+## 7. Dependency Rules [DO-008]
 
 1. **Unidirectional Import Flow**: Code inside `libs/core/` can import utilities from `libs/shared/`, but `libs/shared/` is prohibited from importing anything from `libs/core/` or `apps/`.
 2. **Abstract Interface Boundaries**: Applications in `apps/` must call domain modules using exported public interfaces. Directly importing private helper files from `libs/core/` subfolders is forbidden.
@@ -131,7 +131,7 @@ The table below catalogs CapMint's directory organization:
 
 ---
 
-## 8. Cross-Cutting Directories
+## 8. Cross-Cutting Directories [DO-009]
 
 - `libs/shared/crypto/`: Provides the Ed25519 cryptography wrappers used by Budget and Minting.
 - `libs/shared/security/`: Implements JWT parsing and role verification helpers.
@@ -139,7 +139,7 @@ The table below catalogs CapMint's directory organization:
 
 ---
 
-## 9. Documentation Ownership
+## 9. Documentation Ownership [DO-010]
 
 Technical documentation is structured in `docs/` as follows:
 - **Architecture Specifications**: High-level design files (SYSTEM_CONTEXT, SERVICE_BOUNDARIES) are stored at the root of `docs/`.
@@ -148,28 +148,28 @@ Technical documentation is structured in `docs/` as follows:
 
 ---
 
-## 10. Configuration Ownership
+## 10. Configuration Ownership [DO-011]
 
 - **VPC & Database Credentials**: Referenced in `config/` via schema definition files (e.g., `config/env.schema.ts`).
 - **Build Configurations**: Build tool files are isolated in application root directories (e.g., `apps/backend/tsconfig.json`).
 
 ---
 
-## 11. Shared Code Rules
+## 11. Shared Code Rules [DO-012]
 
 - Code is eligible to migrate to `libs/shared/` only when it is entirely generic (e.g., cryptographic helper libraries, date parsers).
 - Business validations (such as verifying a plot coordinate matches AgriStack) must not reside in shared libraries; they belong in their respective domain modules inside `libs/core/`.
 
 ---
 
-## 12. Architectural Constraints
+## 12. Architectural Constraints [DO-013]
 
 - **Single Folder Ownership**: Code related to a single business capability must be contained within its designated domain directory.
 - **Immutable Documentation**: Changes to documentation inside `docs/` must follow the formal RFC review process.
 
 ---
 
-## 13. Repository Evolution
+## 13. Repository Evolution [DO-014]
 
 As the codebase expands:
 1. Sibling folders in `libs/core/` can transition to independent npm workspaces.
@@ -177,7 +177,7 @@ As the codebase expands:
 
 ---
 
-## 14. Anti-Patterns
+## 14. Anti-Patterns [DO-015]
 
 Contributors must actively avoid the following folder organization mistakes:
 
@@ -187,13 +187,13 @@ Contributors must actively avoid the following folder organization mistakes:
 
 ---
 
-## 15. Assumptions
+## 15. Assumptions [DO-016]
 
 - **Single Code Repository**: We assume a monorepo setup utilizing a single workspace configuration for Season 0.
 
 ---
 
-## 16. Glossary
+## 16. Glossary [DO-017]
 
 - **Apps**: Executable application entry points.
 - **Domain Directory**: A module directory enclosing logic for a single Bounded Context.
@@ -203,7 +203,7 @@ Contributors must actively avoid the following folder organization mistakes:
 
 ---
 
-## 17. Architecture Freeze
+## 17. Architecture Freeze [DO-018]
 
 > [!IMPORTANT]
 > This section formally freezes the CapMint Directory Ownership Version 1.0. Any downstream changes to folder structures, allowed import maps, or packaging layouts must follow the formal RFC process.

@@ -1,6 +1,6 @@
 # SECURITY_ARCHITECTURE
 
-## Scope
+## Scope [SEC-001]
 
 This document owns:
 - System threat modeling (STRIDE assessment, threat scenarios)
@@ -18,7 +18,7 @@ This document intentionally does NOT define:
 - State transitions, entity state machines, or transactional API sequences (defined in [DATA_FLOW.md](../sequence/DATA_FLOW.md))
 - Source code directories or repository monorepo layouts (defined in [DIRECTORY_OWNERSHIP.md](../system/DIRECTORY_OWNERSHIP.md))
 
-## 1. Purpose
+## 1. Purpose [SEC-002]
 
 This document defines the security architecture and threat modeling framework for CapMint. It outlines how the system maintains issuance integrity, implements zero-trust principles, secures cryptographic signatures, and protects data privacy across all operational and verification workflows.
 
@@ -31,7 +31,7 @@ This document defines the security architecture and threat modeling framework fo
 
 ---
 
-## 2. Security Philosophy
+## 2. Security Philosophy [SEC-003]
 
 CapMint's security design is guided by three core philosophies:
 
@@ -41,7 +41,7 @@ CapMint's security design is guided by three core philosophies:
 
 ---
 
-## 3. Security Objectives
+## 3. Security Objectives [SEC-004]
 
 - **Integrity**: Prevent unauthorized modifications to budgets, unit code states, or historical log blocks.
 - **Authenticity**: Confirm that all capacity limits are approved by registered certifiers and lab evidence originates from accredited laboratories.
@@ -51,7 +51,7 @@ CapMint's security design is guided by three core philosophies:
 
 ---
 
-## 4. Trust Model
+## 4. Trust Model [SEC-005]
 
 CapMint classifies entities into distinct trust boundaries:
 
@@ -79,7 +79,7 @@ CapMint classifies entities into distinct trust boundaries:
 
 ---
 
-## 5. Threat Model
+## 5. Threat Model [SEC-006]
 
 ### 1. Unauthorized Minting (Over-Issuance)
 - *Threat*: A compromised operator account attempts to generate serial codes exceeding the approved budget.
@@ -99,7 +99,7 @@ CapMint classifies entities into distinct trust boundaries:
 
 ---
 
-## 6. Trust Boundaries
+## 6. Trust Boundaries [SEC-007]
 
 ```mermaid
 flowchart TD
@@ -137,7 +137,7 @@ flowchart TD
 
 ---
 
-## 7. Identity Architecture
+## 7. Identity Architecture [SEC-008]
 
 - **Public Users (Consumers)**: Anonymous, unauthenticated clients querying the verification path.
 - **Operators (Pack-house / Field)**: Authenticated using JWTs containing unique User IDs and role assignments.
@@ -146,7 +146,7 @@ flowchart TD
 
 ---
 
-## 8. Authentication
+## 8. Authentication [SEC-009]
 
 - **Administrative Interfaces**: Secured by Fastify sessions and JSON Web Token (JWT) verification.
 - **Public Verification**: No authentication required.
@@ -154,7 +154,7 @@ flowchart TD
 
 ---
 
-## 9. Authorization
+## 9. Authorization [SEC-010]
 
 CapMint applies a strict Role-Based Access Control (RBAC) policy:
 
@@ -169,7 +169,7 @@ CapMint applies a strict Role-Based Access Control (RBAC) policy:
 
 ---
 
-## 10. Cryptographic Architecture
+## 10. Cryptographic Architecture [SEC-011]
 
 CapMint relies on the following cryptographic algorithms:
 
@@ -178,7 +178,7 @@ CapMint relies on the following cryptographic algorithms:
 
 ---
 
-## 11. Key Management
+## 11. Key Management [SEC-012]
 
 ### Key Ownership
 - **Certifier Keys**: Certifiers generate and own their private keys. The public key is stored in the CapMint database.
@@ -190,7 +190,7 @@ CapMint relies on the following cryptographic algorithms:
 
 ---
 
-## 12. Data Protection
+## 12. Data Protection [SEC-013]
 
 ### Encryption in Transit
 - All connections across public networks are encrypted using TLS 1.3. Internal service communication uses TLS 1.2 within a private VPC.
@@ -200,7 +200,7 @@ CapMint relies on the following cryptographic algorithms:
 
 ---
 
-## 13. Integrity Model
+## 13. Integrity Model [SEC-014]
 
 To detect tampering, the Transparency Service links events in a hash-chained structure:
 
@@ -210,7 +210,7 @@ The resulting chain head is periodically published to external anchors. If a mal
 
 ---
 
-## 14. Audit Architecture
+## 14. Audit Architecture [SEC-015]
 
 CapMint records the following security-relevant events:
 1. **Budget Status Transitions**: Records who drafted, approved, and activated the budget.
@@ -220,7 +220,7 @@ CapMint records the following security-relevant events:
 
 ---
 
-## 15. Privacy Architecture
+## 15. Privacy Architecture [SEC-016]
 
 ### Public Data
 - Exposes product name, origin location, certified cooperative name, lab parameter pass/fail results, and verification chain validation status.
@@ -230,7 +230,7 @@ CapMint records the following security-relevant events:
 
 ---
 
-## 16. Secure Data Flow
+## 16. Secure Data Flow [SEC-017]
 
 The diagram below shows the validation stages required before a budget transitions to the `Active` state.
 
@@ -259,7 +259,7 @@ sequenceDiagram
 
 ---
 
-## 17. Failure Philosophy
+## 17. Failure Philosophy [SEC-018]
 
 ### Fail-Closed Design
 - **Signature Failures**: If KMS or certifier signature verification fails, the transaction is rejected immediately.
@@ -268,13 +268,13 @@ sequenceDiagram
 
 ---
 
-## 18. Cross-Cutting Security Concerns
+## 18. Cross-Cutting Security Concerns [SEC-019]
 
 - **Secrets Management**: System credentials and database connections are injected at runtime using environment variables.
 - **Input Validation**: Fastify router checks all incoming payloads against JSON schema validations.
 - **Rate-Limiting**: Enforced via Cloudflare and Redis to prevent Denial of Service (DoS) attacks on verification paths.
 
-## 18.1 Observability & Telemetry Suite
+## 18.1 Observability & Telemetry Suite [SEC-020]
 
 CapMint implements a comprehensive observability framework structured across four core pillars: Metrics, Logs, Traces, and Alerts.
 
@@ -307,7 +307,7 @@ Automatic notification rules are triggered by operational anomalies:
 
 ---
 
-## 19. Security Constraints
+## 19. Security Constraints [SEC-021]
 
 - **No Unsigned Budgets**: Budgets cannot activate and authorize minting without verification of the certifier's cryptographic signature.
 - **Unchangeable Logs**: Log entries in Postgres must remain write-only; deletion commands must be blocked at the database role level.
@@ -315,21 +315,21 @@ Automatic notification rules are triggered by operational anomalies:
 
 ---
 
-## 20. Assumptions
+## 20. Assumptions [SEC-022]
 
 - **Certifier Key Security**: We assume certifiers secure their private keys. If a key is compromised, the certifier must notify the admin out-of-band to revoke their public key.
 - **HSM Provider Isolation**: We assume the KMS provider prevents unauthorized access to Platform keys.
 
 ---
 
-## 21. Future Evolution
+## 21. Future Evolution [SEC-023]
 
 - **Decentralized Auditing Interfaces**: Providing a public web tool that downloads the transparency log chain and validates the hashes locally.
 - **Hardware Token Auth**: Migrating certifier approvals to secure hardware tokens to protect keys against phishing.
 
 ---
 
-## 22. Glossary
+## 22. Glossary [SEC-024]
 
 - **Authentication**: Verifying the identity of a client.
 - **Authorization**: Verifying the permissions of an authenticated user.
@@ -340,7 +340,7 @@ Automatic notification rules are triggered by operational anomalies:
 
 ---
 
-## 23. Architecture Freeze
+## 23. Architecture Freeze [SEC-025]
 
 > [!IMPORTANT]
 > This section formally freezes the CapMint Security Architecture Version 1.0. Any downstream changes to cryptographic algorithms, key storage containers, or role matrices must follow the formal RFC process.

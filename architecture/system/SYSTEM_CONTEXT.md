@@ -1,6 +1,6 @@
 # SYSTEM_CONTEXT
 
-## Scope
+## Scope [SC-001]
 
 This document owns:
 - System Mission and Vision (Why CapMint exists and success criteria)
@@ -17,7 +17,7 @@ This document intentionally does NOT define:
 - Code-level directory layout or monorepo import structures (defined in [DIRECTORY_OWNERSHIP.md](./DIRECTORY_OWNERSHIP.md) and [MODULE_DEPENDENCIES.md](./MODULE_DEPENDENCIES.md))
 - User authentication mechanisms, JWT tokens, RBAC permissions, or KMS hardware specs (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
 
-## 1. System Mission
+## 1. System Mission [SC-002]
 
 CapMint exists to establish a secure, unit-level origin-claim registry for premium and organic agricultural products. Its primary purpose is to prevent the over-issuance of claim-bearing product identities by enforcing cryptographically signed production budgets before physical identities can be minted.
 
@@ -39,7 +39,7 @@ A successful deployment of CapMint enforces a strict capacity ceiling on issued 
 
 ---
 
-## 2. Product Philosophy
+## 2. Product Philosophy [SC-003]
 
 ### Core Beliefs
 - **Calculated Integrity**: Integrity cannot be self-declared. It must be computed from source constraints, verified by external authority, and enforced at the boundary of issuance.
@@ -62,7 +62,7 @@ A successful deployment of CapMint enforces a strict capacity ceiling on issued 
 
 ---
 
-## 3. System Identity
+## 3. System Identity [SC-004]
 
 ### What the System Is
 CapMint is an append-only integrity registry, capacity enforcer, and public verifier. It acts as a gatekeeper that ensures the physical volume of organic-labeled units entering the market does not exceed the certified capacity of the source farms. It is a security boundary that binds agricultural evidence, laboratory outcomes, and certifier authorizations to unique, serialized GS1 Digital Link identifiers.
@@ -76,7 +76,7 @@ CapMint is an append-only integrity registry, capacity enforcer, and public veri
 
 ---
 
-## 4. Core Problem
+## 4. Core Problem [SC-005]
 
 ```
 [ Farm Production Yield ]  ---> Bounded by AgriStack land data & Certifier limits
@@ -107,7 +107,7 @@ If the system database is standard and mutable, a rogue administrator or comprom
 
 ---
 
-## 5. System Boundaries
+## 5. System Boundaries [SC-006]
 
 ### Internal Responsibilities
 CapMint maintains strict ownership over the following capabilities:
@@ -135,7 +135,7 @@ CapMint depends on, but does not own:
 
 ---
 
-## 6. Core Concepts
+## 6. Core Concepts [SC-007]
 
 ### Certifier
 An external authority registered with a regulatory framework (such as NPOP/APEDA). Certifiers own the cryptographic key pairs used to approve production budgets and revoke lots when discrepancies arise.
@@ -166,7 +166,7 @@ The building block of the transparency log. It represents a cryptographically ha
 
 ---
 
-## 7. Domain Model
+## 7. Domain Model [SC-008]
 
 ```mermaid
 erDiagram
@@ -196,7 +196,7 @@ CapMint is split into eight distinct conceptual domains:
 
 ---
 
-## 8. Core Business Rules
+## 8. Core Business Rules [SC-009]
 
 ### 1. Issuance Constraint Rule
 The total count of unit codes minted for a budget cannot exceed the approved unit capacity of that budget. 
@@ -221,7 +221,7 @@ The verification service must only return one of the five narrow verdicts:
 
 ---
 
-## 9. System Invariants
+## 9. System Invariants [SC-010]
 
 System invariants are architectural truths that must never be broken by any code change, configuration, database update, or deployment script.
 
@@ -236,7 +236,7 @@ System invariants are architectural truths that must never be broken by any code
 
 ---
 
-## 10. Trust Model
+## 10. Trust Model [SC-011]
 
 CapMint establishes clear trust zones to isolate untrusted user inputs from verified cryptographic controls. For the complete cryptographic trust analysis, refer to [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#4-trust-model).
 
@@ -255,7 +255,7 @@ CapMint establishes clear trust zones to isolate untrusted user inputs from veri
 
 ---
 
-## 11. Authority Model
+## 11. Authority Model [SC-012]
 
 Authority in CapMint is decentralized and cryptographic:
 
@@ -266,23 +266,23 @@ Authority in CapMint is decentralized and cryptographic:
 
 ---
 
-## 12. State Model
+## 12. State Model [SC-013]
 
 CapMint tracks entity states through deterministic lifecycle state machines. For details on state models and state machines (Budget, Unit, Lot, and Verdict lifecycles), refer to [DATA_FLOW.md](../sequence/DATA_FLOW.md#9-state-transition-flow).
 
-## 13. Information Flow
+## 13. Information Flow [SC-014]
 
 Information transitions from unvalidated operator inputs through cryptographic verification, capacity drawdown, and public resolution. The detailed transaction logic, API sequences, and data flows are documented in [DATA_FLOW.md](../sequence/DATA_FLOW.md#3-high-level-information-lifecycle).
 
 ---
 
-## 14. Major Subsystems
+## 14. Major Subsystems [SC-015]
 
 CapMint's capabilities are divided into modular service responsibilities. For details on subsystem boundaries, owner roles, and consumer interactions, refer to [SERVICE_BOUNDARIES.md](./SERVICE_BOUNDARIES.md#5-service-responsibilities).
 
 ---
 
-## 15. External Ecosystem
+## 15. External Ecosystem [SC-016]
 
 - **AgriStack**:
   - *Purpose*: Provides farmer profile, plot location, and crop history.
@@ -301,37 +301,37 @@ CapMint's capabilities are divided into modular service responsibilities. For de
   - *Expectations*: Accepts string hashes.
   - *Fallback if Unavailable*: Queue anchoring requests locally; retry until publication is confirmed.
 
-## 16. Security Context
+## 16. Security Context [SC-017]
 
 Security and cryptographic controls protect the platform's key validation, user permissions, and log integrity. For details on the security architecture, reference [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md).
 
 ---
 
-## 17. Failure Philosophy
+## 17. Failure Philosophy [SC-018]
 
 CapMint's components are designed to fail closed. In the event of validation key drops, network separation, or database locking failures, operational minting is immediately blocked. Anonymous public verifications gracefully degrade to edge read-replicas.
 
 ---
 
-## 18. Scalability Philosophy
+## 18. Scalability Philosophy [SC-019]
 
 The platform scales reads at the edge CDN and caches, while scaling writes using row-level locking patterns. For the physical scaling rules, refer to [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md#10-scalability-model).
 
 ---
 
-## 19. Architectural Principles
+## 19. Architectural Principles [SC-020]
 
 CapMint enforces architectural discipline across all modules. For a comprehensive mapping of these principles, refer to [SYSTEM_OVERVIEW.md](./SYSTEM_OVERVIEW.md#21-architecture--design-principles).
 
 ---
 
-## 20. Cross-Cutting Concerns
+## 20. Cross-Cutting Concerns [SC-021]
 
 Cross-cutting concerns such as input validation, configuration variables, and monitoring rules are managed systematically. For logging and security telemetry details, refer to [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#18-cross-cutting-security-concerns). For runtime and configuration variables, refer to [TECHNOLOGY_STACK.md](./TECHNOLOGY_STACK.md).
 
 ---
 
-## 21. Assumptions
+## 21. Assumptions [SC-022]
 
 - **Certifier Key Security**: We assume certifiers secure their private keys. If a certifier's private key is compromised, they can approve fraudulent budgets until the key is revoked.
 - **GS1 Digital Link Adoption**: We assume brand packaging layouts can accommodate the size requirements of the GS1 QR code format.
@@ -339,7 +339,7 @@ Cross-cutting concerns such as input validation, configuration variables, and mo
 
 ---
 
-## 22. Out of Scope
+## 22. Out of Scope [SC-023]
 
 - **Satellites and IoT**: Real-time farm sensor logging or satellite crop verification.
 - **Marketplace Engine**: Purchasing, bidding, or invoice creation.
@@ -348,7 +348,7 @@ Cross-cutting concerns such as input validation, configuration variables, and mo
 
 ---
 
-## 23. Future Evolution
+## 23. Future Evolution [SC-024]
 
 - **TraceNet Automated Integration**: Transitioning from manual certificate upload to webhook-based trace updates.
 - **Multi-Certifier Budgets**: Support for products requiring multiple independent organic and fair-trade certificates on a single packaging budget.
@@ -356,7 +356,7 @@ Cross-cutting concerns such as input validation, configuration variables, and mo
 
 ---
 
-## 24. Glossary
+## 24. Glossary [SC-025]
 
 - **AgriStack**: Source government identity and parcel registry.
 - **Anchor**: The external cryptographic publication of the current transparency log root.
@@ -378,7 +378,7 @@ Cross-cutting concerns such as input validation, configuration variables, and mo
 
 ---
 
-## 25. Architecture Freeze
+## 25. Architecture Freeze [SC-026]
 
 > [!IMPORTANT]
 > This section formally freezes the CapMint System Architecture Version 1.0. Any downstream changes to modules, invariants, data flows, or deployment models must follow the formal RFC process.

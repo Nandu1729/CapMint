@@ -1,6 +1,6 @@
 # DATA_FLOW
 
-## Scope
+## Scope [DF-001]
 
 This document owns:
 - Primary business flow sequences (onboarding, creation, minting, revocation)
@@ -17,7 +17,7 @@ This document intentionally does NOT define:
 - Deployment scaling tiers, failover topologies, or infrastructure backups (defined in [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md))
 - Build configurations, package directories, or monorepo tools (defined in [DIRECTORY_OWNERSHIP.md](../system/DIRECTORY_OWNERSHIP.md))
 
-## 1. Purpose
+## 1. Purpose [DF-002]
 
 This document defines the data flow and information lifecycle for CapMint. It traces how data is created, validated, signed, mutated, and resolved across the platform.
 
@@ -29,7 +29,7 @@ This document defines the data flow and information lifecycle for CapMint. It tr
 
 ---
 
-## 2. Data Flow Philosophy
+## 2. Data Flow Philosophy [DF-003]
 
 CapMint's data handling is based on three core guidelines:
 
@@ -39,7 +39,7 @@ CapMint's data handling is based on three core guidelines:
 
 ---
 
-## 3. High-Level Information Lifecycle
+## 3. High-Level Information Lifecycle [DF-004]
 
 The diagram below traces information from its origin in AgriStack registration, through budget approvals, minting, packaging, and public scans, to its final verification outcome.
 
@@ -60,7 +60,7 @@ flowchart TD
 
 ---
 
-## 4. Primary Business Flows
+## 4. Primary Business Flows [DF-005]
 
 ### 1. Producer & Plot Onboarding
 - **Actors**: Producer, Identity Service, AgriStack API.
@@ -155,7 +155,7 @@ flowchart TD
 
 ---
 
-## 5. Information Producers
+## 5. Information Producers [DF-006]
 
 | Producer | Data Created | Authority | Validation Method |
 |---|---|---|---|
@@ -167,7 +167,7 @@ flowchart TD
 
 ---
 
-## 6. Information Consumers
+## 6. Information Consumers [DF-007]
 
 - **Consumer Browser**: Reads verdict and provenance metadata to display authenticity confirmation.
 - **Auditors / Regulators**: Read transparency logs, budget allocations, and lab records for compliance reviews.
@@ -176,7 +176,7 @@ flowchart TD
 
 ---
 
-## 7. Data Transformation
+## 7. Data Transformation [DF-008]
 
 Data progresses through validation levels:
 
@@ -198,13 +198,13 @@ Data progresses through validation levels:
 
 ---
 
-## 8. Trust Transitions & Privacy Boundaries
+## 8. Trust Transitions & Privacy Boundaries [DF-009]
 
 Data transitions across security boundaries undergo cryptographic validation, validation filters, and privacy masking. For detailed security policies, RBAC validation rules, and PII masking, see [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md).
 
 ---
 
-## 9. State Transition Flow
+## 9. State Transition Flow [DF-010]
 
 ### Lot Lifecycle State Machine
 ```mermaid
@@ -274,13 +274,13 @@ stateDiagram-v2
 
 ---
 
-## 10. Data Ownership Flow
+## 10. Data Ownership Flow [DF-011]
 
 Write and update privileges are locked to exactly one service owner per database table. For service mappings and logical boundaries, see [SERVICE_BOUNDARIES.md](../system/SERVICE_BOUNDARIES.md#6-data-ownership).
 
 ---
 
-## 11. Validation Pipeline
+## 11. Validation Pipeline [DF-012]
 
 ```
 [ Client Ingress ] ---> Validate schema rules (Fastify router JSON schema)
@@ -300,7 +300,7 @@ Write and update privileges are locked to exactly one service owner per database
 
 ---
 
-## 12. Audit Flow
+## 12. Audit Flow [DF-013]
 
 CapMint requires that all events are auditable:
 1. **Event Trigger**: A state change occurs (e.g., `BudgetActivated`).
@@ -310,7 +310,7 @@ CapMint requires that all events are auditable:
 
 ---
 
-## 13. Public Verification Flow
+## 13. Public Verification Flow [DF-014]
 
 ```mermaid
 sequenceDiagram
@@ -337,26 +337,26 @@ sequenceDiagram
 
 ---
 
-## 14. Failure & Performance Scenarios
+## 14. Failure & Performance Scenarios [DF-015]
 
 Data flows must degrade gracefully or fail closed when runtime execution limits or capacity constraints are breached. For performance Non-Functional Requirements (NFRs) and disaster recovery, see [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md#10-scalability-model).
 
 ---
 
-## 15. Operational Constraints
+## 15. Operational Constraints [DF-016]
 
 Logical components are constrained by transaction rules and security policies. For system-wide architectural constraints, refer to [SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md#9-system-invariants).
 
 ---
 
-## 16. Cross-Cutting Concerns
+## 16. Cross-Cutting Concerns [DF-017]
 
 - **Consistent Reads**: Verification results utilize read-through caching in Redis to prevent database latency spikes.
 - **Retention Rules**: Raw scan telemetry is pruned from the Redis queue after clone evaluation. Summarized metrics are retained long-term in Postgres for auditing.
 
 ---
 
-## 17. Scalability Considerations
+## 17. Scalability Considerations [DF-018]
 
 As scale increases, data pipelines decouple using event streams:
 1. **Verification reads** are offloaded to edge CDN nodes, preventing database load.
@@ -364,28 +364,28 @@ As scale increases, data pipelines decouple using event streams:
 
 ---
 
-## 18. Architectural Constraints
+## 18. Architectural Constraints [DF-019]
 
 - **Single Writer Constraint**: Direct database updates are restricted to the domain owner service.
 - **Tamper Evidence**: Deletion commands on log tables trigger immediate system alerts and fail-closed state locks.
 
 ---
 
-## 19. Assumptions
+## 19. Assumptions [DF-020]
 
 - **AgriStack Payload Formats**: We assume AgriStack returns standard JSON structures.
 - **Operator Synchronization Frequency**: We assume operators initiate synchronization runs daily.
 
 ---
 
-## 20. Future Evolution
+## 20. Future Evolution [DF-021]
 
 - **Webhook-Driven Evidentiary Pipes**: Shifting from operator-driven manual uploads of lab certificates to direct, automated API hooks from NABL labs.
 - **Decoupled Verification Pipelines**: Running verifications directly on CDN edge workers using distributed key-value data stores.
 
 ---
 
-## 21. Glossary
+## 21. Glossary [DF-022]
 
 - **Data Ownership**: Rules defining which service writes to an entity.
 - **Draft Budget**: An unapproved, unsigned budget.
@@ -395,7 +395,7 @@ As scale increases, data pipelines decouple using event streams:
 
 ---
 
-## 22. Architecture Freeze
+## 22. Architecture Freeze [DF-023]
 
 > [!IMPORTANT]
 > This section formally freezes the CapMint Data Flow Version 1.0. Any downstream changes to data lifecycles, business flows, validation pipelines, or privacy boundaries must follow the formal RFC process.

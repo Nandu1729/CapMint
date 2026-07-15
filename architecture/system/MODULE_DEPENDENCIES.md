@@ -1,6 +1,6 @@
 # MODULE_DEPENDENCIES
 
-## Scope
+## Scope [MD-001]
 
 This document owns:
 - Logical modules definition and responsibilities (Registry, Budget, Minting, etc.)
@@ -17,7 +17,7 @@ This document intentionally does NOT define:
 - Cryptographic signature execution, RBAC authorization, or secrets management (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
 - Programming languages or technical framework choices (defined in [TECHNOLOGY_STACK.md](./TECHNOLOGY_STACK.md))
 
-## 1. Purpose
+## 1. Purpose [MD-002]
 
 This document defines the module dependency architecture and layering constraints for the CapMint platform. It maps the structural relationships between logical modules, outlines allowed communication paths, and establishes compile-time and runtime dependency constraints.
 
@@ -29,7 +29,7 @@ This document defines the module dependency architecture and layering constraint
 
 ---
 
-## 2. Dependency Philosophy
+## 2. Dependency Philosophy [MD-003]
 
 CapMint's module organization is guided by the following principles:
 
@@ -39,7 +39,7 @@ CapMint's module organization is guided by the following principles:
 
 ---
 
-## 3. Module Overview
+## 3. Module Overview [MD-004]
 
 CapMint is composed of the following logical modules:
 
@@ -54,7 +54,7 @@ CapMint is composed of the following logical modules:
 
 ---
 
-## 4. Dependency Graph
+## 4. Dependency Graph [MD-005]
 
 ```mermaid
 flowchart TD
@@ -88,7 +88,7 @@ flowchart TD
 
 ---
 
-## 5. Module Responsibilities
+## 5. Module Responsibilities [MD-006]
 
 ### 1. Registry Module
 - **Purpose**: Canonical registry of actors and land contexts.
@@ -136,7 +136,7 @@ flowchart TD
 
 ---
 
-## 6. Dependency Matrix
+## 6. Dependency Matrix [MD-007]
 
 | Module | Imports / Depends On | Why | Direction | Allowed? |
 |---|---|---|---|---|
@@ -149,7 +149,7 @@ flowchart TD
 
 ---
 
-## 7. Allowed Dependencies
+## 7. Allowed Dependencies [MD-008]
 
 - **Budget $\rightarrow$ Registry**: Allowed because budget limits require plot bounds defined in the Registry.
 - **Minting $\rightarrow$ Budget**: Allowed because the Minting module must transactionally request capacity drawdown from the Budget module before issuing serials.
@@ -157,7 +157,7 @@ flowchart TD
 
 ---
 
-## 8. Forbidden Dependencies
+## 8. Forbidden Dependencies [MD-009]
 
 - **Verification $\rightarrow$ *Any Write Operation***: The Verification module is strictly read-only for core business logic; it is prohibited from mutating budget capacities, lot structures, or actor records.
 - **Registry $\rightarrow$ Minting**: The Registry is a core leaf node; it must never import or depend on unit serialization logic.
@@ -165,7 +165,7 @@ flowchart TD
 
 ---
 
-## 9. Dependency Ownership
+## 9. Dependency Ownership [MD-010]
 
 In cross-module calls:
 - **Drawdown Requests**: The **Minting Module** initiates the call, but the **Budget Module** owns the validation rules and enforces capacity constraints.
@@ -173,7 +173,7 @@ In cross-module calls:
 
 ---
 
-## 10. Data Dependency Flow
+## 10. Data Dependency Flow [MD-011]
 
 ```mermaid
 flowchart TD
@@ -191,14 +191,14 @@ flowchart TD
 
 ---
 
-## 11. Cross-Cutting Modules
+## 11. Cross-Cutting Modules [MD-012]
 
 - **Security & Authorization Module**: Provides token parsing and role checking. Every application module depends on this service to authenticate operator requests.
 - **Audit & Logging Module**: Buffers events for the Transparency log. All mutating operations depend on this module to ensure log records are written.
 
 ---
 
-## 12. External Dependencies
+## 12. External Dependencies [MD-013]
 
 - **AgriStack**:
   - *Purpose*: Returns plot details.
@@ -212,21 +212,21 @@ flowchart TD
 
 ---
 
-## 13. Dependency Constraints
+## 13. Dependency Constraints [MD-014]
 
 - **DAG Enforced**: Compile-time check tools block circular imports.
 - **Single Source of Truth**: The Postgres database is the canonical source of truth; modules must not maintain duplicate relational records in cache.
 
 ---
 
-## 14. Failure Propagation
+## 14. Failure Propagation [MD-015]
 
 - If the **Budget Module** fails, the **Minting Module** is blocked, but the **Verification Module** remains operational.
 - If the **Verification Module** fails, public consumer resolution is disrupted, but pack-houses can continue packaging and shipping lots.
 
 ---
 
-## 15. Evolution Strategy
+## 15. Evolution Strategy [MD-016]
 
 To ensure clean decomposition as the codebase grows:
 - **Abstract Interfaces**: Module-to-module communication must use abstract interfaces rather than concrete class imports.
@@ -234,13 +234,13 @@ To ensure clean decomposition as the codebase grows:
 
 ---
 
-## 16. Assumptions
+## 16. Assumptions [MD-017]
 
 - **TypeScript Version Compatibility**: We assume all modules compile under a unified TypeScript compiler configuration.
 
 ---
 
-## 17. Glossary
+## 17. Glossary [MD-018]
 
 - **Directed Acyclic Graph (DAG)**: A directed graph with no cycles.
 - **Loose Coupling**: Minimizing dependencies between modules.
@@ -249,7 +249,7 @@ To ensure clean decomposition as the codebase grows:
 
 ---
 
-## 18. Architecture Freeze
+## 18. Architecture Freeze [MD-019]
 
 > [!IMPORTANT]
 > This section formally freezes the CapMint Module Dependencies Version 1.0. Any downstream changes to module definitions, allowed/forbidden dependency maps, or layering rules must follow the formal RFC process.

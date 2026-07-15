@@ -10,7 +10,7 @@
 
 ---
 
-## Scope
+## Scope [AR-001]
 
 This document defines the permanent behavioral contract and operational rules for AI agents. 
 
@@ -28,7 +28,7 @@ It explicitly does NOT define:
 
 ---
 
-## AI Operating Hierarchy
+## AI Operating Hierarchy [AR-002]
 
 When multiple documents define different guidance, AI agents must follow this precedence order:
 
@@ -44,7 +44,7 @@ Higher-priority documents always override lower-priority documents.
 
 ---
 
-## AI Role
+## AI Role [AR-003]
 
 AI agents operating on this repository must act under the combined responsibilities of:
 - **Principal Software Architect & Engineer**: Enforce architectural compliance and code quality.
@@ -54,7 +54,7 @@ AI agents operating on this repository must act under the combined responsibilit
 
 ---
 
-## AI Operating Principles
+## AI Operating Principles [AR-004]
 
 - **Think before coding**: Analyze files and requirements thoroughly before proposing any code edits.
 - **Understand before modifying**: Trace code paths, references, and dependencies completely.
@@ -69,7 +69,7 @@ AI agents operating on this repository must act under the combined responsibilit
 
 ---
 
-## AI Context Loading Discipline
+## AI Context Loading Discipline [AR-005]
 
 AI agents must never load the entire repository. Always follow the loading rules and path mapping targets defined in [CONTEXT_INDEX.md](CONTEXT_INDEX.md).
 
@@ -83,7 +83,7 @@ Unload unrelated context files from memory whenever possible. Repository-wide lo
 
 ---
 
-## Repository Discipline
+## Repository Discipline [AR-006]
 
 To preserve codebase integrity, AI agents must:
 - **Never rename folders** under any circumstance.
@@ -96,7 +96,7 @@ To preserve codebase integrity, AI agents must:
 
 ---
 
-## Implementation Discipline
+## Implementation Discipline [AR-007]
 
 Before modifying any source code, the AI agent must perform the following context-verification steps:
 1. Read [PROJECT_BRAIN.md](PROJECT_BRAIN.md) to align with project identity and success parameters.
@@ -110,7 +110,7 @@ Before modifying any source code, the AI agent must perform the following contex
 
 ---
 
-## Documentation Discipline
+## Documentation Discipline [AR-008]
 
 - **Never duplicate documentation**: Refuse requests to copy summaries across blueprints.
 - **Reference canonical owners**: Use relative links to redirect users to source documents.
@@ -119,7 +119,7 @@ Before modifying any source code, the AI agent must perform the following contex
 
 ---
 
-## Decision Discipline
+## Decision Discipline [AR-009]
 
 AI agents must never make architectural decisions independently. If a task requires structural changes:
 1. **Stop execution immediately**.
@@ -130,7 +130,7 @@ AI agents must never make architectural decisions independently. If a task requi
 
 ---
 
-## Checkpoint Discipline
+## Checkpoint Discipline [AR-010]
 
 When completing any milestone task, the AI agent must:
 1. Update [SESSION.md](SESSION.md) with active completion metrics.
@@ -141,7 +141,7 @@ When completing any milestone task, the AI agent must:
 
 ---
 
-## Quality Gates
+## Quality Gates [AR-011]
 
 Before finishing any task, the AI agent must verify:
 - [ ] **Correct checkpoint loaded**: Verified the active milestone tag in `CURRENT_STATE.md`.
@@ -160,7 +160,7 @@ Before finishing any task, the AI agent must verify:
 
 ---
 
-## Prohibited Behavior
+## Prohibited Behavior [AR-012]
 
 AI agents must never engage in the following actions:
 - **Invent requirements** that are not explicitly documented in the PRD or active task.
@@ -175,7 +175,7 @@ AI agents must never engage in the following actions:
 
 ---
 
-## Error Handling
+## Error Handling [AR-013]
 
 If required information is missing, or instructions are ambiguous:
 1. **Stop execution immediately**.
@@ -186,7 +186,7 @@ If required information is missing, or instructions are ambiguous:
 
 ---
 
-## AI Communication Rules
+## AI Communication Rules [AR-014]
 
 All responses, logs, and summaries must be:
 - **Clear**: Structured, readable, and free of fluff.
@@ -199,7 +199,7 @@ All responses, logs, and summaries must be:
 
 ---
 
-## AI Success Criteria
+## AI Success Criteria [AR-015]
 
 An AI task is considered successful only when:
 - Repository conventions and folder boundaries are preserved.
@@ -211,7 +211,7 @@ An AI task is considered successful only when:
 
 ---
 
-## AI Rules Freeze Policy
+## AI Rules Freeze Policy [AR-016]
 
 This document defines the permanent behavioral contract for AI agents operating within the CapMint Development Operating System.
 

@@ -12,7 +12,7 @@
 
 ---
 
-## Scope
+## Scope [NN-001]
 
 This document defines the permanent, non-negotiable rules governing the CapMint codebase, architecture, security, and developer processes. Every rule mapped in this constitution is absolute and MUST be followed by all contributors, automation systems, and AI agents.
 
@@ -24,13 +24,13 @@ This document intentionally does NOT define:
 
 ---
 
-## Authority
+## Authority [NN-002]
 
 `NON_NEGOTIABLES.md` SHALL serve as the supreme constitutional rulebook for the CapMint Development Operating System. In the event of a conflict between this document and any other file in the repository (including design blueprints, implementation files, or system logs), the rules defined in **this document** SHALL always prevail.
 
 ---
 
-## Constitutional Principles
+## Constitutional Principles [NN-003]
 
 These rules exist to protect:
 - Repository Integrity
@@ -47,13 +47,13 @@ No implementation convenience may override these principles.
 
 ---
 
-## Core Principle
+## Core Principle [NN-004]
 
 Every rule mapped in this rulebook exists to preserve repository integrity, architectural alignment, zero-trust security boundaries, system maintainability, and mathematical correctness across all development cycles.
 
 ---
 
-## Rule Categories
+## Rule Categories [NN-005]
 
 1. [Repository Integrity Rules](#repository-integrity-rules)
 2. [Architecture Integrity Rules](#architecture-integrity-rules)
@@ -66,7 +66,7 @@ Every rule mapped in this rulebook exists to preserve repository integrity, arch
 
 ---
 
-## Repository Integrity Rules
+## Repository Integrity Rules [NN-006]
 
 - **R-1.1**: The repository top-level folder layout is strictly frozen. Contributors and AI agents SHALL NOT create, delete, or rename top-level folders.
 - **R-1.2**: Duplicate folder or file ownership of domain logic is strictly prohibited. Every folder SHALL map to exactly one owner.
@@ -76,7 +76,7 @@ Every rule mapped in this rulebook exists to preserve repository integrity, arch
 
 ---
 
-## Architecture Integrity Rules
+## Architecture Integrity Rules [NN-007]
 
 - **A-1.1**: Code implementation MUST follow the designs mapped in `architecture/` blueprints. Architecture SHALL NEVER follow implementation.
 - **A-1.2**: Contributors and AI agents MUST NOT bypass Bounded Context service boundaries. Cross-service interactions SHALL only occur via public interfaces or abstract adapters.
@@ -85,7 +85,7 @@ Every rule mapped in this rulebook exists to preserve repository integrity, arch
 
 ---
 
-## Security Rules
+## Security Rules [NN-008]
 
 - **S-1.1**: All validation, session checks, and state transitions MUST fail closed.
 - **S-1.2**: Enforce least privilege access control at all times. Application routes MUST be locked under Role-Based Access Control (RBAC).
@@ -94,7 +94,7 @@ Every rule mapped in this rulebook exists to preserve repository integrity, arch
 
 ---
 
-## Data Integrity Rules
+## Data Integrity Rules [NN-009]
 
 - **D-1.1**: Maintain a Single Source of Truth for all database structures and schemas. Domain definitions SHALL NOT be duplicated across services.
 - D-1.2: All database transactions mutating state (e.g. minting drawdowns) MUST run within strict transactional blocks to prevent over-issuance.
@@ -102,7 +102,7 @@ Every rule mapped in this rulebook exists to preserve repository integrity, arch
 
 ---
 
-## AI Behavior Rules
+## AI Behavior Rules [NN-010]
 
 - **AI-1.1**: AI agents SHALL NOT invent requirements, user scenarios, or code limits that are not documented in the active task.
 - **AI-1.2**: AI agents SHALL NOT generate APIs, routes, or protocols without architectural sign-off.
@@ -116,7 +116,7 @@ Every rule mapped in this rulebook exists to preserve repository integrity, arch
 
 ---
 
-## Documentation Rules
+## Documentation Rules [NN-011]
 
 - **Doc-1.1**: Technical documentation MUST remain fully synchronized with the implementation code.
 - **Doc-1.2**: Documentation SHALL NOT be duplicated. References and relative markdown links MUST be used to point to canonical sources.
@@ -125,7 +125,7 @@ Every rule mapped in this rulebook exists to preserve repository integrity, arch
 
 ---
 
-## Engineering Rules
+## Engineering Rules [NN-012]
 
 - **E-1.1**: Mathematical correctness and constraint checks SHALL always take precedence over execution speed.
 - **E-1.2**: Security and zero trust bounds SHALL always override developer convenience.
@@ -134,7 +134,7 @@ Every rule mapped in this rulebook exists to preserve repository integrity, arch
 
 ---
 
-## Governance Rules
+## Governance Rules [NN-013]
 
 - **G-1.1**: Frozen documentation under `architecture/` and `BRAIN/` SHALL NOT be modified without explicit repository owner approval.
 - **G-1.2**: Architectural modifications or deviations require a formal Architectural Decision Record (ADR) and updates to `DECISIONS.md`.
@@ -142,7 +142,7 @@ Every rule mapped in this rulebook exists to preserve repository integrity, arch
 
 ---
 
-## Conflict Resolution
+## Conflict Resolution [NN-014]
 
 Precedence of authority within the CapMint Development Operating System is defined in the following order. A higher authority SHALL always override a lower authority:
 
@@ -156,7 +156,7 @@ Precedence of authority within the CapMint Development Operating System is defin
 
 ---
 
-## Violation Handling
+## Violation Handling [NN-015]
 
 If a task or user request violates any Non-Negotiable rule, the AI agent SHALL:
 1. **Stop execution immediately**.
@@ -168,7 +168,7 @@ If a task or user request violates any Non-Negotiable rule, the AI agent SHALL:
 
 ---
 
-## Validation Checklist
+## Validation Checklist [NN-016]
 
 Before presenting work or committing changes, verify the following:
 
@@ -188,13 +188,13 @@ Before presenting work or committing changes, verify the following:
 
 ---
 
-## Enforcement
+## Enforcement [NN-017]
 
 Every AI agent, contributor, automation workflow, and future repository extension is bound by these constitutional rules. No component of the repository is exempt.
 
 ---
 
-## Modification Policy
+## Modification Policy [NN-018]
 
 This document represents the permanent behavioral and structural constitution of the codebase. It MUST NOT change during normal feature development. It SHALL only change when:
 1. Repository governance structures change.
@@ -204,7 +204,7 @@ This document represents the permanent behavioral and structural constitution of
 
 ---
 
-## Repository Freeze Policy
+## Repository Freeze Policy [NN-019]
 
 The repository structure, folder naming, directories catalog, AI Operating System, and constitutional rules defined herein are considered frozen. All feature development and active implementations MUST operate strictly within these constraints.
 

@@ -10,7 +10,7 @@
 
 ---
 
-## 1. Project Identity
+## 1. Project Identity [PB-001]
 
 CapMint is a cryptographically verified unit-level registry and origin-claim integrity system for premium and organic agricultural products. It operates as the secure gatekeeper between physical packaging operations and administrative certification bodies.
 
@@ -19,7 +19,7 @@ Organic food supply chains suffer from systemic over-issuance fraud, where conve
 
 ---
 
-## 2. Vision & Mission
+## 2. Vision & Mission [PB-002]
 
 ### Vision
 To establish global, trustless transparency in premium commodity supply chains, ensuring every consumer can mathematically verify the origin and authenticity of their purchase without depending on blind trust in intermediary vendors.
@@ -29,7 +29,7 @@ To provide a lightweight, high-performance, and decentralized-audit-friendly ser
 
 ---
 
-## 3. Product & Engineering Philosophy
+## 3. Product & Engineering Philosophy [PB-003]
 
 ### Product Philosophy
 - **Verification Over Proclamation**: Claims of organic origin must be backed by certifier signatures and laboratory evidence.
@@ -43,7 +43,7 @@ To provide a lightweight, high-performance, and decentralized-audit-friendly ser
 
 ---
 
-## 4. Core Principles
+## 4. Core Principles [PB-004]
 
 - **No Over-Issuance**: Sum of minted unit serials must never exceed authorized plot capacity: $\sum \text{Minted} \le \text{Capacity}$.
 - **Append-Only Event Ledger**: All state mutations generate hash-chained events block-hashed via SHA-256 and anchored periodically to external channels.
@@ -51,7 +51,7 @@ To provide a lightweight, high-performance, and decentralized-audit-friendly ser
 
 ---
 
-## Permanent Invariants
+## Permanent Invariants [PB-005]
 
 The following define the permanent identity of CapMint and are not expected to change during normal project evolution:
 - Mission
@@ -65,7 +65,7 @@ Changes require explicit repository owner approval.
 
 ---
 
-## Decision Philosophy
+## Decision Philosophy [PB-006]
 
 The architectural decision hierarchy defines how design trade-offs must be evaluated. No decision may violate a higher-priority principle to satisfy a lower-priority one:
 
@@ -79,7 +79,7 @@ The architectural decision hierarchy defines how design trade-offs must be evalu
 
 ---
 
-## 5. Repository & AI Working Principles
+## 5. Repository & AI Working Principles [PB-007]
 
 ### Repository Philosophy
 - **Domain-First Layout**: Code directories correspond strictly to logical domains rather than framework categories.
@@ -92,7 +92,7 @@ The architectural decision hierarchy defines how design trade-offs must be evalu
 
 ---
 
-## 6. Immutability Matrix
+## 6. Immutability Matrix [PB-008]
 
 | Tier | Items | Change Policy |
 |---|---|---|
@@ -102,7 +102,7 @@ The architectural decision hierarchy defines how design trade-offs must be evalu
 
 ---
 
-## 7. Canonical Terminology
+## 7. Canonical Terminology [PB-009]
 
 - **Primary Database**: `Postgres DB` (the relational system of record).
 - **Cache & Telemetry Queue**: `Redis Cache` (ephemeral data buffer).
@@ -113,7 +113,7 @@ The architectural decision hierarchy defines how design trade-offs must be evalu
 
 ---
 
-## 8. High-Level Project Lifecycle
+## 8. High-Level Project Lifecycle [PB-010]
 
 ```
 Vision
@@ -137,7 +137,7 @@ Evolution
 
 ---
 
-## AI Memory Contract
+## AI Memory Contract [PB-011]
 
 `PROJECT_BRAIN.md` is the permanent identity of the project. AI agents must treat this document as immutable project memory. Operational information must never be stored here. The following belong in separate operational documents:
 - Current Tasks (managed in `NEXT_TASK.md`)
