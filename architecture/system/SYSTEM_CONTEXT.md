@@ -11,11 +11,11 @@ This document owns:
 - External Ecosystem and System Boundaries (AgriStack, TraceNet, NABL Labs, GS1 Digital Link, Out-of-Scope limits)
 
 This document intentionally does NOT define:
-- Deployment topology, hosting platforms, backup plans, or physical network routing (defined in [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md))
+- Deployment topology, hosting platforms, backup platforms, or physical network routing (defined in [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md))
 - Container runtime components such as Fastify parameters, Redis configurations, or Postgres indexing (defined in [CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md))
 - Detailed service-level boundaries, domain ownership contexts, or single-writer logic (defined in [SERVICE_BOUNDARIES.md](./SERVICE_BOUNDARIES.md))
-- Code-level directory layout or monorepo import structures (defined in [DIRECTORY_OWNERSHIP.md](./DIRECTORY_OWNERSHIP.md) and [MODULE_DEPENDENCIES.md](./MODULE_DEPENDENCIES.md))
-- User authentication mechanisms, JWT tokens, RBAC permissions, or KMS hardware specs (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
+- Code-level directory layout or monorepo import structures (defined in [DIRECTORY_OWNERSHIP.md](./DIRECTORY_OWNERSHIP.md#scope-do-001) [DO-001] and [MODULE_DEPENDENCIES.md](./MODULE_DEPENDENCIES.md#scope-md-001) [MD-001])
+- User authentication mechanisms, JWT tokens, RBAC permissions, or KMS hardware specs (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#scope-sec-001) [SEC-001])
 
 ## 1. System Mission [SC-002]
 
@@ -238,7 +238,7 @@ System invariants are architectural truths that must never be broken by any code
 
 ## 10. Trust Model [SC-011]
 
-CapMint establishes clear trust zones to isolate untrusted user inputs from verified cryptographic controls. For the complete cryptographic trust analysis, refer to [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#4-trust-model).
+CapMint establishes clear trust zones to isolate untrusted user inputs from verified cryptographic controls. For the complete cryptographic trust analysis, refer to [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#4-trust-model-sec-005) [SEC-005].
 
 ### Trusted Zone
 - **Certifier Signature Authority**: Represents the certified organic approval of capacity.
@@ -268,11 +268,11 @@ Authority in CapMint is decentralized and cryptographic:
 
 ## 12. State Model [SC-013]
 
-CapMint tracks entity states through deterministic lifecycle state machines. For details on state models and state machines (Budget, Unit, Lot, and Verdict lifecycles), refer to [DATA_FLOW.md](../sequence/DATA_FLOW.md#9-state-transition-flow).
+CapMint tracks entity states through deterministic lifecycle state machines. For details on state models and state machines (Budget, Unit, Lot, and Verdict lifecycles), refer to [DATA_FLOW.md](../sequence/DATA_FLOW.md#9-state-transition-flow-df-010) [DF-010].
 
 ## 13. Information Flow [SC-014]
 
-Information transitions from unvalidated operator inputs through cryptographic verification, capacity drawdown, and public resolution. The detailed transaction logic, API sequences, and data flows are documented in [DATA_FLOW.md](../sequence/DATA_FLOW.md#3-high-level-information-lifecycle).
+Information transitions from unvalidated operator inputs through cryptographic verification, capacity drawdown, and public resolution. The detailed transaction logic, API sequences, and data flows are documented in [DATA_FLOW.md](../sequence/DATA_FLOW.md#3-high-level-information-lifecycle-df-004) [DF-004].
 
 ---
 
@@ -303,7 +303,7 @@ CapMint's capabilities are divided into modular service responsibilities. For de
 
 ## 16. Security Context [SC-017]
 
-Security and cryptographic controls protect the platform's key validation, user permissions, and log integrity. For details on the security architecture, reference [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md).
+Security and cryptographic controls protect the platform's key validation, user permissions, and log integrity. For details on the security architecture, reference [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#scope-sec-001) [SEC-001].
 
 ---
 
@@ -327,7 +327,7 @@ CapMint enforces architectural discipline across all modules. For a comprehensiv
 
 ## 20. Cross-Cutting Concerns [SC-021]
 
-Cross-cutting concerns such as input validation, configuration variables, and monitoring rules are managed systematically. For logging and security telemetry details, refer to [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#18-cross-cutting-security-concerns). For runtime and configuration variables, refer to [TECHNOLOGY_STACK.md](./TECHNOLOGY_STACK.md).
+Cross-cutting concerns such as input validation, configuration variables, and monitoring rules are managed systematically. For logging and security telemetry details, refer to [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#18-cross-cutting-security-concerns-sec-019) [SEC-019]. For runtime and configuration variables, refer to [TECHNOLOGY_STACK.md](./TECHNOLOGY_STACK.md#scope-ts-001) [TS-001].
 
 ---
 

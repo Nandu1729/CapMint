@@ -10,12 +10,11 @@ This document owns:
 - Entity state transitions (lifecycle state machines)
 
 This document intentionally does NOT define:
-- Database instances, storage container topologies, or TCP network definitions (defined in [CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md))
-- Core business invariants or conceptual trust requirements (defined in [SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md))
-- Domain-driven service boundaries or single-writer logic tables (defined in [SERVICE_BOUNDARIES.md](../system/SERVICE_BOUNDARIES.md))
-- User roles (RBAC), KMS private key encryption, or secure network boundaries (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
+- Detailed relational database schemas, check constraints, or column types (defined in [schema/schema.sql](../../database/schema/schema.sql))
+- Core business invariants or conceptual trust requirements (defined in [SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md#9-system-invariants-sc-010) [SC-010])
+- User authentication, JWT issuance, or cryptographic curves (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#scope-sec-001) [SEC-001])
 - Deployment scaling tiers, failover topologies, or infrastructure backups (defined in [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md))
-- Build configurations, package directories, or monorepo tools (defined in [DIRECTORY_OWNERSHIP.md](../system/DIRECTORY_OWNERSHIP.md))
+- Build configurations, package directories, or monorepo tools (defined in [DIRECTORY_OWNERSHIP.md](../system/DIRECTORY_OWNERSHIP.md#scope-do-001) [DO-001])
 
 ## 1. Purpose [DF-002]
 
@@ -200,7 +199,7 @@ Data progresses through validation levels:
 
 ## 8. Trust Transitions & Privacy Boundaries [DF-009]
 
-Data transitions across security boundaries undergo cryptographic validation, validation filters, and privacy masking. For detailed security policies, RBAC validation rules, and PII masking, see [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md).
+Data transitions across security boundaries undergo cryptographic validation, validation filters, and privacy masking. For detailed security policies, RBAC validation rules, and PII masking, see [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#scope-sec-001) [SEC-001].
 
 ---
 
@@ -345,7 +344,7 @@ Data flows must degrade gracefully or fail closed when runtime execution limits 
 
 ## 15. Operational Constraints [DF-016]
 
-Logical components are constrained by transaction rules and security policies. For system-wide architectural constraints, refer to [SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md#9-system-invariants).
+Logical components are constrained by transaction rules and security policies. For system-wide architectural constraints, refer to [SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md#9-system-invariants-sc-010) [SC-010].
 
 ---
 
@@ -353,6 +352,7 @@ Logical components are constrained by transaction rules and security policies. F
 
 - **Consistent Reads**: Verification results utilize read-through caching in Redis to prevent database latency spikes.
 - **Retention Rules**: Raw scan telemetry is pruned from the Redis queue after clone evaluation. Summarized metrics are retained long-term in Postgres for auditing.
+- **Observability**: Metric emission hooks publish telemetry to Prometheus/CloudWatch. Security violation events generate high-severity alerts. For logging and security telemetry details, refer to [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#18-cross-cutting-security-concerns-sec-019) [SEC-019]. For runtime and configuration variables, refer to [TECHNOLOGY_STACK.md](../system/TECHNOLOGY_STACK.md#scope-ts-001) [TS-001]. **Scan telemetry** logging runs asynchronously, decoupling verification execution from telemetry writes.
 
 ---
 

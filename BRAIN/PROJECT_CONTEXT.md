@@ -22,9 +22,9 @@ It defines:
 - The high-level technical assumptions.
 
 It explicitly does NOT define:
-- The project identity (defined in [PROJECT_BRAIN.md](PROJECT_BRAIN.md)).
+- The project identity (defined in [PROJECT_BRAIN.md](PROJECT_BRAIN.md#1-project-identity-pb-001) [PB-001]).
 - The system architecture specifications (defined in the blueprints under `../architecture/`).
-- The AI behavior rules (defined in [AI_RULES.md](AI_RULES.md)).
+- The AI behavior rules (defined in [AI_RULES.md](AI_RULES.md#scope-ar-001) [AR-001]).
 - The active runtime execution state (defined in [CURRENT_STATE.md](CURRENT_STATE.md)).
 - The immediate active work and task scopes (defined in [NEXT_TASK.md](NEXT_TASK.md) and [SESSION.md](SESSION.md)).
 
@@ -84,16 +84,16 @@ To safely operate within this repository, AI agents must adhere to the following
 
 AI agents must consume architectural specifications in the following order before starting any implementation. Implementation must never begin before the relevant architectural documents have been understood:
 
-1. **`../architecture/system/SYSTEM_CONTEXT.md`**: Business context, ecosystem boundaries, and invariants.
+1. **[SYSTEM_CONTEXT.md](../architecture/system/SYSTEM_CONTEXT.md#scope-sc-001) [SC-001]**: Business context, ecosystem boundaries, and invariants.
 2. **`../architecture/system/SYSTEM_OVERVIEW.md`**: Principles, high-level components, and baseline workflows.
 3. **`../architecture/system/SERVICE_BOUNDARIES.md`**: Logical services, encapsulation boundaries, and domain rules.
-4. **`../architecture/system/MODULE_DEPENDENCIES.md`**: Logical code dependencies and import checks.
-5. **`../architecture/system/TECHNOLOGY_STACK.md`**: Framework, language, and database decisions.
-6. **`../architecture/system/DIRECTORY_OWNERSHIP.md`**: Folder organization mapping to physical packages.
+4. **[MODULE_DEPENDENCIES.md](../architecture/system/MODULE_DEPENDENCIES.md#scope-md-001) [MD-001]**: Logical code dependencies and import checks.
+5. **[TECHNOLOGY_STACK.md](../architecture/system/TECHNOLOGY_STACK.md#scope-ts-001) [TS-001]**: Framework, language, and database decisions.
+6. **[DIRECTORY_OWNERSHIP.md](../architecture/system/DIRECTORY_OWNERSHIP.md#scope-do-001) [DO-001]**: Folder organization mapping to physical packages.
 7. **`../architecture/C4/L1_SYSTEM_CONTEXT.md`**: Bird's-eye actor and external system maps.
 8. **`../architecture/C4/L2_CONTAINER.md`**: Container processes and communication boundaries.
-9. **`../architecture/sequence/DATA_FLOW.md`**: Entity lifecycles and step-by-step transaction chains.
-10. **`../architecture/security/SECURITY_ARCHITECTURE.md`**: Cryptography protocols, RBAC matrices, and threat models.
+9. **[DATA_FLOW.md](../architecture/sequence/DATA_FLOW.md#scope-df-001) [DF-001]**: Entity lifecycles and step-by-step transaction chains.
+10. **[SECURITY_ARCHITECTURE.md](../architecture/security/SECURITY_ARCHITECTURE.md#scope-sec-001) [SEC-001]**: Cryptography protocols, RBAC matrices, and threat models.
 11. **`../architecture/deployment/DEPLOYMENT_ARCHITECTURE.md`**: Environments, subnets, replication pools, and SLA targets.
 
 ---
@@ -109,7 +109,7 @@ CapMint's documentation is organized hierarchically to keep definitions decouple
 - **Deployment & Scaling (`architecture/deployment/`)**: Maps environments, replication topologies, and NFR targets.
 - **C4 Architecture Diagrams (`architecture/C4/`)**: Visually maps L1 System Context and L2 Container relationships.
 
-For folder-level ownership and allowed/forbidden contents, reference the directory registry in [DIRECTORY_OWNERSHIP.md](../architecture/system/DIRECTORY_OWNERSHIP.md). For module dependencies, see [MODULE_DEPENDENCIES.md](../architecture/system/MODULE_DEPENDENCIES.md).
+For folder-level ownership and allowed/forbidden contents, reference the directory registry in [DIRECTORY_OWNERSHIP.md](../architecture/system/DIRECTORY_OWNERSHIP.md#scope-do-001) [DO-001]. For module dependencies, see [MODULE_DEPENDENCIES.md](../architecture/system/MODULE_DEPENDENCIES.md#scope-md-001) [MD-001].
 
 ---
 
@@ -151,7 +151,7 @@ Every engineering task must execute through this standard validation lifecycle:
 ## Context Boundaries [PC-009]
 
 `PROJECT_CONTEXT.md` owns only the permanent engineering context. It must never contain:
-- Project identity (defined in [PROJECT_BRAIN.md](PROJECT_BRAIN.md)).
+- Project identity (defined in [PROJECT_BRAIN.md](PROJECT_BRAIN.md#1-project-identity-pb-001) [PB-001]).
 - Repository navigation (defined in [CONTEXT_INDEX.md](CONTEXT_INDEX.md)).
 - Runtime execution state (defined in [CURRENT_STATE.md](CURRENT_STATE.md)).
 - Session history (defined in [SESSION.md](SESSION.md) and [CHANGELOG.md](CHANGELOG.md)).
@@ -164,12 +164,12 @@ Those belong to their respective canonical documents.
 
 ## 6. References
 
-- Permanent Memory Core: [PROJECT_BRAIN.md](PROJECT_BRAIN.md)
+- Permanent Memory Core: [PROJECT_BRAIN.md](PROJECT_BRAIN.md#1-project-identity-pb-001) [PB-001]
 - AI Loading Protocol: [CONTEXT_INDEX.md](CONTEXT_INDEX.md)
 - Active Checkpoint: [CURRENT_STATE.md](CURRENT_STATE.md)
-- AI Behaviour Rules: [AI_RULES.md](AI_RULES.md)
-- Architectural Invariants: [NON_NEGOTIABLES.md](NON_NEGOTIABLES.md)
-- System Context Blueprint: [SYSTEM_CONTEXT.md](../architecture/system/SYSTEM_CONTEXT.md)
+- AI Behaviour Rules: [AI_RULES.md](AI_RULES.md#scope-ar-001) [AR-001]
+- Architectural Invariants: [NON_NEGOTIABLES.md](NON_NEGOTIABLES.md#scope-nn-001) [NN-001]
+- System Context Blueprint: [SYSTEM_CONTEXT.md](../architecture/system/SYSTEM_CONTEXT.md#scope-sc-001) [SC-001]
 - Overview Blueprint: [SYSTEM_OVERVIEW.md](../architecture/system/SYSTEM_OVERVIEW.md)
-- Directory Ownership Registry: [DIRECTORY_OWNERSHIP.md](../architecture/system/DIRECTORY_OWNERSHIP.md)
-- Technology Stack Matrix: [TECHNOLOGY_STACK.md](../architecture/system/TECHNOLOGY_STACK.md)
+- Directory Ownership Registry: [DIRECTORY_OWNERSHIP.md](../architecture/system/DIRECTORY_OWNERSHIP.md#scope-do-001) [DO-001]
+- Technology Stack Matrix: [TECHNOLOGY_STACK.md](../architecture/system/TECHNOLOGY_STACK.md#scope-ts-001) [TS-001]

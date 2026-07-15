@@ -87,7 +87,7 @@ The architectural decision hierarchy defines how design trade-offs must be evalu
 
 ### AI Working Principles
 - **Minimal Context Loading**: Load only the files specified by the priority levels in [CONTEXT_INDEX.md](CONTEXT_INDEX.md) to prevent AI drift.
-- **Precedence of Invariants**: AI must check safety constraints in `NON_NEGOTIABLES.md` before proposing code changes.
+- **Precedence of Invariants**: AI must check safety constraints in [NON_NEGOTIABLES.md](NON_NEGOTIABLES.md#scope-nn-001) [NN-001] before proposing code changes.
 - **No Documentation Duplication**: Never copy definitions across directories; reference the canonical files instead.
 
 ---
@@ -156,9 +156,9 @@ Reference the appropriate operational documents instead of duplicating informati
 ## 9. References
 
 Detailed specifications reside in their respective canonical owners:
-- Core business invariants: [SYSTEM_CONTEXT.md](../architecture/system/SYSTEM_CONTEXT.md)
+- Core business invariants: [SYSTEM_CONTEXT.md](../architecture/system/SYSTEM_CONTEXT.md#scope-sc-001) [SC-001]
 - Bounded Context definitions: [SERVICE_BOUNDARIES.md](../architecture/system/SERVICE_BOUNDARIES.md)
-- State lifecycles and transitions: [DATA_FLOW.md](../architecture/sequence/DATA_FLOW.md)
-- Security threat models and RBAC: [SECURITY_ARCHITECTURE.md](../architecture/security/SECURITY_ARCHITECTURE.md)
+- State lifecycles and transitions: [DATA_FLOW.md](../architecture/sequence/DATA_FLOW.md#scope-df-001) [DF-001]
+- Security threat models and RBAC: [SECURITY_ARCHITECTURE.md](../architecture/security/SECURITY_ARCHITECTURE.md#scope-sec-001) [SEC-001]
 - Deployment topologies and NFRs: [DEPLOYMENT_ARCHITECTURE.md](../architecture/deployment/DEPLOYMENT_ARCHITECTURE.md)
 - AI loading protocol: [CONTEXT_INDEX.md](CONTEXT_INDEX.md)

@@ -17,9 +17,9 @@
 This document defines the permanent, non-negotiable rules governing the CapMint codebase, architecture, security, and developer processes. Every rule mapped in this constitution is absolute and MUST be followed by all contributors, automation systems, and AI agents.
 
 This document intentionally does NOT define:
-- Domain specifications, Bounded Context boundaries, or business rules (defined in [SYSTEM_CONTEXT.md](../architecture/system/SYSTEM_CONTEXT.md) and [SERVICE_BOUNDARIES.md](../architecture/system/SERVICE_BOUNDARIES.md)).
+- Domain specifications, Bounded Context boundaries, or business rules (defined in [SYSTEM_CONTEXT.md](../architecture/system/SYSTEM_CONTEXT.md#scope-sc-001) [SC-001] and [SERVICE_BOUNDARIES.md](../architecture/system/SERVICE_BOUNDARIES.md)).
 - Container specifications, port mappings, or VM subnets (defined in [L2_CONTAINER.md](../architecture/C4/L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](../architecture/deployment/DEPLOYMENT_ARCHITECTURE.md)).
-- Specific API routes, validation schemas, or database schemas (defined in [DATA_FLOW.md](../architecture/sequence/DATA_FLOW.md)).
+- Specific API routes, validation schemas, or database schemas (defined in [DATA_FLOW.md](../architecture/sequence/DATA_FLOW.md#scope-df-001) [DF-001]).
 - Immediate active work tasks or sprint logs (defined in [NEXT_TASK.md](NEXT_TASK.md) and [SESSION.md](SESSION.md)).
 
 ---
@@ -146,11 +146,11 @@ Every rule mapped in this rulebook exists to preserve repository integrity, arch
 
 Precedence of authority within the CapMint Development Operating System is defined in the following order. A higher authority SHALL always override a lower authority:
 
-1. **`NON_NEGOTIABLES.md`** (Highest Precedence)
-2. **`AI_RULES.md`**
-3. **`PROJECT_BRAIN.md`**
-4. **`PROJECT_CONTEXT.md`**
-5. **`CONTEXT_INDEX.md`**
+1. **[NON_NEGOTIABLES.md](NON_NEGOTIABLES.md#scope-nn-001) [NN-001]** (Highest Precedence)
+2. **[AI_RULES.md](AI_RULES.md#scope-ar-001) [AR-001]**
+3. **[PROJECT_BRAIN.md](PROJECT_BRAIN.md#1-project-identity-pb-001) [PB-001]**
+4. **[PROJECT_CONTEXT.md](PROJECT_CONTEXT.md#scope-pc-001) [PC-001]**
+5. **[CONTEXT_INDEX.md](CONTEXT_INDEX.md)**
 6. **Architecture Blueprints** (under `../architecture/`)
 7. **Implementation Code** (Lowest Precedence)
 

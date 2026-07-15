@@ -21,7 +21,7 @@ It defines:
 - AI quality gates and prohibited behaviors.
 
 It explicitly does NOT define:
-- The project identity (defined in [PROJECT_BRAIN.md](PROJECT_BRAIN.md)).
+- The project identity (defined in [PROJECT_BRAIN.md](PROJECT_BRAIN.md#1-project-identity-pb-001) [PB-001]).
 - The system architecture specifications (defined in blueprints under `../architecture/`).
 - The active runtime execution state (defined in [CURRENT_STATE.md](CURRENT_STATE.md)).
 - The immediate active work and task scopes (defined in [NEXT_TASK.md](NEXT_TASK.md) and [SESSION.md](SESSION.md)).
@@ -32,11 +32,11 @@ It explicitly does NOT define:
 
 When multiple documents define different guidance, AI agents must follow this precedence order:
 
-1. **`NON_NEGOTIABLES.md`** (Highest Precedence)
-2. **`AI_RULES.md`**
-3. **`PROJECT_BRAIN.md`**
-4. **`PROJECT_CONTEXT.md`**
-5. **`CONTEXT_INDEX.md`**
+1. **[NON_NEGOTIABLES.md](NON_NEGOTIABLES.md#scope-nn-001) [NN-001]** (Highest Precedence)
+2. **[AI_RULES.md](AI_RULES.md#scope-ar-001) [AR-001]**
+3. **[PROJECT_BRAIN.md](PROJECT_BRAIN.md#1-project-identity-pb-001) [PB-001]**
+4. **[PROJECT_CONTEXT.md](PROJECT_CONTEXT.md#scope-pc-001) [PC-001]**
+5. **[CONTEXT_INDEX.md](CONTEXT_INDEX.md)**
 6. **Architecture Blueprints** (under `../architecture/`)
 7. **Implementation Documents** (Lowest Precedence)
 
@@ -99,8 +99,8 @@ To preserve codebase integrity, AI agents must:
 ## Implementation Discipline [AR-007]
 
 Before modifying any source code, the AI agent must perform the following context-verification steps:
-1. Read [PROJECT_BRAIN.md](PROJECT_BRAIN.md) to align with project identity and success parameters.
-2. Read [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) to understand coding standards and technical context.
+1. Read [PROJECT_BRAIN.md](PROJECT_BRAIN.md#1-project-identity-pb-001) [PB-001] to align with project identity and success parameters.
+2. Read [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md#scope-pc-001) [PC-001] to understand coding standards and technical context.
 3. Read [CONTEXT_INDEX.md](CONTEXT_INDEX.md) to resolve target files and limit in-memory context.
 4. Load only the minimum required folder scope.
 5. Read relevant service architecture blueprints under `../architecture/`.

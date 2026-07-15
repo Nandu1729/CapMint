@@ -10,12 +10,12 @@ This document owns:
 - Monorepo package packaging guidelines and directory layout evolution
 
 This document intentionally does NOT define:
-- Logical import rules and compile-time code dependencies (defined in [MODULE_DEPENDENCIES.md](./MODULE_DEPENDENCIES.md))
+- Logical module responsibilities, allowed/forbidden imports, or dependency graphs (defined in [MODULE_DEPENDENCIES.md](./MODULE_DEPENDENCIES.md#scope-md-001) [MD-001])
 - Container runtime models, network VPC subnets, or database servers (defined in [CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md))
-- Core business invariants or crop yield rules (defined in [SYSTEM_CONTEXT.md](./SYSTEM_CONTEXT.md))
+- Core business invariants, crop yield algorithms, or authority scopes (defined in [SYSTEM_CONTEXT.md](./SYSTEM_CONTEXT.md#scope-sc-001) [SC-001])
 - API endpoint specifications or database schema structures (defined in [DATA_FLOW.md](../sequence/DATA_FLOW.md))
-- Cryptographic signature execution, RBAC authorization, or secrets management (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
-- Programming languages or technical framework choices (defined in [TECHNOLOGY_STACK.md](./TECHNOLOGY_STACK.md))
+- Cryptographic signature execution, RBAC authorization, or secrets management (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#scope-sec-001) [SEC-001])
+- Programming languages or technical framework choices (defined in [TECHNOLOGY_STACK.md](./TECHNOLOGY_STACK.md#scope-ts-001) [TS-001])
 
 ## 1. Purpose [DO-002]
 
