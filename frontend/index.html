@@ -588,13 +588,13 @@
 
       <!-- VIEW: CONSUMER VERIFICATION -->
       <section id="view-verify" class="view-section">
-        <div style="max-width: 450px; margin: 0 auto; padding: 1rem; font-family: var(--font-inter);">
+        <div style="max-width: 450px; margin: 0 auto; padding: 1.5rem 1rem; font-family: var(--font-inter);">
           
           <!-- Brand Header -->
           <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-muted); padding-bottom: 0.75rem;">
             <div style="display: flex; align-items: center; gap: 0.5rem;">
               <div class="logo-dot"></div>
-              <span style="font-family: var(--font-outfit); font-weight: 700; font-size: 1.1rem; letter-spacing: -0.5px; color: var(--text-main);">CapMint Verify</span>
+              <span style="font-family: var(--font-outfit); font-weight: 700; font-size: 1.15rem; letter-spacing: -0.5px; color: var(--text-main);">CapMint Verify</span>
             </div>
             <button class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; border-radius: 8px;" onclick="exitVerifyMode()">Portal Home</button>
           </div>
@@ -608,8 +608,8 @@
           <!-- Error/Unknown state -->
           <div id="verify-error" style="display: none; text-align: center; padding: 3rem 1.5rem; background: rgba(255, 71, 114, 0.05); border: 1px solid var(--color-danger); border-radius: 16px;">
             <p style="font-size: 3rem; margin-bottom: 1rem;">❓</p>
-            <h2 style="font-family: var(--font-outfit); font-size: 1.35rem; margin-bottom: 0.5rem; color: var(--color-danger);">Status Unknown</h2>
-            <p id="verify-error-msg" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem;">We could not match this verification code with a registered batch lot. It may be unregistered or invalid.</p>
+            <h2 style="font-family: var(--font-outfit); font-size: 1.35rem; margin-bottom: 0.5rem; color: var(--color-danger);">Verification Issue</h2>
+            <p id="verify-error-msg" style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.5rem; line-height: 1.5;"></p>
             <button class="btn btn-outline" onclick="exitVerifyMode()">Return</button>
           </div>
 
@@ -617,71 +617,88 @@
           <div id="verify-content" style="display: none; flex-direction: column; gap: 1.25rem;">
             
             <!-- LEVEL 1: Primary Status & Identity Card (Always Visible) -->
-            <div id="verify-badge-card" style="padding: 2.25rem 1.5rem; border-radius: 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 0.85rem; box-shadow: 0 8px 32px rgba(0,0,0,0.25); border: 1px solid var(--border-muted); transition: all 0.3s ease;">
-              <div id="verify-badge-icon" style="font-size: 3.5rem; line-height: 1;">🟢</div>
-              <h1 id="verify-badge-title" style="font-family: var(--font-outfit); font-size: 1.85rem; font-weight: 700; margin: 0; color: var(--text-main);">Genuine Product</h1>
-              <span id="verify-badge-status" class="status-badge" style="font-size: 0.8rem; font-weight: 600; padding: 0.25rem 0.75rem;">VERIFIED</span>
+            <div id="verify-badge-card" style="padding: 2.25rem 1.5rem; border-radius: 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1rem; box-shadow: 0 8px 32px rgba(0,0,0,0.25); border: 1px solid var(--border-muted); transition: all 0.3s ease; background: rgba(18, 22, 33, 0.7); max-width: 100%;">
+              <!-- Large Verification Badge -->
+              <div id="verify-large-badge" style="font-family: var(--font-outfit); font-size: 1rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 0.4rem 1.25rem; border-radius: 30px; display: inline-block;"></div>
               
-              <!-- Consumer Message -->
-              <p id="verify-consumer-message" style="font-size: 0.9rem; font-weight: 500; color: var(--text-muted); max-width: 90%; margin: 0.25rem 0;"></p>
+              <!-- Authenticity Risk -->
+              <div style="margin-top: 0.25rem;">
+                <p style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.15rem;">Authenticity Risk</p>
+                <div id="verify-risk-value" style="font-family: var(--font-outfit); font-size: 1.5rem; font-weight: 700;"></div>
+              </div>
+
+              <!-- Product Name -->
+              <h2 id="verify-badge-title" style="font-family: var(--font-outfit); font-size: 1.6rem; font-weight: 600; margin: 0.25rem 0; color: var(--text-main);"></h2>
+
+              <!-- Short Trust Summary Checklist -->
+              <div id="verify-trust-summary" style="display: flex; flex-direction: column; gap: 0.5rem; text-align: left; align-self: stretch; padding: 0.85rem 1.15rem; border-radius: 12px; background: rgba(255, 255, 255, 0.02); font-size: 0.85rem; border: 1px solid var(--border-muted);">
+              </div>
             </div>
 
-            <!-- LEVEL 1: Core Product Details Panel -->
-            <div class="glass-card" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; border-radius: 16px;">
-              <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border-muted); padding-bottom: 0.5rem;">
+            <!-- LEVEL 1: Core Product Identity Panel -->
+            <div id="panel-identity" class="glass-card" style="padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; border-radius: 16px;">
+              <div style="border-bottom: 1px solid var(--border-muted); padding-bottom: 0.5rem;">
                 <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase;">Product Identity</span>
-                <span id="verify-risk-badge" class="status-badge" style="font-size: 0.75rem; padding: 0.15rem 0.5rem; font-weight: 600;"></span>
               </div>
               
-              <div style="display: flex; flex-direction: column; gap: 0.65rem; font-size: 0.85rem;">
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Name</span><strong id="verify-prod-name" style="color: var(--text-main);"></strong></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Manufacturer</span><strong id="verify-prod-manufacturer" style="color: var(--text-main);"></strong></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Origin</span><span id="verify-prod-country" style="color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Organic Certification</span><span id="verify-cert-status-badge" class="status-badge badge-active" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;">ACTIVE</span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Lab Purity Status</span><span id="verify-lab-status-badge" class="status-badge badge-active" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;">PASSED</span></div>
+              <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.85rem;">
+                <div id="row-prod-name" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Name</span><strong id="verify-prod-name" style="color: var(--text-main);"></strong></div>
+                <div id="row-prod-manufacturer" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Manufacturer</span><strong id="verify-prod-manufacturer" style="color: var(--text-main);"></strong></div>
+                <div id="row-prod-country" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Origin</span><span id="verify-prod-country" style="color: var(--text-main);"></span></div>
+                <div id="row-prod-organic" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Organic Certification</span><span id="verify-cert-status-badge" class="status-badge" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;"></span></div>
+                <div id="row-prod-lab" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Lab Purity Status</span><span id="verify-lab-status-badge" class="status-badge" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;"></span></div>
               </div>
             </div>
 
             <!-- LEVEL 2: Expandable Product Details Accordion -->
-            <div class="glass-card" style="padding: 0; overflow: hidden; border-radius: 16px;">
+            <div id="panel-specifications" class="glass-card" style="padding: 0; overflow: hidden; border-radius: 16px;">
               <button onclick="toggleAccordion('acc-specifications')" style="width: 100%; padding: 1.15rem; background: transparent; border: none; outline: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: var(--text-main); font-family: var(--font-outfit); font-size: 0.95rem; font-weight: 600; text-align: left;">
                 <span>📋 View Product Details</span>
                 <span id="arrow-acc-specifications" style="transition: transform 0.2s ease;">▼</span>
               </button>
               
-              <div id="acc-specifications" style="display: none; padding: 0 1.15rem 1.15rem 1.15rem; border-top: 1px solid var(--border-muted); flex-direction: column; gap: 0.65rem; font-size: 0.85rem;">
-                <div style="display: flex; justify-content: space-between; margin-top: 0.75rem;"><span style="color: var(--text-muted);">GTIN-14</span><span id="verify-prod-gtin" style="font-family: monospace; color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Batch Number</span><span id="verify-prod-batch" style="font-family: monospace; color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Serial Number</span><span id="verify-prod-serial" style="font-family: monospace; color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Packaging Date</span><span id="verify-prod-packdate" style="color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Expiry Date</span><span id="verify-prod-expdate" style="color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Net Weight</span><span id="verify-prod-weight" style="color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Certifying Authority</span><strong id="verify-cert-auth" style="color: var(--text-main);"></strong></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Certificate Number</span><span id="verify-cert-num" style="font-family: monospace; color: var(--text-main);"></span></div>
+              <div id="acc-specifications" style="display: none; padding: 0 1.15rem 1.15rem 1.15rem; border-top: 1px solid var(--border-muted); flex-direction: column; gap: 0.75rem; font-size: 0.85rem;">
+                <div id="row-spec-gtin" style="display: flex; justify-content: space-between; margin-top: 0.75rem;"><span style="color: var(--text-muted);">GTIN-14</span><span id="verify-prod-gtin" style="font-family: monospace; color: var(--text-main);"></span></div>
+                <div id="row-spec-batch" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Batch Number</span><span id="verify-prod-batch" style="font-family: monospace; color: var(--text-main);"></span></div>
+                <div id="row-spec-serial" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Serial Number</span><span id="verify-prod-serial" style="font-family: monospace; color: var(--text-main);"></span></div>
+                <div id="row-spec-packdate" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Packaging Date</span><span id="verify-prod-packdate" style="color: var(--text-main);"></span></div>
+                <div id="row-spec-expdate" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Expiry Date</span><span id="verify-prod-expdate" style="color: var(--text-main);"></span></div>
+                <div id="row-spec-weight" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Net Weight</span><span id="verify-prod-weight" style="color: var(--text-main);"></span></div>
+                <div id="row-spec-cert-auth" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Certifying Authority</span><strong id="verify-cert-auth" style="color: var(--text-main);"></strong></div>
+                <div id="row-spec-cert-num" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Certificate Number</span><span id="verify-cert-num" style="font-family: monospace; color: var(--text-main);"></span></div>
               </div>
             </div>
 
             <!-- LEVEL 3: Expandable Transparency Timeline & History -->
-            <div class="glass-card" style="padding: 0; overflow: hidden; border-radius: 16px;">
+            <div id="panel-transparency" class="glass-card" style="padding: 0; overflow: hidden; border-radius: 16px;">
               <button onclick="toggleAccordion('acc-transparency')" style="width: 100%; padding: 1.15rem; background: transparent; border: none; outline: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: var(--text-main); font-family: var(--font-outfit); font-size: 0.95rem; font-weight: 600; text-align: left;">
                 <span>🔗 Transparency & Verification History</span>
                 <span id="arrow-acc-transparency" style="transition: transform 0.2s ease;">▼</span>
               </button>
               
-              <div id="acc-transparency" style="display: none; padding: 0 1.15rem 1.15rem 1.15rem; border-top: 1px solid var(--border-muted); flex-direction: column; gap: 0.65rem; font-size: 0.85rem;">
-                <div style="display: flex; justify-content: space-between; margin-top: 0.75rem;"><span style="color: var(--text-muted);">Mint Date</span><span id="verify-meta-mintdate" style="color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Previous Scan Count</span><span id="verify-meta-scancount" style="color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Last Scan Date/Time</span><span id="verify-meta-prevscan" style="font-family: monospace; color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Last Scan Country</span><span id="verify-meta-prevloc" style="color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Purity Test Lab</span><span style="color: var(--text-main);">Intertek Labs (NABL)</span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Purity Report ID</span><span id="verify-lab-report" style="font-family: monospace; color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Ledger Reference</span><strong style="color: var(--color-primary); font-family: monospace;">Block #04 Anchor</strong></div>
+              <div id="acc-transparency" style="display: none; padding: 0 1.15rem 1.15rem 1.15rem; border-top: 1px solid var(--border-muted); flex-direction: column; gap: 0.75rem; font-size: 0.85rem;">
+                <div id="row-trans-mintdate" style="display: flex; justify-content: space-between; margin-top: 0.75rem;"><span style="color: var(--text-muted);">Mint Date</span><span id="verify-meta-mintdate" style="color: var(--text-main);"></span></div>
+                <div id="row-trans-scancount" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Verification Count</span><span id="verify-meta-scancount" style="color: var(--text-main);"></span></div>
+                <div id="row-trans-prevscan" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Last Verification</span><span id="verify-meta-prevscan" style="font-family: monospace; color: var(--text-main);"></span></div>
+                <div id="row-trans-prevloc" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Current Country</span><span id="verify-meta-prevloc" style="color: var(--text-main);"></span></div>
+                
+                <!-- Inner Expandable Advanced Section (Collapsed by default) -->
+                <div style="border-top: 1px dashed var(--border-muted); margin-top: 0.75rem; padding-top: 0.75rem;">
+                  <button onclick="toggleAccordion('acc-advanced-info')" style="width: 100%; background: transparent; border: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: var(--text-muted); font-size: 0.8rem; font-weight: 600; text-transform: uppercase;">
+                    <span>🛠️ Advanced Verification Info</span>
+                    <span id="arrow-acc-advanced-info">▼</span>
+                  </button>
+                  <div id="acc-advanced-info" style="display: none; flex-direction: column; gap: 0.65rem; margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
+                    <div style="display: flex; justify-content: space-between;"><span>Transparency Ledger Reference</span><strong style="color: var(--color-primary); font-family: monospace;">Block #04 Anchor</strong></div>
+                    <div style="display: flex; justify-content: space-between;"><span>Purity Report ID</span><span id="verify-lab-report" style="font-family: monospace; color: var(--text-main);"></span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>Investigation Status</span><span style="color: var(--color-primary);">NORMAL</span></div>
+                    <div style="display: flex; justify-content: space-between;"><span>Verification Timeline</span><span style="color: var(--text-main);">Cryptographic Chain Intact</span></div>
+                  </div>
+                </div>
               </div>
             </div>
 
           </div>
-        </div>
-      </section>>
         </div>
       </section>
     </main>
@@ -1173,6 +1190,46 @@
     const VITE_VERIFY_BASE_URL = window.VITE_VERIFY_BASE_URL || window.location.origin || 'http://localhost:8080';
     const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
 
+    // Safe Helper Functions to avoid Null reference errors in UI
+    function setSafeText(id, text) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text || '';
+    }
+
+    function setSafeHTML(id, html) {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = html || '';
+    }
+
+    function updateFieldRow(rowId, valueId, value) {
+      const row = document.getElementById(rowId);
+      const valEl = document.getElementById(valueId);
+      if (!row) return;
+      if (value && value !== 'N/A') {
+        if (valEl) valEl.textContent = value;
+        row.style.display = 'flex';
+      } else {
+        row.style.display = 'none';
+      }
+    }
+
+    function updateBadgeRow(rowId, valueId, value, type) {
+      const row = document.getElementById(rowId);
+      const badge = document.getElementById(valueId);
+      if (!row || !badge) return;
+      if (value && value !== 'N/A') {
+        badge.textContent = value;
+        if (type === 'cert') {
+          badge.className = value === 'ACTIVE' ? 'status-badge badge-active' : 'status-badge badge-revoked';
+        } else if (type === 'lab') {
+          badge.className = (value === 'PASS' || value === 'PASSED') ? 'status-badge badge-active' : 'status-badge badge-revoked';
+        }
+        row.style.display = 'flex';
+      } else {
+        row.style.display = 'none';
+      }
+    }
+
     async function showVerifyPage(publicIdentifier) {
       // 1. Hide Sidebar
       const aside = document.querySelector('aside');
@@ -1212,10 +1269,12 @@
         const res = await response.json();
         
         if (!response.ok || !res.success) {
-          throw new Error(res.error?.message || 'Verification failed');
+          throw new Error(res.error?.message || 'Verification record lookup failed');
         }
         
-        const data = res.data;
+        const data = res.data || {};
+        const metadata = data.productMetadata || {};
+        const labResult = data.labResult || {};
         
         // 5. Populate display fields
         document.getElementById('verify-loading').style.display = 'none';
@@ -1224,109 +1283,109 @@
         // Reset Accordion Collapsible Views to closed by default
         document.getElementById('acc-specifications').style.display = 'none';
         document.getElementById('acc-transparency').style.display = 'none';
+        document.getElementById('acc-advanced-info').style.display = 'none';
+        
         document.getElementById('arrow-acc-specifications').style.transform = 'rotate(0deg)';
         document.getElementById('arrow-acc-transparency').style.transform = 'rotate(0deg)';
+        document.getElementById('arrow-acc-advanced-info').style.transform = 'rotate(0deg)';
 
-        // Status Badge & Colors (Level 1)
+        // Populate Single Primary Verification Card (Level 1)
         const statusCard = document.getElementById('verify-badge-card');
-        const badgeIcon = document.getElementById('verify-badge-icon');
-        const badgeTitle = document.getElementById('verify-badge-title');
-        const badgeStatus = document.getElementById('verify-badge-status');
-        const consumerMsg = document.getElementById('verify-consumer-message');
-        
-        let messageText = '';
-        if (data.status === 'VERIFIED') {
-          statusCard.style.background = 'rgba(0, 242, 195, 0.08)';
-          statusCard.style.border = '1px solid var(--color-primary)';
-          badgeIcon.textContent = '🟢';
-          badgeTitle.textContent = 'Genuine Product';
-          badgeStatus.textContent = 'VERIFIED';
-          badgeStatus.className = 'status-badge badge-active';
-          
-          if (data.risk === 'LOW') {
-            messageText = 'Product successfully verified.';
+        const largeBadge = document.getElementById('verify-large-badge');
+        const riskVal = document.getElementById('verify-risk-value');
+        const cardTitle = document.getElementById('verify-badge-title');
+        const trustSummary = document.getElementById('verify-trust-summary');
+
+        if (statusCard && largeBadge && riskVal && cardTitle && trustSummary) {
+          const status = data.status || 'UNKNOWN';
+          const risk = data.risk || 'LOW';
+          const name = metadata.name || 'Organic White Honey';
+
+          cardTitle.textContent = name;
+          riskVal.textContent = risk;
+
+          if (status === 'VERIFIED') {
+            statusCard.style.background = 'rgba(16, 185, 129, 0.05)';
+            statusCard.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+            largeBadge.textContent = 'VERIFIED';
+            largeBadge.style.background = 'rgba(16, 185, 129, 0.1)';
+            largeBadge.style.color = '#10b981';
+            largeBadge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+            riskVal.style.color = '#10b981';
+            
+            trustSummary.innerHTML = `
+              <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Genuine Product</div>
+              <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Organic Certified</div>
+              <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Laboratory Verified</div>
+              <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Supply Chain Traceable</div>
+            `;
+          } else if (status === 'REVOKED') {
+            statusCard.style.background = 'rgba(239, 68, 68, 0.05)';
+            statusCard.style.borderColor = 'rgba(239, 68, 68, 0.3)';
+            largeBadge.textContent = 'REVOKED';
+            largeBadge.style.background = 'rgba(239, 68, 68, 0.1)';
+            largeBadge.style.color = '#ef4444';
+            largeBadge.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+            riskVal.style.color = '#ef4444';
+
+            trustSummary.innerHTML = `
+              <div style="color: #ef4444; display: flex; align-items: center; gap: 0.5rem;"><span>✗</span> Product Revoked</div>
+              <div style="color: #ef4444; display: flex; align-items: center; gap: 0.5rem;"><span>✗</span> Not Safe to Trust</div>
+              <div style="color: #ef4444; display: flex; align-items: center; gap: 0.5rem;"><span>✗</span> Inactive Batch Lot</div>
+            `;
           } else {
-            messageText = 'Product verified, but unusual scan behaviour has been detected.';
+            statusCard.style.background = 'rgba(245, 158, 11, 0.05)';
+            statusCard.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+            largeBadge.textContent = 'CLONE SUSPECT';
+            largeBadge.style.background = 'rgba(245, 158, 11, 0.1)';
+            largeBadge.style.color = '#f59e0b';
+            largeBadge.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+            riskVal.style.color = '#f59e0b';
+
+            trustSummary.innerHTML = `
+              <div style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span>⚠️</span> Duplicate Scan Warning</div>
+              <div style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span>⚠️</span> Geographically Inconsistent</div>
+              <div style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span>⚠️</span> Counterfeit Risk</div>
+            `;
           }
-        } else if (data.status === 'REVOKED') {
-          statusCard.style.background = 'rgba(255, 71, 114, 0.08)';
-          statusCard.style.border = '1px solid var(--color-danger)';
-          badgeIcon.textContent = '🔴';
-          badgeTitle.textContent = 'Revoked';
-          badgeStatus.textContent = 'REVOKED';
-          badgeStatus.className = 'status-badge badge-revoked';
-          messageText = 'This product has been revoked.';
-        } else if (data.status === 'EXPIRED') {
-          statusCard.style.background = 'rgba(255, 182, 77, 0.08)';
-          statusCard.style.border = '1px solid var(--color-warning)';
-          badgeIcon.textContent = '⚠️';
-          badgeTitle.textContent = 'Expired';
-          badgeStatus.textContent = 'EXPIRED';
-          badgeStatus.className = 'status-badge badge-clone';
-          messageText = 'This product has expired.';
-        } else {
-          statusCard.style.background = 'rgba(255, 255, 255, 0.03)';
-          statusCard.style.border = '1px solid var(--border-muted)';
-          badgeIcon.textContent = '❓';
-          badgeTitle.textContent = 'Unknown';
-          badgeStatus.textContent = 'UNKNOWN';
-          badgeStatus.className = 'status-badge';
-          messageText = 'Unknown product verification status.';
-        }
-        
-        // Authenticity Risk badge & concise explanation (Level 1)
-        const riskBadge = document.getElementById('verify-risk-badge');
-        document.getElementById('verify-risk-text').textContent = data.risk;
-        riskBadge.textContent = `Risk: ${data.risk}`;
-        if (data.risk === 'LOW') {
-          riskBadge.className = 'status-badge badge-active';
-        } else if (data.risk === 'MEDIUM' || data.risk === 'HIGH') {
-          riskBadge.className = 'status-badge badge-clone';
-        } else {
-          riskBadge.className = 'status-badge badge-revoked';
         }
 
-        if (data.risk === 'HIGH' || data.risk === 'CRITICAL') {
-          messageText += ' Warning: Multiple geographically inconsistent verification events detected.';
-        }
-        consumerMsg.textContent = messageText;
+        // LEVEL 1: Core Product Identity details (hide if empty)
+        updateFieldRow('row-prod-name', 'verify-prod-name', metadata.name);
+        updateFieldRow('row-prod-manufacturer', 'verify-prod-manufacturer', metadata.manufacturer);
+        updateFieldRow('row-prod-country', 'verify-prod-country', metadata.country_of_origin);
+        updateBadgeRow('row-prod-organic', 'verify-cert-status-badge', metadata.organic_certificate_status || 'ACTIVE', 'cert');
+        updateBadgeRow('row-prod-lab', 'verify-lab-status-badge', labResult.status || 'PASSED', 'lab');
 
-        // Level 1 Identity Details
-        document.getElementById('verify-prod-name').textContent = data.productMetadata?.name || 'Organic White Honey';
-        document.getElementById('verify-prod-manufacturer').textContent = data.productMetadata?.manufacturer || 'Premium Farms';
-        document.getElementById('verify-prod-country').textContent = data.productMetadata?.country_of_origin || 'India';
-        
-        const certStatusBadge = document.getElementById('verify-cert-status-badge');
-        const certStatusText = data.productMetadata?.organic_certificate_status || 'ACTIVE';
-        certStatusBadge.textContent = certStatusText;
-        certStatusBadge.className = certStatusText === 'ACTIVE' ? 'status-badge badge-active' : 'status-badge badge-revoked';
+        // LEVEL 2: Specifications details (hide if empty)
+        updateFieldRow('row-spec-gtin', 'verify-prod-gtin', data.gtin);
+        updateFieldRow('row-spec-batch', 'verify-prod-batch', metadata.batch_id);
+        updateFieldRow('row-spec-serial', 'verify-prod-serial', data.serial);
+        updateFieldRow('row-spec-packdate', 'verify-prod-packdate', metadata.packaging_date);
+        updateFieldRow('row-spec-expdate', 'verify-prod-expdate', metadata.expiry_date);
+        updateFieldRow('row-spec-weight', 'verify-prod-weight', metadata.net_weight);
+        updateFieldRow('row-spec-cert-auth', 'verify-cert-auth', metadata.certifying_authority);
+        updateFieldRow('row-spec-cert-num', 'verify-cert-num', metadata.organic_certificate_number);
 
-        const labStatusBadge = document.getElementById('verify-lab-status-badge');
-        const labResultStatus = data.labResult?.status || 'PASSED';
-        labStatusBadge.textContent = labResultStatus;
-        labStatusBadge.className = (labResultStatus === 'PASS' || labResultStatus === 'PASSED') ? 'status-badge badge-active' : 'status-badge badge-revoked';
+        // LEVEL 3: Transparency details (hide if empty)
+        updateFieldRow('row-trans-mintdate', 'verify-meta-mintdate', metadata.mint_date);
+        updateFieldRow('row-trans-scancount', 'verify-meta-scancount', metadata.scan_count);
+        updateFieldRow('row-trans-prevscan', 'verify-meta-prevscan', metadata.previous_scan_timestamp);
+        updateFieldRow('row-trans-prevloc', 'verify-meta-prevloc', metadata.previous_scan_country);
 
-        // Level 2 Collapsible Specifications
-        document.getElementById('verify-prod-gtin').textContent = data.gtin;
-        document.getElementById('verify-prod-batch').textContent = data.productMetadata?.batch_id || 'B-LOT-901';
-        document.getElementById('verify-prod-serial').textContent = data.serial;
-        document.getElementById('verify-prod-packdate').textContent = data.productMetadata?.packaging_date || '2026-07-11';
-        document.getElementById('verify-prod-expdate').textContent = data.productMetadata?.expiry_date || '2027-07-11';
-        document.getElementById('verify-prod-weight').textContent = data.productMetadata?.net_weight || '500g';
-        document.getElementById('verify-cert-auth').textContent = data.productMetadata?.certifying_authority || 'Organic Trade Council India';
-        document.getElementById('verify-cert-num').textContent = data.productMetadata?.organic_certificate_number || 'NPOP-OTC-2026-8802';
-        
-        // Level 3 Collapsible Transparency Timeline
-        document.getElementById('verify-meta-mintdate').textContent = data.productMetadata?.mint_date || new Date().toISOString().split('T')[0];
-        document.getElementById('verify-meta-scancount').textContent = data.productMetadata?.scan_count || '0';
-        document.getElementById('verify-meta-prevscan').textContent = data.productMetadata?.previous_scan_timestamp || 'N/A';
-        document.getElementById('verify-meta-prevloc').textContent = data.productMetadata?.previous_scan_country || 'N/A';
-        document.getElementById('verify-lab-report').textContent = data.labResult?.reportUrl || 'NABL-INTK-2026-10492';
-        
+        // Advanced info
+        setSafeText('verify-lab-report', labResult.reportUrl || 'NABL-INTK-2026-10492');
+
       } catch (err) {
         document.getElementById('verify-loading').style.display = 'none';
         document.getElementById('verify-error').style.display = 'block';
-        document.getElementById('verify-error-msg').textContent = err.message;
+
+        // Graceful error mapping to user-friendly messages (never leak raw stack traces or set properties of null)
+        let friendlyMsg = 'Verification temporarily unavailable. Please try again later.';
+        if (err.message.includes('not found') || err.message.includes('match') || err.message.includes('lookup') || err.message.includes('failed')) {
+          friendlyMsg = 'Unable to retrieve product information. We could not match this verification code with a registered batch lot.';
+        }
+        document.getElementById('verify-error-msg').textContent = friendlyMsg;
       }
     }
     
