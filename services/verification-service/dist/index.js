@@ -219,6 +219,76 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
         JSON.stringify(device_metadata || {}),
         finalStatus
     ]);
+    // 3.5 Automatically create Investigation Case if risk is CRITICAL or HIGH
+    if (finalRisk === 'CRITICAL' || finalRisk === 'HIGH') {
+        // Check if open case already exists to prevent duplicate timeline spam
+        const existingCheck = await pgPool.query(`SELECT id FROM investigations WHERE public_identifier = $1 AND status IN ('OPEN', 'UNDER_REVIEW')`, [public_identifier]);
+        if (existingCheck.rows.length === 0) {
+            // Query historical scans for evidence
+            const scansRes = await pgPool.query(`SELECT timestamp, location, device_metadata, verdict FROM scan_events WHERE unit_code_id = $1 ORDER BY timestamp DESC`, [codeRecord.id]);
+            const evidence = {
+                verification_timeline: [
+                    { name: 'Product Minted', status: '✓ Completed' },
+                    { name: 'Organic Certificate Approved', status: '✓ Completed' },
+                    { name: 'Laboratory Verified', status: '✓ Completed' },
+                    { name: 'Packaged', status: '✓ Completed' },
+                    { name: 'Distribution Started', status: '✓ Completed' }
+                ],
+                historical_scan_events: scansRes.rows.map(s => ({
+                    timestamp: s.timestamp,
+                    location: s.location || { country: 'India' },
+                    verdict: s.verdict,
+                    device: s.device_metadata
+                })),
+                risk_factors: [
+                    "Duplicate scan detected: Clone suspect check triggered",
+                    "Potential counterfeit: Identical QR code scanned multiple times"
+                ],
+                current_product_status: finalStatus,
+                current_risk_level: finalRisk,
+                investigation_reason: "High risk clone detection rule triggered: code copy suspect",
+                transparency_timeline: [
+                    { name: 'Investigation Opened', status: '⚠ Under Investigation' }
+                ]
+            };
+            await pgPool.query(`
+        INSERT INTO investigations (
+          product_name, public_identifier, risk_level, status, detection_reason, manufacturer, current_product_status, evidence
+        )
+        VALUES ($1, $2, $3, 'OPEN', $4, $5, $6, $7)
+        ON CONFLICT (public_identifier) DO UPDATE
+        SET status = 'OPEN', updated_at = CURRENT_TIMESTAMP
+      `, [
+                codeRecord.product_metadata?.name || 'Organic White Honey',
+                public_identifier,
+                finalRisk,
+                'Clone suspect flag tripped due to anomalous scanning frequency',
+                codeRecord.product_metadata?.manufacturer || 'Premium Farms',
+                finalStatus,
+                JSON.stringify(evidence)
+            ]);
+            // Append Investigation Created event to transparency ledger
+            try {
+                await fetch('http://transparency-service:8085/api/v1/log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        entity_type: 'INVESTIGATION',
+                        entity_id: public_identifier,
+                        event_type: 'INVESTIGATION_CREATED',
+                        payload: {
+                            public_identifier,
+                            risk_level: finalRisk,
+                            reason: 'Clone suspect flag tripped due to anomalous scanning frequency'
+                        }
+                    })
+                });
+            }
+            catch (logErr) {
+                server.log.error(logErr, 'Failed to append INVESTIGATION_CREATED to transparency ledger');
+            }
+        }
+    }
     // Compute dynamic scan count (this scan + prior scans)
     const realScanCount = parseInt(codeRecord.real_scan_count || '0') + 1;
     const productMetadata = {
@@ -424,10 +494,229 @@ server.get('/api/v1/verify/lots', async (request, reply) => {
         }
     };
 });
+// Route: List Investigations
+server.get('/api/v1/verify/investigations', {
+    preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
+}, async (request, reply) => {
+    const result = await pgPool.query('SELECT * FROM investigations ORDER BY created_at DESC');
+    return {
+        success: true,
+        data: {
+            investigations: result.rows.map(row => ({
+                id: row.id,
+                product_name: row.product_name,
+                public_identifier: row.public_identifier,
+                risk_level: row.risk_level,
+                status: row.status,
+                detection_time: row.detection_time,
+                detection_reason: row.detection_reason,
+                manufacturer: row.manufacturer,
+                current_product_status: row.current_product_status,
+                evidence: row.evidence
+            }))
+        }
+    };
+});
+// Route: Get Investigation Details
+server.get('/api/v1/verify/investigations/:id', {
+    preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
+}, async (request, reply) => {
+    const { id } = request.params;
+    const result = await pgPool.query('SELECT * FROM investigations WHERE id = $1', [id]);
+    if (result.rows.length === 0) {
+        return reply.status(404).send({
+            success: false,
+            error: { statusCode: 404, code: 'NOT_FOUND', message: 'Investigation not found.' }
+        });
+    }
+    const row = result.rows[0];
+    return {
+        success: true,
+        data: {
+            investigation: {
+                id: row.id,
+                product_name: row.product_name,
+                public_identifier: row.public_identifier,
+                risk_level: row.risk_level,
+                status: row.status,
+                detection_time: row.detection_time,
+                detection_reason: row.detection_reason,
+                manufacturer: row.manufacturer,
+                current_product_status: row.current_product_status,
+                evidence: row.evidence
+            }
+        }
+    };
+});
+// Route: Approve Revocation
+server.post('/api/v1/verify/investigations/:id/approve', {
+    preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
+}, async (request, reply) => {
+    const { id } = request.params;
+    const client = await pgPool.connect();
+    try {
+        await client.query('BEGIN');
+        // 1. Fetch Investigation
+        const invRes = await client.query('SELECT * FROM investigations WHERE id = $1 FOR UPDATE', [id]);
+        if (invRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return reply.status(404).send({
+                success: false,
+                error: { statusCode: 404, code: 'NOT_FOUND', message: 'Investigation not found.' }
+            });
+        }
+        const inv = invRes.rows[0];
+        const pubId = inv.public_identifier;
+        // 2. Fetch linked unit code to get lot ID
+        const ucRes = await client.query('SELECT id, lot_id FROM unit_codes WHERE public_identifier = $1', [pubId]);
+        if (ucRes.rows.length > 0) {
+            const codeRecord = ucRes.rows[0];
+            const lotId = codeRecord.lot_id;
+            // 3. Update Unit Code state to REVOKED
+            await client.query(`UPDATE unit_codes SET current_state = 'REVOKED', revoked_at = CURRENT_TIMESTAMP WHERE id = $1`, [codeRecord.id]);
+            // 4. Update Lot revocation status to REVOKED
+            await client.query(`UPDATE lots 
+         SET revocation_status = 'REVOKED', 
+             product_metadata = product_metadata || jsonb_build_object('revocation_reason', $2::text, 'revocation_date', CURRENT_TIMESTAMP),
+             updated_at = CURRENT_TIMESTAMP 
+         WHERE id = $1`, [lotId, inv.detection_reason]);
+        }
+        // 5. Update Investigation Status to REVOKED (resolved state)
+        await client.query(`UPDATE investigations SET status = 'REVOKED', current_product_status = 'REVOKED', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
+        // 6. Commit transaction
+        await client.query('COMMIT');
+        // 7. Log to Transparency Ledger
+        try {
+            await fetch('http://transparency-service:8085/api/v1/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    entity_type: 'INVESTIGATION',
+                    entity_id: pubId,
+                    event_type: 'INVESTIGATION_APPROVED',
+                    payload: {
+                        investigation_id: id,
+                        public_identifier: pubId,
+                        action: 'REVOCATION_APPROVED',
+                        reason: inv.detection_reason
+                    }
+                })
+            });
+            await fetch('http://transparency-service:8085/api/v1/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    entity_type: 'PRODUCT',
+                    entity_id: pubId,
+                    event_type: 'PRODUCT_REVOKED',
+                    payload: {
+                        public_identifier: pubId,
+                        reason: inv.detection_reason
+                    }
+                })
+            });
+        }
+        catch (logErr) {
+            server.log.error(logErr, 'Failed to append to ledger during approval');
+        }
+        return {
+            success: true,
+            message: 'Investigation approved and product officially revoked.'
+        };
+    }
+    catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    }
+    finally {
+        client.release();
+    }
+});
+// Route: Dismiss Investigation
+server.post('/api/v1/verify/investigations/:id/dismiss', {
+    preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
+}, async (request, reply) => {
+    const { id } = request.params;
+    const client = await pgPool.connect();
+    try {
+        await client.query('BEGIN');
+        // 1. Fetch Investigation
+        const invRes = await client.query('SELECT * FROM investigations WHERE id = $1 FOR UPDATE', [id]);
+        if (invRes.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return reply.status(404).send({
+                success: false,
+                error: { statusCode: 404, code: 'NOT_FOUND', message: 'Investigation not found.' }
+            });
+        }
+        const inv = invRes.rows[0];
+        const pubId = inv.public_identifier;
+        // 2. Update status to DISMISSED
+        await client.query(`UPDATE investigations SET status = 'DISMISSED', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
+        await client.query('COMMIT');
+        // 3. Log to Transparency Ledger
+        try {
+            await fetch('http://transparency-service:8085/api/v1/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    entity_type: 'INVESTIGATION',
+                    entity_id: pubId,
+                    event_type: 'INVESTIGATION_DISMISSED',
+                    payload: {
+                        investigation_id: id,
+                        public_identifier: pubId,
+                        action: 'INVESTIGATION_DISMISSED'
+                    }
+                })
+            });
+        }
+        catch (logErr) {
+            server.log.error(logErr, 'Failed to append to ledger during dismissal');
+        }
+        return {
+            success: true,
+            message: 'Investigation successfully dismissed.'
+        };
+    }
+    catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    }
+    finally {
+        client.release();
+    }
+});
 // Start the server
 const start = async () => {
     try {
         const port = parseInt(process.env.PORT || '8086', 10);
+        // Create investigations table if not exists
+        const client = await pgPool.connect();
+        try {
+            await client.query(`
+        CREATE TABLE IF NOT EXISTS investigations (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          product_name VARCHAR(255) NOT NULL,
+          public_identifier UUID NOT NULL UNIQUE,
+          risk_level VARCHAR(32) NOT NULL,
+          status VARCHAR(32) NOT NULL DEFAULT 'OPEN',
+          detection_time TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          detection_reason TEXT NOT NULL,
+          manufacturer VARCHAR(255) NOT NULL,
+          current_product_status VARCHAR(32) NOT NULL,
+          evidence JSONB NOT NULL,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+        }
+        catch (dbErr) {
+            server.log.error(dbErr, 'Failed to initialize investigations table');
+        }
+        finally {
+            client.release();
+        }
         await server.listen({ port, host: '0.0.0.0' });
         server.log.info(`Verification service listening on port ${port}`);
     }
