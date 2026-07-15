@@ -179,7 +179,8 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
     SELECT u.id, u.serial, u.gtin, u.current_state, u.clone_flag,
            l.id as lot_id, l.revocation_status, l.lab_status, l.product_metadata,
            b.effective_end_date,
-           r.result_summary, r.report_reference
+           r.result_summary, r.report_reference,
+           (SELECT COUNT(*) FROM scan_events WHERE unit_code_id = u.id) as real_scan_count
     FROM unit_codes u
     JOIN lots l ON u.lot_id = l.id
     JOIN budgets b ON l.budget_id = b.id
@@ -218,6 +219,12 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
         JSON.stringify(device_metadata || {}),
         finalStatus
     ]);
+    // Compute dynamic scan count (this scan + prior scans)
+    const realScanCount = parseInt(codeRecord.real_scan_count || '0') + 1;
+    const productMetadata = {
+        ...codeRecord.product_metadata,
+        scan_count: realScanCount.toString()
+    };
     return {
         success: true,
         data: {
@@ -225,7 +232,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
             risk: finalRisk,
             gtin: codeRecord.gtin,
             serial: codeRecord.serial,
-            productMetadata: codeRecord.product_metadata,
+            productMetadata: productMetadata,
             labResult: codeRecord.result_summary ? {
                 status: codeRecord.result_summary,
                 reportUrl: codeRecord.report_reference
@@ -267,27 +274,64 @@ server.post('/api/v1/verify/register', async (request, reply) => {
       VALUES ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'UNIT_COUNT', 1000000, 'sig_default', '2026-07-11T00:00:00Z', '2027-07-11T00:00:00Z', 'ACTIVE', '{}')
       ON CONFLICT (id) DO NOTHING
     `);
-        // 4. Insert default Lot if not exists
-        await client.query(`
+        // 4. Insert dynamic Lot
+        const lotInsert = await client.query(`
       INSERT INTO lots (id, producer_id, budget_id, product_metadata, batch_size, processing_dates, lab_status)
-      VALUES ('00000000-0000-0000-0000-000000000004', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003', $1, 10000, '{}', 'PASSED')
-      ON CONFLICT (id) DO NOTHING
+      VALUES (uuid_generate_v4(), '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003', $1, 10000, '{}', 'PASSED')
+      RETURNING id
     `, [JSON.stringify(product_metadata || { name: 'Organic White Honey', manufacturer: 'Premium Farms' })]);
-        // 5. Insert Lab Result for the default Lot if not exists
+        const lotUuid = lotInsert.rows[0].id;
+        // 5. Insert Lab Result for the dynamic Lot if not exists
         await client.query(`
       INSERT INTO lab_results (lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
-      VALUES ('00000000-0000-0000-0000-000000000004', 'Intertek India Labs', 'Purity Certification Test', 'PASS', 'hash_lab_default', 'NABL-INTK-2026-10492')
+      VALUES ($1, 'Intertek India Labs', 'Purity Certification Test', 'PASS', 'hash_lab_default', 'NABL-INTK-2026-10492')
       ON CONFLICT (lot_id) DO NOTHING
-    `);
+    `, [lotUuid]);
         // 6. Insert Unit Code
         const digital_link_uri = `https://id.capmint.io/01/${gtin}/21/${serial}`;
         await client.query(`
       INSERT INTO unit_codes (lot_id, serial, gtin, digital_link_uri, public_identifier, verification_url, qr_code_data_uri, current_state)
-      VALUES ('00000000-0000-0000-0000-000000000004', $1, $2, $3, $4, $5, $6, 'MINTED')
+      VALUES ($1, $2, $3, $4, $5, $6, $7, 'MINTED')
       ON CONFLICT (public_identifier) DO NOTHING
-    `, [serial, gtin, digital_link_uri, public_identifier, verification_url, qr_code_data_uri]);
+    `, [lotUuid, serial, gtin, digital_link_uri, public_identifier, verification_url, qr_code_data_uri]);
         await client.query('COMMIT');
         return { success: true, message: 'Verification record persisted successfully.' };
+    }
+    catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    }
+    finally {
+        client.release();
+    }
+});
+// Route: Public simulation revocation for Manufacturer Console
+server.post('/api/v1/verify/revoke', async (request, reply) => {
+    const { batch_id } = request.body;
+    if (!batch_id) {
+        return reply.status(400).send({
+            success: false,
+            error: {
+                statusCode: 400,
+                code: 'BAD_REQUEST',
+                message: 'Missing batch_id in request body.'
+            }
+        });
+    }
+    const client = await pgPool.connect();
+    try {
+        await client.query('BEGIN');
+        // 1. Find all lots matching batch_id
+        const lotRes = await client.query(`SELECT id FROM lots WHERE product_metadata->>'batch_id' = $1`, [batch_id]);
+        if (lotRes.rowCount !== null && lotRes.rowCount > 0) {
+            const lotIds = lotRes.rows.map(row => row.id);
+            // 2. Update revocation status on these lots
+            await client.query(`UPDATE lots SET revocation_status = 'REVOKED', updated_at = CURRENT_TIMESTAMP WHERE id = ANY($1)`, [lotIds]);
+            // 3. Update associated unit codes to REVOKED state
+            await client.query(`UPDATE unit_codes SET current_state = 'REVOKED', revoked_at = CURRENT_TIMESTAMP WHERE lot_id = ANY($1)`, [lotIds]);
+        }
+        await client.query('COMMIT');
+        return { success: true, message: `Batch ${batch_id} and all associated unit codes cascade revoked successfully in simulation.` };
     }
     catch (err) {
         await client.query('ROLLBACK');

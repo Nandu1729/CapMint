@@ -1058,6 +1058,24 @@
 
       const lot = DB.lots.find(l => l.id === lotId);
       if (lot) {
+        // Persist revocation to real backend database
+        fetch(`${API_BASE_URL}/api/v1/verify/revoke`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ batch_id: lotId })
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (!res.success) {
+            console.error('Database revocation failed:', res.error);
+          }
+        })
+        .catch(err => {
+          console.error('Network error during database revocation:', err);
+        });
+
         lot.status = 'REVOKED';
         
         // Cascade update unit codes
