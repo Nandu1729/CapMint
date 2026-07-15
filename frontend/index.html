@@ -1202,6 +1202,7 @@
       const testType = document.getElementById('lab-test-input').value.trim();
       const resultSummary = document.getElementById('lab-result-select').value;
       const reportHash = document.getElementById('lab-hash-display').value;
+      const fileInput = document.getElementById('lab-pdf-file');
 
       if (!lotId) {
         alert('Please select an active Lot ID.');
@@ -1211,43 +1212,50 @@
         alert('Please enter laboratory name and test type.');
         return;
       }
-      if (!reportHash) {
+      if (!reportHash || !fileInput.files[0]) {
         alert('Please select a PDF report to compute its SHA-256 hash.');
         return;
       }
 
-      try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/verify/lab-results`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + AUTH_TOKEN
-          },
-          body: JSON.stringify({
-            lot_id: lotId,
-            lab_name: labName,
-            test_type: testType,
-            result_summary: resultSummary,
-            report_hash: reportHash,
-            report_reference: 'report_' + lotId.substring(0,8) + '.pdf'
-          })
-        });
-        const res = await response.json();
-        if (res.success) {
-          alert(`Lab result registered successfully! Bound PDF Hash: ${reportHash}.`);
-          // Clear inputs
-          document.getElementById('lab-name-input').value = '';
-          document.getElementById('lab-test-input').value = '';
-          document.getElementById('lab-pdf-file').value = '';
-          document.getElementById('lab-hash-display').value = '';
-          await loadAllData();
-        } else {
-          alert('Failed to register lab result: ' + (res.error?.message || 'Unknown error'));
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64Content = reader.result.split(',')[1];
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/v1/verify/lab-results`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + AUTH_TOKEN
+            },
+            body: JSON.stringify({
+              lot_id: lotId,
+              lab_name: labName,
+              test_type: testType,
+              result_summary: resultSummary,
+              report_hash: reportHash,
+              report_reference: file.name || 'report_' + lotId.substring(0,8) + '.pdf',
+              pdf_content: base64Content
+            })
+          });
+          const res = await response.json();
+          if (res.success) {
+            alert(`Lab result registered successfully! Bound PDF Hash: ${reportHash}.`);
+            // Clear inputs
+            document.getElementById('lab-name-input').value = '';
+            document.getElementById('lab-test-input').value = '';
+            document.getElementById('lab-pdf-file').value = '';
+            document.getElementById('lab-hash-display').value = '';
+            await loadAllData();
+          } else {
+            alert('Failed to register lab result: ' + (res.error?.message || 'Unknown error'));
+          }
+        } catch (err) {
+          console.error('Error submitting lab result:', err);
+          alert('Failed to submit lab result due to network error.');
         }
-      } catch (err) {
-        console.error('Error submitting lab result:', err);
-        alert('Failed to submit lab result due to network error.');
-      }
+      };
+      reader.readAsDataURL(file);
     }
 
     // Attach PDF Hash calculation listener

@@ -721,12 +721,40 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
 server.post('/api/v1/verify/lab-results', {
     preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
 }, async (request, reply) => {
-    const { lot_id, lab_name, test_type, result_summary, report_hash, report_reference } = request.body;
+    const { lot_id, lab_name, test_type, result_summary, report_hash, report_reference, pdf_content } = request.body;
     if (!lot_id || !lab_name || !test_type || !result_summary || !report_hash) {
         return reply.status(400).send({
             success: false,
             error: { statusCode: 400, code: 'BAD_REQUEST', message: 'Missing required lab result fields.' }
         });
+    }
+    // Cryptographically validate and recompute PDF hash on the backend
+    if (pdf_content) {
+        const crypto = require('crypto');
+        try {
+            const buffer = Buffer.from(pdf_content, 'base64');
+            const calculatedHash = crypto.createHash('sha256').update(buffer).digest('hex');
+            if (calculatedHash !== report_hash) {
+                return reply.status(400).send({
+                    success: false,
+                    error: {
+                        statusCode: 400,
+                        code: 'HASH_MISMATCH',
+                        message: `Uploaded PDF SHA-256 hash validation failed. Recomputed hash: ${calculatedHash} does not match provided hash: ${report_hash}.`
+                    }
+                });
+            }
+        }
+        catch (err) {
+            return reply.status(400).send({
+                success: false,
+                error: {
+                    statusCode: 400,
+                    code: 'INVALID_PDF_CONTENT',
+                    message: 'Failed to decode and validate PDF content.'
+                }
+            });
+        }
     }
     const client = await pgPool.connect();
     try {
