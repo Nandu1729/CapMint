@@ -10,25 +10,44 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="qrious.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
   
   
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+
     :root {
-      --bg-dark: #090b11;
-      --panel-dark: rgba(18, 22, 33, 0.7);
-      --border-glow: rgba(0, 242, 195, 0.15);
-      --border-muted: rgba(255, 255, 255, 0.08);
-      --text-main: #f3f4f6;
-      --text-muted: #9ca3af;
+      --bg-dark: #070B12;
+      --panel-dark: #121723;
+      --border-glow: rgba(0, 245, 212, 0.25);
+      --border-muted: #1D2635;
+      --text-main: #F5F7FA;
+      --text-muted: #9AA4B2;
       
-      --color-primary: #00f2c3;
-      --color-primary-glow: rgba(0, 242, 195, 0.4);
-      --color-danger: #ff4772;
-      --color-warning: #ffb64d;
+      --color-primary: #00F5D4;
+      --color-primary-glow: rgba(0, 245, 212, 0.4);
+      --color-danger: #FF4D6D;
+      --color-warning: #FFC107;
+      --color-success: #00E676;
       --color-info: #00b2fe;
       
       --font-outfit: 'Outfit', sans-serif;
       --font-inter: 'Inter', sans-serif;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(7, 9, 14, 0.8);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--color-primary);
     }
 
     * {
@@ -53,6 +72,10 @@
       display: grid;
       grid-template-columns: 260px 1fr;
       min-height: 100vh;
+    }
+
+    .app-container.no-sidebar {
+      grid-template-columns: 1fr;
     }
 
     /* Sidebar Navigation */
@@ -123,6 +146,10 @@
       max-height: 100vh;
     }
 
+    .no-sidebar main {
+      padding: 0 !important;
+    }
+
     .view-section {
       display: none;
       animation: fadeIn 0.4s ease;
@@ -138,14 +165,19 @@
 
     .view-title {
       font-family: var(--font-outfit);
-      font-size: 2rem;
-      font-weight: 600;
+      font-size: 2.25rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
       margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
     }
 
     .view-description {
       color: var(--text-muted);
       font-size: 0.95rem;
+      font-weight: 400;
     }
 
     /* Cards & Panels (Glassmorphism) */
@@ -153,14 +185,18 @@
       background: var(--panel-dark);
       border: 1px solid var(--border-muted);
       border-radius: 20px;
-      backdrop-filter: blur(12px);
-      padding: 1.5rem;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 1.75rem;
       margin-bottom: 1.5rem;
-      transition: border-color 0.3s ease;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
     }
 
     .glass-card:hover {
       border-color: var(--border-glow);
+      box-shadow: 0 10px 40px rgba(0, 242, 195, 0.04);
+      transform: translateY(-2px);
     }
 
     .grid-2 {
@@ -169,31 +205,137 @@
       gap: 1.5rem;
     }
 
+    .layout-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 1.5rem;
+      align-items: start;
+    }
+
+    .split-layout {
+      display: grid;
+      grid-template-columns: 55fr 45fr;
+      min-height: 100vh;
+    }
+
+    @media (max-width: 1024px) {
+      .layout-grid, .grid-2 {
+        grid-template-columns: 1fr !important;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .split-layout {
+        grid-template-columns: 1fr !important;
+      }
+      .split-layout > div:first-child {
+        padding: 2.5rem 2rem !important;
+        border-right: none !important;
+        border-bottom: 1px solid var(--border-muted);
+      }
+      .desktop-only-showcase {
+        display: none !important;
+      }
+    }
+
+    /* Onboarding Card Selectors */
+    .org-type-card {
+      background: #121723;
+      border: 1px solid var(--border-muted);
+      border-radius: 12px;
+      padding: 0.8rem;
+      cursor: pointer;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      transition: all 0.2s ease-in-out;
+      text-align: left;
+    }
+    .org-type-card:hover {
+      border-color: rgba(0, 245, 212, 0.4);
+      background: rgba(255, 255, 255, 0.01);
+    }
+    .org-type-card.active {
+      border-color: var(--color-primary);
+      background: rgba(0, 245, 212, 0.04);
+      box-shadow: 0 0 15px rgba(0, 245, 212, 0.05);
+    }
+    .org-type-card-icon {
+      font-size: 1.25rem;
+      margin-top: 0.1rem;
+    }
+    .org-type-card-title {
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--text-main);
+      margin-bottom: 0.15rem;
+    }
+    .org-type-card-desc {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    /* Ecosystem Flow */
+    .ecosystem-node {
+      font-size: 0.725rem;
+      padding: 0.25rem 0.5rem;
+      border-radius: 6px;
+      background: #121723;
+      border: 1px solid #1D2635;
+      color: var(--text-muted);
+      font-family: var(--font-inter);
+      font-weight: 500;
+    }
+    .ecosystem-node.active {
+      background: rgba(0, 245, 212, 0.08);
+      border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+    .ecosystem-node.trust {
+      background: rgba(0, 230, 118, 0.08);
+      border-color: var(--color-success);
+      color: var(--color-success);
+    }
+    .ecosystem-arrow {
+      color: var(--border-muted);
+      font-size: 0.75rem;
+      animation: flowPulse 2s infinite ease-in-out;
+    }
+    @keyframes flowPulse {
+      0%, 100% { opacity: 0.3; transform: translateX(0); }
+      50% { opacity: 1; transform: translateX(2px); }
+    }
+    @keyframes spinRing {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
     /* Buttons */
     .btn {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      padding: 0.75rem 1.5rem;
+      padding: 0.8rem 1.75rem;
       border-radius: 12px;
       font-family: var(--font-inter);
       font-weight: 600;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       cursor: pointer;
       border: none;
-      transition: all 0.3s ease;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .btn-primary {
       background: var(--color-primary);
-      color: #0b0f19;
+      color: #05070a;
       box-shadow: 0 4px 15px rgba(0, 242, 195, 0.2);
     }
 
     .btn-primary:hover {
-      box-shadow: 0 4px 20px rgba(0, 242, 195, 0.4);
-      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(0, 242, 195, 0.4);
+      transform: translateY(-1.5px);
     }
 
     .btn-outline {
@@ -219,47 +361,55 @@
 
     .form-group label {
       display: block;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       font-weight: 600;
       color: var(--text-muted);
       margin-bottom: 0.5rem;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.75px;
     }
 
     .form-control {
       width: 100%;
-      background: rgba(255, 255, 255, 0.04);
+      background: rgba(255, 255, 255, 0.03);
       border: 1px solid var(--border-muted);
-      border-radius: 10px;
-      padding: 0.75rem 1rem;
+      border-radius: 12px;
+      padding: 0.8rem 1.1rem;
       color: var(--text-main);
       font-family: var(--font-inter);
       font-size: 0.95rem;
-      transition: border-color 0.3s ease;
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .form-control:focus {
       outline: none;
       border-color: var(--color-primary);
+      background: rgba(255, 255, 255, 0.06);
+      box-shadow: 0 0 15px rgba(0, 242, 195, 0.05);
     }
 
     /* Interactive Status Badges */
     .status-badge {
       display: inline-flex;
       align-items: center;
-      gap: 0.35rem;
-      padding: 0.35rem 0.75rem;
-      border-radius: 20px;
-      font-size: 0.8rem;
-      font-weight: 600;
+      gap: 0.4rem;
+      padding: 0.4rem 0.85rem;
+      border-radius: 24px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
-    .badge-active { background: rgba(0, 242, 195, 0.1); color: var(--color-primary); }
-    .badge-draft { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
-    .badge-revoked { background: rgba(255, 71, 114, 0.1); color: var(--color-danger); }
-    .badge-clone { background: rgba(255, 182, 77, 0.1); color: var(--color-warning); }
+    .badge-active { background: rgba(0, 245, 212, 0.1); color: var(--color-primary); border: 1px solid rgba(0, 245, 212, 0.2); }
+    .badge-draft { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid var(--border-muted); }
+    .badge-revoked { background: rgba(255, 77, 109, 0.1); color: var(--color-danger); border: 1px solid rgba(255, 77, 109, 0.2); }
+    .badge-clone { background: rgba(255, 193, 7, 0.1); color: var(--color-warning); border: 1px solid rgba(255, 193, 7, 0.2); }
+
+    .status-success { background: rgba(0, 230, 118, 0.1); color: var(--color-success); border: 1px solid rgba(0, 230, 118, 0.2); }
+    .status-pending { background: rgba(255, 193, 7, 0.1); color: var(--color-warning); border: 1px solid rgba(255, 193, 7, 0.2); }
+    .status-danger { background: rgba(255, 77, 109, 0.1); color: var(--color-danger); border: 1px solid rgba(255, 77, 109, 0.2); }
 
     /* Progress indicators */
     .progress-bar-container {
@@ -356,70 +506,652 @@
       font-size: 0.8rem;
     }
   </style>
-</head>
-<body>
-  <div class="app-container">
+</head><body>
+  <div class="app-container no-sidebar" id="app-wrapper">
     <!-- Sidebar -->
-    <aside>
+    <aside id="sidebar-navigation" style="display: none;">
       <div class="brand-logo">
         <div class="logo-dot"></div>
         CapMint Portal
       </div>
-      <nav>
-        <div class="nav-item active" onclick="switchView('certifier', this)">🛡️ Certifier Panel</div>
-        <div class="nav-item" onclick="switchView('manufacturer', this)">🏭 Manufacturer Console</div>
-        <div class="nav-item" onclick="switchView('pwa', this)">📱 Mobile Scanner PWA</div>
-        <div class="nav-item" onclick="switchView('transparency', this)">⚙️ Transparency Ledger</div>
+      <nav id="app-nav-links">
+        <!-- Loaded Dynamically -->
       </nav>
+      <div style="margin-top: auto; border-top: 1px solid var(--border-muted); padding-top: 1rem;">
+        <div style="margin-bottom: 1rem;" id="sidebar-user-info">
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin: 0; text-transform: uppercase;">Logged in as</p>
+          <strong id="logged-username-text" style="font-size: 0.9rem; color: var(--text-main); word-break: break-all;"></strong>
+          <span id="logged-org-text" style="font-size: 0.8rem; color: var(--color-primary); display: block;"></span>
+        </div>
+        <button class="btn" style="width: 100%; background: #ef4444; color: white; font-weight: 700; border-radius: 8px;" onclick="logout()">LOG OUT</button>
+      </div>
     </aside>
 
     <!-- Main Views -->
     <main>
+      <!-- User Menu Top Header -->
+      <div id="global-header-bar" style="display: none; justify-content: flex-end; align-items: center; padding: 1rem 2rem; border-bottom: 1px solid var(--border-muted); background: #070B12; margin-bottom: 1rem;">
+        <div style="position: relative;">
+          <!-- User Profile Trigger Button -->
+          <button onclick="toggleUserDropdown()" class="btn btn-outline" style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 500; cursor: pointer; color: var(--text-main); border-color: var(--border-muted); background: #121723;">
+            <i data-lucide="user" style="width: 16px; height: 16px; color: var(--color-primary);"></i>
+            <span id="header-user-name">User Profile</span>
+            <i data-lucide="chevron-down" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
+          </button>
+          
+          <!-- Dropdown Menu -->
+          <div id="header-user-dropdown" style="display: none; position: absolute; right: 0; top: calc(100% + 8px); width: 260px; background: #121723; border: 1px solid var(--border-muted); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 999; padding: 0.75rem; flex-direction: column; gap: 0.5rem;">
+            <div style="padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border-muted); margin-bottom: 0.5rem; text-align: left;">
+              <p style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin: 0 0 0.25rem 0;">Signed in as</p>
+              <strong id="dropdown-fullname" style="display: block; font-size: 0.9rem; color: var(--text-main);">John Doe</strong>
+              <span id="dropdown-username" style="font-size: 0.8rem; color: var(--text-muted); word-break: break-all;">john@harvest.com</span>
+            </div>
+            
+            <div style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem;">
+              <div style="padding: 0.4rem 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+                <span>Organization</span>
+                <strong id="dropdown-org" style="color: var(--text-main); font-weight: 600;">Premium Farms</strong>
+              </div>
+              <div style="padding: 0.4rem 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
+                <span>Role</span>
+                <span id="dropdown-role" class="status-badge status-success" style="font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.4rem; text-transform: uppercase;">ADMIN</span>
+              </div>
+              <div style="padding: 0.4rem 0.75rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.25rem; align-items: stretch;">
+                <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 600; color: var(--text-muted);">Workspace Role</span>
+                <select id="dropdown-workspace-select" onchange="switchWorkspaceRole(this.value)" style="background: #070B12; border: 1px solid var(--border-muted); color: var(--color-primary); font-weight: 600; padding: 0.35rem 0.5rem; border-radius: 6px; font-size: 0.85rem; width: 100%; cursor: pointer; outline: none; margin-top: 0.15rem;">
+                  <option value="PRODUCER">Producer Workspace</option>
+                  <option value="NABL_LABORATORY">Laboratory Workspace</option>
+                  <option value="CERTIFICATION_BODY">Certification Body Workspace</option>
+                  <option value="EXPORTER">Exporter Workspace</option>
+                  <option value="SYSTEM_ADMINISTRATOR">System Admin Console</option>
+                </select>
+              </div>
+            </div>
+            
+            <div style="border-top: 1px solid var(--border-muted); margin-top: 0.5rem; padding-top: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem;">
+              <button onclick="alert('Profile settings screen coming soon.')" class="btn" style="text-align: left; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: none; background: transparent; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 0.5rem; width: 100%; border-radius: 6px;">
+                <i data-lucide="settings" style="width: 14px; height: 14px; color: var(--text-muted);"></i> Profile Settings
+              </button>
+              <button onclick="logout()" class="btn" style="text-align: left; padding: 0.5rem 0.75rem; font-size: 0.85rem; border: none; background: transparent; color: var(--color-danger); cursor: pointer; display: flex; align-items: center; gap: 0.5rem; width: 100%; border-radius: 6px;">
+                <i data-lucide="log-out" style="width: 14px; height: 14px; color: var(--color-danger);"></i> Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Offline Sync Queue Banner -->
       <div id="offline-sync-banner" style="display: none; background: linear-gradient(95deg, var(--color-warning), #ff6b4a); color: #0a0a0a; font-weight: 700; text-align: center; padding: 0.75rem; font-size: 0.85rem; border-radius: 12px; margin-bottom: 1.5rem; align-items: center; justify-content: center; gap: 0.5rem; box-shadow: 0 4px 20px rgba(255, 107, 74, 0.2);">
         <span>⚠️ Offline Mode: <span id="offline-pending-count">0</span> pending actions queued.</span>
         <button class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem; background: #0a0a0a; color: var(--color-warning); font-weight: bold; border: none; border-radius: 4px; cursor: pointer;" onclick="triggerSyncNow()">SYNC NOW</button>
       </div>
 
+      <!-- VIEW: LOGIN & REGISTRATION -->
+      <section id="view-login" class="view-section active" style="margin: 0; padding: 0; min-height: 100vh;">
+        <div class="split-layout">
+          
+          <!-- Left Pane: Enterprise Branding & Ecosystem Showcase -->
+          <div style="background: linear-gradient(135deg, #070B12 0%, #121723 100%); border-right: 1px solid var(--border-muted); padding: 4.5rem; display: flex; flex-direction: column; justify-content: space-between; position: relative; overflow: hidden;">
+            <!-- Subtle background grid/glow -->
+            <div style="position: absolute; top: -10%; left: -10%; width: 50%; height: 50%; background: radial-gradient(circle, rgba(0, 245, 212, 0.04) 0%, transparent 70%); pointer-events: none;"></div>
+            <div style="position: absolute; bottom: -10%; right: -10%; width: 50%; height: 50%; background: radial-gradient(circle, rgba(0, 178, 254, 0.04) 0%, transparent 70%); pointer-events: none;"></div>
+
+            <!-- Brand Logo -->
+            <div class="brand-logo" style="font-size: 2.25rem;">
+              <div class="logo-dot" style="width: 16px; height: 16px; background-color: var(--color-primary); box-shadow: 0 0 10px var(--color-primary-glow);"></div>
+              <span>CapMint <strong style="font-weight: 300; color: var(--text-muted);">Registry</strong></span>
+            </div>
+
+            <!-- Marketing / Tech Value Prop -->
+            <div style="max-width: 580px; z-index: 10; margin: 3rem 0;">
+              <span style="font-size: 0.8rem; color: var(--color-primary); text-transform: uppercase; letter-spacing: 1.5px; font-weight: 700; display: block; margin-bottom: 0.75rem;">Digital Trust Infrastructure</span>
+              <h1 style="font-family: var(--font-outfit); font-size: 2.5rem; font-weight: 800; line-height: 1.25; margin-bottom: 1rem; background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+                Enterprise Digital Trust Infrastructure<br>for Organic Supply Chains
+              </h1>
+              <p style="color: var(--text-muted); font-size: 1.05rem; line-height: 1.6; margin-bottom: 2rem;">
+                A secure government-integrated multi-tenant ledger mapping crop allocations, NABL lab integrity audits, and certifier clearances to cryptographic serial QR identities.
+              </p>
+
+              <!-- Ecosystem Flow Diagram -->
+              <div class="desktop-only-showcase" style="margin-bottom: 3rem; text-align: left;">
+                <p style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; margin-bottom: 0.75rem;">Ecosystem Flow Integration</p>
+                <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; background: rgba(255,255,255,0.01); border: 1px solid var(--border-muted); padding: 0.75rem 1rem; border-radius: 12px; max-width: 100%;">
+                  <span class="ecosystem-node">AgriStack</span>
+                  <span class="ecosystem-arrow">➔</span>
+                  <span class="ecosystem-node">Producer</span>
+                  <span class="ecosystem-arrow">➔</span>
+                  <span class="ecosystem-node">NABL Lab</span>
+                  <span class="ecosystem-arrow">➔</span>
+                  <span class="ecosystem-node">Certifier</span>
+                  <span class="ecosystem-arrow">➔</span>
+                  <span class="ecosystem-node">TraceNet</span>
+                  <span class="ecosystem-arrow">➔</span>
+                  <span class="ecosystem-node active">CapMint</span>
+                  <span class="ecosystem-arrow">➔</span>
+                  <span class="ecosystem-node trust">Consumer</span>
+                </div>
+              </div>
+
+              <!-- Features Grid -->
+              <div class="desktop-only-showcase" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; border-top: 1px solid var(--border-muted); padding-top: 2rem;">
+                <div style="display: flex; gap: 0.75rem; align-items: start;">
+                  <div style="background: rgba(0, 245, 212, 0.06); padding: 0.5rem; border-radius: 8px; color: var(--color-primary); display: flex; align-items: center; justify-content: center;">
+                    <i data-lucide="shield-check" style="width: 18px; height: 18px;"></i>
+                  </div>
+                  <div>
+                    <strong style="display: block; font-size: 0.9rem; color: var(--text-main); margin-bottom: 0.15rem;">Multi-Tenant RBAC</strong>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Dedicated secure workspaces.</span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 0.75rem; align-items: start;">
+                  <div style="background: rgba(0, 245, 212, 0.06); padding: 0.5rem; border-radius: 8px; color: var(--color-primary); display: flex; align-items: center; justify-content: center;">
+                    <i data-lucide="landmark" style="width: 18px; height: 18px;"></i>
+                  </div>
+                  <div>
+                    <strong style="display: block; font-size: 0.9rem; color: var(--text-main); margin-bottom: 0.15rem;">Gov Integration Ready</strong>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Compatible with AgriStack.</span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 0.75rem; align-items: start;">
+                  <div style="background: rgba(0, 245, 212, 0.06); padding: 0.5rem; border-radius: 8px; color: var(--color-primary); display: flex; align-items: center; justify-content: center;">
+                    <i data-lucide="lock" style="width: 18px; height: 18px;"></i>
+                  </div>
+                  <div>
+                    <strong style="display: block; font-size: 0.9rem; color: var(--text-main); margin-bottom: 0.15rem;">Ed25519 Cryptographic</strong>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Co-signed budget transfers.</span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 0.75rem; align-items: start;">
+                  <div style="background: rgba(0, 245, 212, 0.06); padding: 0.5rem; border-radius: 8px; color: var(--color-primary); display: flex; align-items: center; justify-content: center;">
+                    <i data-lucide="database" style="width: 18px; height: 18px;"></i>
+                  </div>
+                  <div>
+                    <strong style="display: block; font-size: 0.9rem; color: var(--text-main); margin-bottom: 0.15rem;">Immutable Ledger</strong>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Append-only capacity proofs.</span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 0.75rem; align-items: start;">
+                  <div style="background: rgba(0, 245, 212, 0.06); padding: 0.5rem; border-radius: 8px; color: var(--color-primary); display: flex; align-items: center; justify-content: center;">
+                    <i data-lucide="qr-code" style="width: 18px; height: 18px;"></i>
+                  </div>
+                  <div>
+                    <strong style="display: block; font-size: 0.9rem; color: var(--text-main); margin-bottom: 0.15rem;">GS1 Digital Link Ready</strong>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Interoperable scan records.</span>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 0.75rem; align-items: start;">
+                  <div style="background: rgba(0, 245, 212, 0.06); padding: 0.5rem; border-radius: 8px; color: var(--color-primary); display: flex; align-items: center; justify-content: center;">
+                    <i data-lucide="alert-triangle" style="width: 18px; height: 18px;"></i>
+                  </div>
+                  <div>
+                    <strong style="display: block; font-size: 0.9rem; color: var(--text-main); margin-bottom: 0.15rem;">Fraud Detection</strong>
+                    <span style="font-size: 0.75rem; color: var(--text-muted);">Real-time anomaly quarantine.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer info -->
+            <div style="font-size: 0.85rem; color: var(--text-muted); display: flex; gap: 1.5rem; z-index: 10;">
+              <span>Enterprise Digital Trust Platform</span>
+              <span>•</span>
+              <span>v1.0.0</span>
+              <span>•</span>
+              <span>SSL Secured</span>
+            </div>
+          </div>
+
+          <!-- Right Pane: Forms (Centered Container) -->
+          <div style="display: flex; align-items: center; justify-content: center; padding: 4.5rem; background: #070B12; overflow-y: auto; max-height: 100vh;">
+            <div style="width: 100%; max-width: 580px; display: flex; flex-direction: column; gap: 2rem;">
+              
+              <!-- Login Card -->
+              <div id="login-form-card" class="glass-card" style="padding: 3.5rem; border-radius: 24px; box-shadow: 0 30px 60px rgba(0,0,0,0.6); margin-bottom: 0; background-color: #121723; border: 1px solid var(--border-muted);">
+                <div style="margin-bottom: 2.5rem;">
+                  <h2 style="font-family: var(--font-outfit); font-size: 1.85rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main);">System Login</h2>
+                  <p style="color: var(--text-muted); font-size: 0.95rem; margin: 0;">Access your dedicated organization workspace console.</p>
+                </div>
+
+                <div id="login-error-alert" style="display: none; background: rgba(255, 77, 109, 0.1); border: 1px solid rgba(255, 77, 109, 0.2); color: var(--color-danger); padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; text-align: center; margin-bottom: 1.5rem;"></div>
+
+                <div class="form-group" style="margin-bottom: 1.25rem;">
+                  <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.8rem; margin-bottom: 0.5rem; color: var(--text-muted);">EMAIL ADDRESS</label>
+                  <input type="text" id="login-username" class="form-control" placeholder="admin@organization.com" style="height: 48px; border-radius: 8px; font-size: 0.95rem;">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 1.25rem;">
+                  <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.8rem; margin-bottom: 0.5rem; color: var(--text-muted);">PASSWORD</label>
+                  <input type="password" id="login-password" class="form-control" placeholder="••••••••" style="height: 48px; border-radius: 8px; font-size: 0.95rem;">
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; font-size: 0.9rem;">
+                  <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-muted); cursor: pointer; text-transform: none; font-weight: 500;">
+                    <input type="checkbox" id="login-remember" style="accent-color: var(--color-primary); width: 16px; height: 16px;"> Remember Device
+                  </label>
+                  <a href="#" onclick="showForgotPasswordCard()" style="color: var(--color-primary); text-decoration: none; font-weight: 600;">Forgot Password?</a>
+                </div>
+
+                <button class="btn btn-primary" style="width: 100%; font-weight: bold; padding: 0.95rem; border-radius: 8px; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px; height: 48px;" onclick="submitLogin()">SIGN IN</button>
+
+                <div style="text-align: center; font-size: 0.95rem; color: var(--text-muted); margin-top: 1.5rem;">
+                  Need an enterprise workspace? <a href="#" onclick="showSignUpForm()" style="color: var(--color-primary); text-decoration: none; font-weight: 600;">Register Organization</a>
+                </div>
+                
+                <div style="border-top: 1px solid var(--border-muted); margin-top: 2.5rem; padding-top: 1.5rem; display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-muted);">
+                  <a href="#" style="color: var(--text-muted); text-decoration: none;">Privacy Policy</a>
+                  <a href="#" style="color: var(--text-muted); text-decoration: none;">Terms of Service</a>
+                  <span>v1.0.0</span>
+                </div>
+              </div>
+
+              <!-- Forgot Password Card -->
+              <div id="forgot-form-card" class="glass-card" style="padding: 3.5rem; border-radius: 24px; display: none; box-shadow: 0 30px 60px rgba(0,0,0,0.6); margin-bottom: 0; background-color: #121723; border: 1px solid var(--border-muted);">
+                <div style="margin-bottom: 2rem;">
+                  <h2 style="font-family: var(--font-outfit); font-size: 1.85rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main);">Forgot Password</h2>
+                  <p style="color: var(--text-muted); font-size: 0.95rem; margin: 0;">Enter your registered email address to receive a secure recovery link.</p>
+                </div>
+
+                <div id="forgot-error-alert" style="display: none; background: rgba(255, 77, 109, 0.1); border: 1px solid rgba(255, 77, 109, 0.2); color: var(--color-danger); padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; text-align: center; margin-bottom: 1.5rem;"></div>
+                <div id="forgot-success-alert" style="display: none; background: rgba(0, 230, 118, 0.1); border: 1px solid rgba(0, 230, 118, 0.2); color: var(--color-success); padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; text-align: center; margin-bottom: 1.5rem;"></div>
+
+                <div class="form-group" style="margin-bottom: 2rem;">
+                  <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.8rem; margin-bottom: 0.5rem; color: var(--text-muted);">EMAIL ADDRESS</label>
+                  <input type="email" id="forgot-email" class="form-control" placeholder="admin@organization.com" style="height: 48px; border-radius: 8px; font-size: 0.95rem;">
+                </div>
+
+                <button class="btn btn-primary" style="width: 100%; font-weight: bold; padding: 0.95rem; border-radius: 8px; font-size: 0.95rem; height: 48px;" onclick="submitForgotPassword()">SEND RESET LINK</button>
+
+                <div style="text-align: center; font-size: 0.95rem; color: var(--text-muted); margin-top: 1.5rem;">
+                  Remember password? <a href="#" onclick="showLoginForm()" style="color: var(--color-primary); text-decoration: none; font-weight: 600;">Back to Login</a>
+                </div>
+              </div>
+
+              <!-- Reset Password Card -->
+              <div id="reset-form-card" class="glass-card" style="padding: 3.5rem; border-radius: 24px; display: none; box-shadow: 0 30px 60px rgba(0,0,0,0.6); margin-bottom: 0; background-color: #121723; border: 1px solid var(--border-muted);">
+                <div style="margin-bottom: 2rem;">
+                  <h2 style="font-family: var(--font-outfit); font-size: 1.85rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main);">Choose New Password</h2>
+                  <p style="color: var(--text-muted); font-size: 0.95rem; margin: 0;">Please set a secure, complex password for your admin workspace.</p>
+                </div>
+
+                <div id="reset-error-alert" style="display: none; background: rgba(255, 77, 109, 0.1); border: 1px solid rgba(255, 77, 109, 0.2); color: var(--color-danger); padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; text-align: center; margin-bottom: 1.5rem;"></div>
+
+                <div class="form-group" style="margin-bottom: 1.25rem;">
+                  <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.8rem; margin-bottom: 0.5rem; color: var(--text-muted);">NEW PASSWORD</label>
+                  <input type="password" id="reset-password" class="form-control" placeholder="••••••••" style="height: 48px; border-radius: 8px;">
+                </div>
+
+                <div class="form-group" style="margin-bottom: 2rem;">
+                  <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.8rem; margin-bottom: 0.5rem; color: var(--text-muted);">CONFIRM NEW PASSWORD</label>
+                  <input type="password" id="reset-confirm" class="form-control" placeholder="••••••••" style="height: 48px; border-radius: 8px;">
+                </div>
+
+                <button class="btn btn-primary" style="width: 100%; font-weight: bold; padding: 0.95rem; border-radius: 8px; font-size: 0.95rem; height: 48px;" onclick="submitResetPassword()">SAVE PASSWORD</button>
+
+                <div style="text-align: center; font-size: 0.95rem; color: var(--text-muted); margin-top: 1.5rem;">
+                  <a href="#" onclick="showLoginForm()" style="color: var(--color-primary); text-decoration: none; font-weight: 600;">Back to Login</a>
+                </div>
+              </div>
+
+              <!-- Registration Wizard Card -->
+              <div id="register-form-card" class="glass-card" style="padding: 3.5rem; border-radius: 24px; display: none; box-shadow: 0 30px 60px rgba(0,0,0,0.6); margin-bottom: 0; background-color: #121723; border: 1px solid var(--border-muted);">
+                
+                <!-- Steps Navigation Timeline Indicator -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2.5rem; border-bottom: 1px solid var(--border-muted); padding-bottom: 1.25rem;">
+                  <div id="step-dot-1" class="step-indicator" style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--color-primary); transition: color 0.25s ease;">
+                    <span style="background: var(--color-primary); color: #070B12; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold; transition: all 0.25s ease;">1</span> Organization
+                  </div>
+                  <div id="step-line-1" style="height: 1px; background: var(--border-muted); flex: 1; margin: 0 0.75rem; transition: background 0.25s ease;"></div>
+                  <div id="step-dot-2" class="step-indicator" style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); transition: color 0.25s ease;">
+                    <span style="border: 1px solid var(--text-muted); width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; transition: all 0.25s ease;">2</span> Administrator
+                  </div>
+                  <div id="step-line-2" style="height: 1px; background: var(--border-muted); flex: 1; margin: 0 0.75rem; transition: background 0.25s ease;"></div>
+                  <div id="step-dot-3" class="step-indicator" style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 500; color: var(--text-muted); transition: color 0.25s ease;">
+                    <span style="border: 1px solid var(--text-muted); width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; transition: all 0.25s ease;">3</span> Verification
+                  </div>
+                </div>
+
+                <div id="register-error-alert" style="display: none; background: rgba(255, 77, 109, 0.1); border: 1px solid rgba(255, 77, 109, 0.2); color: var(--color-danger); padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; text-align: center; margin-bottom: 1.5rem;"></div>
+
+                <!-- STEP 1: Organization & Business Information -->
+                <div id="reg-step-1-div" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                  <div style="margin-bottom: 0.5rem;">
+                    <h3 style="font-family: var(--font-outfit); font-size: 1.35rem; font-weight: 700; margin-bottom: 0.25rem; color: var(--text-main);">Organization Profile</h3>
+                    <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0;">Provide official registry credentials and operational details.</p>
+                  </div>
+                  
+                  <!-- Form Input Grid -->
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                    
+                    <div class="form-group" style="grid-column: span 2;">
+                      <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">ORGANIZATION NAME</label>
+                      <input type="text" id="reg-org-name" class="form-control" placeholder="e.g. Premium Harvest Ltd" style="height: 44px; border-radius: 8px;">
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                      <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">SELECT ORGANIZATION TYPE</label>
+                      
+                      <!-- Hidden select element for form integration -->
+                      <select id="reg-org-type" class="form-control" style="display: none;">
+                        <option value="PRODUCER">Producer</option>
+                        <option value="NABL_LABORATORY">NABL Laboratory</option>
+                        <option value="CERTIFICATION_BODY">Certification Body</option>
+                        <option value="EXPORTER">Exporter</option>
+                      </select>
+
+                      <!-- Interactive Selection Cards -->
+                      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;" id="org-type-cards-container">
+                        <div class="org-type-card active" onclick="selectOrgTypeCard('PRODUCER')" data-type="PRODUCER">
+                          <div class="org-type-card-icon">🌾</div>
+                          <div>
+                            <div class="org-type-card-title">Producer</div>
+                            <div class="org-type-card-desc">Registers products, requests capacity, mints QR</div>
+                          </div>
+                        </div>
+                        <div class="org-type-card" onclick="selectOrgTypeCard('NABL_LABORATORY')" data-type="NABL_LABORATORY">
+                          <div class="org-type-card-icon">🧪</div>
+                          <div>
+                            <div class="org-type-card-title">Laboratory</div>
+                            <div class="org-type-card-desc">Uploads NABL Reports, binds SHA-256</div>
+                          </div>
+                        </div>
+                        <div class="org-type-card" onclick="selectOrgTypeCard('CERTIFICATION_BODY')" data-type="CERTIFICATION_BODY">
+                          <div class="org-type-card-icon">🛡️</div>
+                          <div>
+                            <div class="org-type-card-title">Certification Body</div>
+                            <div class="org-type-card-desc">Approves budgets, reviews investigations</div>
+                          </div>
+                        </div>
+                        <div class="org-type-card" onclick="selectOrgTypeCard('EXPORTER')" data-type="EXPORTER">
+                          <div class="org-type-card-icon">🚢</div>
+                          <div>
+                            <div class="org-type-card-title">Exporter</div>
+                            <div class="org-type-card-desc">Manages Export References, links TraceNet</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="form-group">
+                      <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">OFFICIAL EMAIL</label>
+                      <input type="email" id="reg-official-email" class="form-control" placeholder="admin@organization.com" style="height: 44px; border-radius: 8px;">
+                    </div>
+                    <div class="form-group">
+                      <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">OFFICIAL PHONE</label>
+                      <input type="text" id="reg-official-phone" class="form-control" placeholder="e.g. +91 98765 43210" style="height: 44px; border-radius: 8px;">
+                    </div>
+
+                    <div class="form-group">
+                      <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">BUSINESS REGISTRATION DETAILS</label>
+                      <input type="text" id="reg-business-details" class="form-control" placeholder="e.g. NPOP Lic / NABL ID" style="height: 44px; border-radius: 8px;">
+                    </div>
+                    <div class="form-group">
+                      <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">GST / TAX IDENTIFICATION</label>
+                      <input type="text" id="reg-gst" class="form-control" placeholder="e.g. 27AAAAA1111A1Z1" style="height: 44px; border-radius: 8px;">
+                    </div>
+
+                    <div class="form-group">
+                      <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">WEBSITE URL</label>
+                      <input type="url" id="reg-website" class="form-control" placeholder="e.g. https://organization.com" style="height: 44px; border-radius: 8px;">
+                    </div>
+                    <div class="form-group">
+                      <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">ORGANIZATION LOGO (URL/Name)</label>
+                      <input type="text" id="reg-logo" class="form-control" placeholder="Logo display name" style="height: 44px; border-radius: 8px;">
+                    </div>
+
+                    <div class="form-group">
+                      <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">PRIMARY CONTACT PERSON</label>
+                      <input type="text" id="reg-contact-person" class="form-control" placeholder="Primary contact full name" style="height: 44px; border-radius: 8px;">
+                    </div>
+                    <div class="form-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                      <div>
+                        <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">COUNTRY</label>
+                        <input type="text" id="reg-country" class="form-control" value="India" style="height: 44px; border-radius: 8px;">
+                      </div>
+                      <div>
+                        <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">STATE</label>
+                        <input type="text" id="reg-state" class="form-control" placeholder="State" style="height: 44px; border-radius: 8px;">
+                      </div>
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                      <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">REGISTERED ADDRESS</label>
+                      <input type="text" id="reg-address" class="form-control" placeholder="Full registered business address" style="height: 44px; border-radius: 8px;">
+                    </div>
+                  </div>
+
+                  <button class="btn btn-primary" style="width: 100%; font-weight: bold; margin-top: 1rem; padding: 0.95rem; border-radius: 8px; font-size: 0.95rem; height: 48px;" onclick="nextRegStep(1)">CONTINUE TO CREDENTIALS</button>
+                </div>
+
+                <!-- STEP 2: Administrator User Credentials -->
+                <div id="reg-step-2-div" style="display: none; flex-direction: column; gap: 1.5rem;">
+                  <div style="margin-bottom: 0.5rem;">
+                    <h3 style="font-family: var(--font-outfit); font-size: 1.35rem; font-weight: 700; margin-bottom: 0.25rem; color: var(--text-main);">Workspace Administrator</h3>
+                    <p style="color: var(--text-muted); font-size: 0.875rem; margin: 0;">Establish the master identity credentials for this workspace console.</p>
+                  </div>
+
+                  <div class="form-group">
+                    <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">ADMINISTRATOR FULL NAME</label>
+                    <input type="text" id="reg-admin-fullname" class="form-control" placeholder="Full name of administrator" style="height: 44px; border-radius: 8px;">
+                  </div>
+
+                  <div class="form-group">
+                    <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">DESIGNATION / JOB TITLE</label>
+                    <input type="text" id="reg-admin-designation" class="form-control" placeholder="e.g. Director of Operations" style="height: 44px; border-radius: 8px;">
+                  </div>
+
+                  <div class="form-group">
+                    <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">ADMINISTRATOR USERNAME</label>
+                    <input type="text" id="reg-admin-username" class="form-control" placeholder="admin_username" style="height: 44px; border-radius: 8px;">
+                  </div>
+
+                  <div class="form-group">
+                    <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">PASSWORD</label>
+                    <input type="password" id="reg-admin-password" class="form-control" placeholder="••••••••" style="height: 44px; border-radius: 8px;">
+                  </div>
+
+                  <div class="form-group">
+                    <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">CONFIRM PASSWORD</label>
+                    <input type="password" id="reg-admin-confirm" class="form-control" placeholder="••••••••" style="height: 44px; border-radius: 8px;">
+                  </div>
+
+                  <div class="form-group" style="margin-top: 0.5rem; margin-bottom: 1rem;">
+                    <label style="display: flex; align-items: start; gap: 0.5rem; color: var(--text-muted); cursor: pointer; text-transform: none; font-size: 0.85rem; font-weight: 500;">
+                      <input type="checkbox" id="reg-accept-terms" style="accent-color: var(--color-primary); width: 16px; height: 16px; margin-top: 2px;">
+                      <span>I accept the CapMint Digital Trust Platform Terms of Service and Privacy Policy.</span>
+                    </label>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 1rem;">
+                    <button class="btn btn-outline" style="font-weight: bold; padding: 0.95rem; border-radius: 8px; height: 48px;" onclick="prevRegStep(2)">BACK</button>
+                    <button class="btn btn-primary" style="font-weight: bold; padding: 0.95rem; border-radius: 8px; height: 48px;" onclick="submitRegistration()">CREATE ORGANIZATION</button>
+                  </div>
+                </div>
+
+                <div style="text-align: center; font-size: 0.95rem; color: var(--text-muted); margin-top: 1.5rem;">
+                  Already registered? <a href="#" onclick="showLoginForm()" style="color: var(--color-primary); text-decoration: none; font-weight: 600;">Back to Login</a>
+                </div>
+              </div>
+
+              <!-- Wizard Success Page (Pending Verification) -->
+              <div id="register-success-card" class="glass-card" style="padding: 3.5rem; border-radius: 24px; display: none; box-shadow: 0 30px 60px rgba(0,0,0,0.6); text-align: center; margin-bottom: 0; background-color: #121723; border: 1px solid var(--border-muted);">
+                
+                <!-- Steps Navigation Timeline Indicator -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2.5rem; border-bottom: 1px solid var(--border-muted); padding-bottom: 1.25rem;">
+                  <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--color-success);">
+                    <span style="background: var(--color-success); color: #070B12; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;"><i data-lucide="check" style="width: 12px; height: 12px; stroke-width: 3;"></i></span> Organization
+                  </div>
+                  <div style="height: 1px; background: var(--color-success); flex: 1; margin: 0 0.75rem;"></div>
+                  <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--color-success);">
+                    <span style="background: var(--color-success); color: #070B12; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;"><i data-lucide="check" style="width: 12px; height: 12px; stroke-width: 3;"></i></span> Administrator
+                  </div>
+                  <div style="height: 1px; background: var(--color-success); flex: 1; margin: 0 0.75rem;"></div>
+                  <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 600; color: var(--color-primary);">
+                    <span style="background: var(--color-primary); color: #070B12; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold;">3</span> Verification
+                  </div>
+                </div>
+                
+                <!-- Glowing success illustration -->
+                <div style="position: relative; width: 80px; height: 80px; margin: 0 auto 1.5rem auto;">
+                  <div style="position: absolute; top: 0; left: 0; width: 80px; height: 80px; border-radius: 50%; background: rgba(0, 230, 118, 0.05); border: 2px dashed rgba(0, 230, 118, 0.2); animation: spinRing 20s linear infinite;"></div>
+                  <div style="position: absolute; top: 10px; left: 10px; width: 60px; height: 60px; border-radius: 50%; background: rgba(0, 230, 118, 0.1); border: 1px solid rgba(0, 230, 118, 0.3); display: flex; align-items: center; justify-content: center; color: var(--color-success); box-shadow: 0 0 20px rgba(0, 230, 118, 0.15);">
+                    <i data-lucide="badge-check" style="width: 32px; height: 32px; stroke-width: 2.5;"></i>
+                  </div>
+                </div>
+                
+                <h2 style="font-family: var(--font-outfit); font-size: 1.85rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main);">Organization Submitted</h2>
+                <span class="status-badge status-pending" style="margin-bottom: 1.5rem; padding: 0.4rem 1rem; border-radius: 20px; font-weight: 700;">PENDING VERIFICATION</span>
+                
+                <p style="color: var(--text-muted); font-size: 0.95rem; line-height: 1.6; margin-bottom: 2rem;">
+                  Your organization workspace request has been logged. It will be reviewed by the CapMint Administration body. You will receive an activation email once approved.
+                </p>
+
+                <!-- Onboarding timeline tracking -->
+                <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-muted); border-radius: 12px; padding: 1.25rem; text-align: left; font-size: 0.85rem; margin-bottom: 2rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-muted); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">
+                    <span style="color: var(--text-muted); font-weight: 600;">REFERENCE NUMBER</span>
+                    <strong style="font-family: monospace; color: var(--color-primary); font-size: 0.95rem;" id="success-ref-id">REF-4819E8</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-muted);">Organization Name</span>
+                    <strong style="color: var(--text-main);" id="success-org-name">Premium Farms Ltd</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-muted);">Administrator Email</span>
+                    <strong style="color: var(--text-main);" id="success-admin-email">admin@premiumfarms.com</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-muted);">Estimated Review Time</span>
+                    <strong style="color: var(--color-warning);">24 - 48 Hours</strong>
+                  </div>
+                </div>
+
+                <!-- Next steps indicator -->
+                <div style="text-align: left; margin-bottom: 2rem; border: 1px solid var(--border-muted); border-radius: 12px; padding: 1.25rem; background: rgba(0, 0, 0, 0.2);">
+                  <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; display: block; margin-bottom: 0.75rem;">Verification Next Steps</span>
+                  <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.85rem; color: var(--text-muted);">
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                      <i data-lucide="check-circle" style="width: 14px; height: 14px; color: var(--color-success);"></i> Request logged in registry logs
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                      <i data-lucide="clock" style="width: 14px; height: 14px; color: var(--color-warning);"></i> Administrative review of business registration
+                    </div>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                      <i data-lucide="circle" style="width: 14px; height: 14px; color: var(--border-muted);"></i> Workspace activation credentials delivery
+                    </div>
+                  </div>
+                </div>
+
+                <button class="btn btn-outline" style="width: 100%; font-weight: bold; padding: 0.95rem; border-radius: 8px; height: 48px;" onclick="showLoginForm()">RETURN HOME</button>
+              </div>
+
+              <!-- First Login Welcome Card -->
+              <div id="first-login-card" class="glass-card" style="padding: 3.5rem; border-radius: 24px; display: none; box-shadow: 0 30px 60px rgba(0,0,0,0.6); text-align: center; margin-bottom: 0; background-color: #121723; border: 1px solid var(--border-muted);">
+                <div style="background: rgba(0, 245, 212, 0.08); width: 64px; height: 64px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem auto; color: var(--color-primary); border: 1px solid rgba(0, 245, 212, 0.2);">
+                  <i data-lucide="badge-check" style="width: 36px; height: 36px; stroke-width: 2;"></i>
+                </div>
+                
+                <h2 style="font-family: var(--font-outfit); font-size: 1.85rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--text-main);">Welcome to CapMint</h2>
+                <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 2rem;">Your workspace environment is activated and ready.</p>
+
+                <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-muted); border-radius: 12px; padding: 1.5rem; text-align: left; font-size: 0.9rem; margin-bottom: 2.5rem; display: flex; flex-direction: column; gap: 0.85rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-muted);">Organization</span>
+                    <strong style="color: var(--text-main);" id="welcome-org-name">Premium Farms Ltd</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-muted);">Workspace Type</span>
+                    <strong style="color: var(--color-primary);" id="welcome-org-type">PRODUCER</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-muted);">User Role</span>
+                    <strong style="color: var(--text-main);" id="welcome-user-role">ADMIN</strong>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <span style="color: var(--text-muted);">Registry Status</span>
+                    <strong style="color: var(--color-success);">ACTIVE</strong>
+                  </div>
+                </div>
+
+                <button class="btn btn-primary" style="width: 100%; font-weight: bold; padding: 0.95rem; border-radius: 8px; height: 48px;" onclick="acceptFirstLoginWelcome()">CONTINUE TO WORKSPACE</button>
+              </div>
+
+            </div>
+          </div>
+          
+        </div>
+      </section>
+
       <!-- VIEW: CERTIFIER -->
-      <section id="view-certifier" class="view-section active">
+      <section id="view-certifier" class="view-section">
         <div class="view-header">
           <h1 class="view-title">Certifier Portal</h1>
           <p class="view-description">Manage authorized producer budgets, crop assertions, and rotation keys.</p>
         </div>
 
-        <div class="glass-card">
-          <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Registered Certifier Profile</h2>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
-            <div>
-              <p style="font-size: 0.8rem; color: var(--text-muted);">CERTIFIER NAME</p>
-              <p style="font-weight: 600;">Organic Trade Council India</p>
+        <div class="layout-grid">
+          <!-- Column 1: Certifier Profile, Pending Approval, Batch Revocation -->
+          <div>
+            <div class="glass-card">
+              <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Registered Certifier Profile</h2>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                <div>
+                  <p style="font-size: 0.8rem; color: var(--text-muted);">CERTIFIER NAME</p>
+                  <p style="font-weight: 600;">Organic Trade Council India</p>
+                </div>
+                <div>
+                  <p style="font-size: 0.8rem; color: var(--text-muted);">PUBLIC KEY STATUS</p>
+                  <span class="status-badge badge-active">ACTIVE</span>
+                </div>
+                <div>
+                  <p style="font-size: 0.8rem; color: var(--text-muted);">ED25519 KEY</p>
+                  <p style="font-family: monospace; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ed25519_pk_9a123f81e...</p>
+                </div>
+              </div>
             </div>
-            <div>
-              <p style="font-size: 0.8rem; color: var(--text-muted);">PUBLIC KEY STATUS</p>
-              <span class="status-badge badge-active">ACTIVE</span>
+
+            <div class="glass-card">
+              <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Pending Crop Budgets Approval</h2>
+              <div id="pending-budgets-list">
+                <!-- Dynamically Loaded Budgets -->
+              </div>
             </div>
-            <div>
-              <p style="font-size: 0.8rem; color: var(--text-muted);">ED25519 VERIFICATION KEY</p>
-              <p style="font-family: monospace; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ed25519_pk_9a123f81e...</p>
+
+            <div class="glass-card">
+              <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Batch Capacity Revocation</h2>
+              <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">Directly suspend or revoke all packaging codes minted under an authorized batch lot.</p>
+              <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label>Select Lot ID</label>
+                    <select id="revoke-lot-select" class="form-control">
+                      <!-- Loaded Dynamically -->
+                    </select>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0;">
+                    <label>Reason for Revocation</label>
+                    <select id="revoke-reason-select" class="form-control">
+                      <option value="Organic certification withdrawn">Organic certification withdrawn</option>
+                      <option value="Quality compliance failure">Quality compliance failure</option>
+                      <option value="Counterfeit investigation confirmed">Counterfeit investigation confirmed</option>
+                      <option value="Regulatory recall">Regulatory recall</option>
+                    </select>
+                  </div>
+                </div>
+                <button class="btn btn-danger" style="align-self: flex-end;" onclick="triggerCascadeRevocation()">SUBMIT REVOCATION</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 2: Risk Investigation Queue -->
+          <div>
+            <div class="glass-card">
+              <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Risk Investigation Queue</h2>
+              <div id="investigations-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                <p style="text-align: center; color: var(--text-muted); padding: 1rem;">No open investigations.</p>
+              </div>
             </div>
           </div>
         </div>
-
-        <div class="glass-card">
-          <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Pending Crop Budgets Approval</h2>
-          <div id="pending-budgets-list">
-            <!-- Dynamically Loaded Budgets -->
-          </div>
-        </div>
-
-        <div class="glass-card">
-          <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Risk Investigation Queue</h2>
-          <div id="investigations-list" style="display: flex; flex-direction: column; gap: 1rem;">
-            <p style="text-align: center; color: var(--text-muted); padding: 1rem;">No open investigations.</p>
-          </div>
-        </div>
-
         <!-- Modal: Investigation Details -->
         <div id="investigation-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); z-index: 1000; justify-content: center; align-items: center; backdrop-filter: blur(8px);">
           <div class="glass-card" style="width: 600px; max-height: 85vh; overflow-y: auto; padding: 2rem; position: relative; border-radius: 20px; display: flex; flex-direction: column; gap: 1.5rem; background: #0f131a; border: 1px solid rgba(255, 255, 255, 0.1);">
@@ -458,84 +1190,161 @@
               </div>
             </div>
 
-            <div style="border-top: 1px dashed var(--border-muted); padding-top: 1rem;">
-              <h3 style="margin: 0 0 0.75rem 0; font-size: 1.1rem; font-family: var(--font-outfit);">Ledger / Lifecycle Timeline</h3>
-              <div id="inv-modal-timeline" style="display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.85rem; font-weight: 500;">
-                <!-- timeline events -->
-              </div>
-            </div>
-
-            <!-- Action buttons -->
-            <div id="inv-modal-actions" style="display: flex; gap: 1rem; justify-content: flex-end; border-top: 1px solid var(--border-muted); padding-top: 1rem; margin-top: 0.5rem;">
-              <button id="btn-inv-dismiss" class="btn" style="background: rgba(255,255,255,0.05); color: var(--text-main);" onclick="dismissInvestigation()">DISMISS CASE</button>
-              <button id="btn-inv-approve" class="btn btn-danger" onclick="approveInvestigationRevocation()">APPROVE REVOCATION</button>
+            <div style="border-top: 1px solid var(--border-muted); padding-top: 1rem; display: flex; justify-content: flex-end; gap: 1rem;">
+              <button class="btn" style="background: rgba(255, 255, 255, 0.05); color: var(--text-main);" onclick="closeInvestigationModal()">CLOSE</button>
+              <button class="btn btn-primary" id="inv-approve-btn" onclick="approveInvestigation()">APPROVE REVOCATION</button>
+              <button class="btn" style="background: var(--color-warning); color: #0a0a0a; font-weight: 700;" id="inv-dismiss-btn" onclick="dismissInvestigation()">DISMISS CASE</button>
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="glass-card">
-          <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Cascade Batch Revocation</h2>
-          <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">Invalidate an entire batch lot due to audit failure or contamination. All children codes will immediately deactivate.</p>
-          <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <div style="display: flex; gap: 1rem; align-items: flex-end;">
-              <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                <label>Select Active Lot ID</label>
-                <select id="revoke-lot-select" class="form-control">
-                  <!-- Loaded Dynamically -->
-                </select>
-              </div>
-              <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                <label>Select Revocation Reason</label>
-                <select id="revoke-reason-select" class="form-control">
-                  <option value="Organic certification withdrawn">Organic certification withdrawn</option>
-                  <option value="Quality compliance failure">Quality compliance failure</option>
-                  <option value="Counterfeit investigation confirmed">Counterfeit investigation confirmed</option>
-                  <option value="Regulatory recall">Regulatory recall</option>
-                </select>
-              </div>
-            </div>
-            <button class="btn btn-danger" style="align-self: flex-end;" onclick="triggerCascadeRevocation()">SUBMIT REVOCATION</button>
-          </div>
+      <!-- VIEW: NABL LABORATORY -->
+      <section id="view-lab" class="view-section">
+        <div class="view-header">
+          <h1 class="view-title">NABL Laboratory Workspace</h1>
+          <p class="view-description">Register lab verification results and bind PDF evidence reports to lots.</p>
         </div>
 
-        <div class="glass-card">
-          <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Laboratory Report & PDF Hash Binding</h2>
-          <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1rem;">Submit official laboratory residue or NMR panel reports. Uploading a PDF will automatically compute its SHA-256 hash to cryptographically lock the certificate evidence to the lot registry.</p>
-          <div style="display: flex; flex-direction: column; gap: 1rem;">
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
-              <div class="form-group" style="margin-bottom: 0;">
+        <div class="layout-grid">
+          <!-- Column 1: Bind Lab Evidence Form -->
+          <div class="glass-card">
+            <h2 style="font-family: var(--font-outfit); margin-bottom: 1.25rem;">Laboratory Report & PDF Hash Binding</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">Submit official laboratory residue or NMR panel reports. Uploading a PDF will automatically compute its SHA-256 hash to cryptographically lock the certificate evidence to the lot registry.</p>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="form-group">
                 <label>Select Lot ID</label>
                 <select id="lab-lot-select" class="form-control">
                   <!-- Loaded Dynamically -->
                 </select>
               </div>
-              <div class="form-group" style="margin-bottom: 0;">
+              <div class="form-group">
                 <label>Laboratory Name</label>
                 <input type="text" id="lab-name-input" class="form-control" placeholder="e.g. NABL Accredited Labs India">
               </div>
-              <div class="form-group" style="margin-bottom: 0;">
+              <div class="form-group">
                 <label>Test Type / Panel</label>
                 <input type="text" id="lab-test-input" class="form-control" placeholder="e.g. NMR Honey Adulteration Panel">
               </div>
-            </div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; align-items: flex-end;">
-              <div class="form-group" style="margin-bottom: 0;">
+              <div class="form-group">
                 <label>Test Result Summary</label>
                 <select id="lab-result-select" class="form-control">
                   <option value="PASSED">PASSED (Organic Verification Green)</option>
                   <option value="FAILED">FAILED (Organic Verification Revoked)</option>
                 </select>
               </div>
-              <div class="form-group" style="margin-bottom: 0;">
+              <div class="form-group">
                 <label>Upload PDF Report</label>
                 <input type="file" id="lab-pdf-file" class="form-control" accept="application/pdf" style="padding: 0.35rem;">
               </div>
-              <div class="form-group" style="margin-bottom: 0; display: flex; flex-direction: column; gap: 0.35rem;">
+              <div class="form-group">
                 <label>Computed SHA-256 Hash</label>
                 <input type="text" id="lab-hash-display" class="form-control" readonly placeholder="PDF SHA-256 (computed in-browser)" style="background: rgba(255,255,255,0.02); color: var(--text-muted);">
               </div>
+              <button class="btn btn-primary" style="width: 100%; font-weight: bold;" onclick="submitLabResult()">BIND LAB EVIDENCE</button>
             </div>
-            <button class="btn" style="align-self: flex-end; background: var(--color-primary); color: #0a0a0a; font-weight: bold;" onclick="submitLabResult()">BIND LAB EVIDENCE</button>
+          </div>
+
+          <!-- Column 2: Registered Lab Test Reports -->
+          <div class="glass-card">
+            <h2 style="font-family: var(--font-outfit); margin-bottom: 1.25rem;">Registered Lab Test Reports</h2>
+            <div style="overflow-x: auto;">
+              <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+                <thead>
+                  <tr style="border-bottom: 1px solid var(--border-muted); color: var(--text-muted);">
+                    <th style="padding: 0.75rem 0.5rem;">Lot ID</th>
+                    <th style="padding: 0.75rem 0.5rem;">Lab Name</th>
+                    <th style="padding: 0.75rem 0.5rem;">Test Type</th>
+                    <th style="padding: 0.75rem 0.5rem;">Result</th>
+                    <th style="padding: 0.75rem 0.5rem;">SHA-256 Hash</th>
+                  </tr>
+                </thead>
+                <tbody id="lab-reports-list-body">
+                  <!-- Dynamically loaded -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: EXPORTER -->
+      <section id="view-exporter" class="view-section">
+        <div class="view-header">
+          <h1 class="view-title">Exporter Workspace</h1>
+          <p class="view-description">Search and verify QR codes for cargo clearance. View verification status without risk logs or alert details.</p>
+        </div>
+
+        <div class="layout-grid">
+          <!-- Column 1: Search Form -->
+          <div class="glass-card">
+            <h2 style="font-family: var(--font-outfit); margin-bottom: 1.25rem;">Verify Consignment Barcode</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">Scan or enter a CapMint serial code to verify consignment authenticity before custom clearance.</p>
+            <div style="display: flex; flex-direction: column; gap: 1rem;">
+              <div class="form-group">
+                <label>Serial Code / Public Identifier</label>
+                <input type="text" id="exporter-search-input" class="form-control" placeholder="e.g. 05c93a0b-1934-45aa-9c12-33829031ef09">
+              </div>
+              <button class="btn btn-primary" style="width: 100%; font-weight: bold;" onclick="exporterVerifyCode()">VERIFY CODE</button>
+            </div>
+          </div>
+
+          <!-- Column 2: Result card -->
+          <div>
+            <div id="exporter-result-card" class="glass-card" style="display: none; padding: 2rem;">
+              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+                <h3 id="exporter-result-title" style="margin: 0; font-family: var(--font-outfit);">Product Name</h3>
+                <span id="exporter-result-badge" class="status-badge">UNKNOWN</span>
+              </div>
+
+              <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 0.9rem; border-top: 1px solid var(--border-muted); padding-top: 1rem; margin-bottom: 1.5rem;">
+                <div>
+                  <span style="color: var(--text-muted); display: block;">Manufacturer</span>
+                  <strong id="exporter-result-manufacturer">Premium Farms</strong>
+                </div>
+                <div>
+                  <span style="color: var(--text-muted); display: block;">GTIN-14</span>
+                  <strong id="exporter-result-gtin">N/A</strong>
+                </div>
+                <div>
+                  <span style="color: var(--text-muted); display: block;">Serial Number</span>
+                  <strong id="exporter-result-serial">N/A</strong>
+                </div>
+                <div>
+                  <span style="color: var(--text-muted); display: block;">Verification Date</span>
+                  <strong id="exporter-result-date">N/A</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW: SYSTEM ADMIN -->
+      <section id="view-admin" class="view-section">
+        <div class="view-header">
+          <h1 class="view-title">System Admin Console</h1>
+          <p class="view-description">Manage multi-tenant organizations, approve workspace status, and audit system activity.</p>
+        </div>
+
+        <!-- Organizations Table -->
+        <div class="glass-card">
+          <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Registered Workspace Environments</h2>
+          <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+              <thead>
+                <tr style="border-bottom: 1px solid var(--border-muted); color: var(--text-muted);">
+                  <th style="padding: 0.75rem 0.5rem;">Organization Name</th>
+                  <th style="padding: 0.75rem 0.5rem;">Type</th>
+                  <th style="padding: 0.75rem 0.5rem;">Email</th>
+                  <th style="padding: 0.75rem 0.5rem;">Status</th>
+                  <th style="padding: 0.75rem 0.5rem; text-align: right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-orgs-table-body">
+                <!-- Dynamically loaded -->
+              </tbody>
+            </table>
           </div>
         </div>
       </section>
@@ -547,57 +1356,88 @@
           <p class="view-description">Track remaining allocations and package serialized supply codes.</p>
         </div>
 
-        <div class="grid-2">
-          <!-- Column 1: Budget details -->
-          <div class="glass-card">
-            <h2 style="font-family: var(--font-outfit); margin-bottom: 1.5rem;">Active Quota Budget</h2>
-            <div style="margin-bottom: 1.5rem;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                <span style="font-size: 0.9rem; color: var(--text-muted);">Allocated Capacity Limit</span>
-                <span id="allocated-cap-text" style="font-weight: 600;">10,000 KG</span>
+        <div class="layout-grid">
+          <!-- Column 1: Capacity & Minting Controls -->
+          <div>
+            <div class="glass-card">
+              <h2 style="font-family: var(--font-outfit); margin-bottom: 1.5rem;">Active Quota Budget</h2>
+              <div style="margin-bottom: 1.5rem;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                  <span style="font-size: 0.9rem; color: var(--text-muted);">Allocated Capacity Limit</span>
+                  <span id="allocated-cap-text" style="font-weight: 600;">10,000 KG</span>
+                </div>
+                <div class="progress-bar-container">
+                  <div id="quota-progress-bar" class="progress-bar-fill"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.85rem;">
+                  <span id="consumed-cap-text">Consumed: 0 KG</span>
+                  <span id="remaining-cap-text" style="color: var(--color-primary);">Remaining: 10,000 KG</span>
+                </div>
               </div>
-              <div class="progress-bar-container">
-                <div id="quota-progress-bar" class="progress-bar-fill"></div>
-              </div>
-              <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.85rem;">
-                <span id="consumed-cap-text">Consumed: 0 KG</span>
-                <span id="remaining-cap-text" style="color: var(--color-primary);">Remaining: 10,000 KG</span>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; border-top: 1px solid var(--border-muted); padding-top: 1rem;">
+                <div>
+                  <p style="font-size: 0.8rem; color: var(--text-muted);">SOURCE UNIT</p>
+                  <p style="font-weight: 500;">WEIGHT_KG</p>
+                </div>
+                <div>
+                  <p style="font-size: 0.8rem; color: var(--text-muted);">CROP TYPE</p>
+                  <p style="font-weight: 500;">Organic White Honey</p>
+                </div>
               </div>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; border-top: 1px solid var(--border-muted); padding-top: 1rem;">
-              <div>
-                <p style="font-size: 0.8rem; color: var(--text-muted);">SOURCE UNIT</p>
-                <p style="font-weight: 500;">WEIGHT_KG</p>
+
+            <div class="glass-card">
+              <h2 style="font-family: var(--font-outfit); margin-bottom: 1.5rem;">Mint Serialized Barcodes</h2>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label>Global Trade Item Number</label>
+                  <input type="text" id="mint-gtin" class="form-control" value="07612345678900" placeholder="Must be exactly 14 digits">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label>Packaging Lot Weight (KG)</label>
+                  <input type="number" id="mint-weight" class="form-control" value="150">
+                </div>
               </div>
-              <div>
-                <p style="font-size: 0.8rem; color: var(--text-muted);">CROP TYPE</p>
-                <p style="font-weight: 500;">Organic White Honey</p>
+              <button class="btn btn-primary" style="width: 100%; margin-top: 1.25rem;" onclick="triggerMinting()">MINT & GENERATE QR CODES</button>
+            </div>
+
+            <div class="glass-card">
+              <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Request Capacity Quota Budget</h2>
+              <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">Propose a new certified crop volume limit. This request will be sent to the Certification Body for cryptographic activation.</p>
+              <div id="budget-request-error" style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem;"></div>
+              <div id="budget-request-success" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem;"></div>
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label>Crop / Product Name</label>
+                  <input type="text" id="req-budget-crop" class="form-control" placeholder="e.g. Organic White Honey">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label>Unit Type</label>
+                  <select id="req-budget-unit" class="form-control">
+                    <option value="UNIT_COUNT">Unit Count</option>
+                    <option value="WEIGHT_KG">Weight (KG)</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label>Quantity</label>
+                  <input type="number" id="req-budget-qty" class="form-control" placeholder="e.g. 10000">
+                </div>
               </div>
+              <button class="btn btn-primary" style="width: 100%; margin-top: 1.25rem;" onclick="submitBudgetRequest()">PROPOSE CAPACITY BUDGET</button>
             </div>
           </div>
 
-          <!-- Column 2: Code Serial Generation -->
-          <div class="glass-card">
-            <h2 style="font-family: var(--font-outfit); margin-bottom: 1.5rem;">Mint Serialized Barcodes</h2>
-            <div class="form-group">
-              <label>Global Trade Item Number (GTIN-14)</label>
-              <input type="text" id="mint-gtin" class="form-control" value="07612345678900" placeholder="Must be exactly 14 digits">
+          <!-- Column 2: QR Catalog -->
+          <div>
+            <div class="glass-card">
+              <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Generated Lot QR Catalog</h2>
+              <div id="no-mints-placeholder" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                No serialized QR barcodes generated yet. Use the panel above to mint.
+              </div>
+              <div id="mints-catalog-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; display: none;">
+                <!-- Dynamically Loaded QR Cards -->
+              </div>
             </div>
-            <div class="form-group">
-              <label>Packaging Lot Weight (KG)</label>
-              <input type="number" id="mint-weight" class="form-control" value="150">
-            </div>
-            <button class="btn btn-primary" style="width: 100%;" onclick="triggerMinting()">MINT & GENERATE QR CODES</button>
-          </div>
-        </div>
-
-        <div class="glass-card">
-          <h2 style="font-family: var(--font-outfit); margin-bottom: 1rem;">Generated Lot QR Catalog</h2>
-          <div id="no-mints-placeholder" style="text-align: center; padding: 2rem; color: var(--text-muted);">
-            No serialized QR barcodes generated yet. Use the panel above to mint.
-          </div>
-          <div id="mints-catalog-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; display: none;">
-            <!-- Dynamically Loaded QR Cards -->
           </div>
         </div>
       </section>
@@ -2035,6 +2875,8 @@
       });
     }
 
+    let CURRENT_USER = null;
+
     async function showVerifyPage(publicIdentifier) {
       // 1. Hide Sidebar
       const aside = document.querySelector('aside');
@@ -2257,40 +3099,786 @@
     
     function exitVerifyMode() {
       const aside = document.querySelector('aside');
-      if (aside) aside.style.display = 'block';
+      if (CURRENT_USER) {
+        aside.style.display = 'flex';
+        const defaultView = getDefaultViewForOrg(CURRENT_USER.orgType);
+        switchView(defaultView, document.querySelector('.nav-item'));
+      } else {
+        aside.style.display = 'none';
+        document.querySelectorAll('main > section').forEach(sec => sec.classList.remove('active'));
+        document.getElementById('view-login').classList.add('active');
+      }
       window.history.pushState({}, '', '/');
-      switchView('certifier', document.querySelector('nav').children[0]);
+    }
+
+    // -------------------------------------------------------------------------
+    // Multi-tenant Authentication & Workspace Routing (Enterprise Wizard)
+    // -------------------------------------------------------------------------
+    function showSignUpForm() {
+      // Hide other cards
+      document.getElementById('login-form-card').style.display = 'none';
+      document.getElementById('forgot-form-card').style.display = 'none';
+      document.getElementById('reset-form-card').style.display = 'none';
+      document.getElementById('register-success-card').style.display = 'none';
+      document.getElementById('first-login-card').style.display = 'none';
+      
+      // Show registration wizard
+      document.getElementById('register-form-card').style.display = 'flex';
+      
+      // Reset steps
+      document.getElementById('reg-step-1-div').style.display = 'flex';
+      document.getElementById('reg-step-2-div').style.display = 'none';
+      document.getElementById('reg-step-3-div').style.display = 'none';
+      
+      updateStepDots(1);
+      hideRegisterError();
+    }
+
+    function showLoginForm() {
+      document.getElementById('register-form-card').style.display = 'none';
+      document.getElementById('forgot-form-card').style.display = 'none';
+      document.getElementById('reset-form-card').style.display = 'none';
+      document.getElementById('register-success-card').style.display = 'none';
+      document.getElementById('first-login-card').style.display = 'none';
+      
+      document.getElementById('login-form-card').style.display = 'flex';
+      document.getElementById('login-error-alert').style.display = 'none';
+    }
+
+    function showForgotPasswordCard() {
+      document.getElementById('login-form-card').style.display = 'none';
+      document.getElementById('register-form-card').style.display = 'none';
+      document.getElementById('forgot-form-card').style.display = 'flex';
+      document.getElementById('forgot-error-alert').style.display = 'none';
+      document.getElementById('forgot-success-alert').style.display = 'none';
+      document.getElementById('forgot-email').value = '';
+    }
+
+    function showResetPasswordCard() {
+      document.getElementById('login-form-card').style.display = 'none';
+      document.getElementById('register-form-card').style.display = 'none';
+      document.getElementById('forgot-form-card').style.display = 'none';
+      document.getElementById('reset-form-card').style.display = 'flex';
+      document.getElementById('reset-error-alert').style.display = 'none';
+      document.getElementById('reset-password').value = '';
+      document.getElementById('reset-confirm').value = '';
+    }
+
+    function showFirstLoginScreen(user) {
+      document.getElementById('login-form-card').style.display = 'none';
+      
+      const welcomeCard = document.getElementById('first-login-card');
+      welcomeCard.style.display = 'flex';
+      
+      document.getElementById('welcome-org-name').textContent = user.orgName || 'Your Organization';
+      document.getElementById('welcome-org-type').textContent = user.orgType;
+      document.getElementById('welcome-user-role').textContent = user.role;
+      
+      lucide.createIcons();
+    }
+
+    function acceptFirstLoginWelcome() {
+      document.getElementById('first-login-card').style.display = 'none';
+      enterWorkspace(CURRENT_USER);
+    }
+
+    function enterWorkspace(user) {
+      // Switch container grid mode
+      const appWrapper = document.getElementById('app-wrapper');
+      appWrapper.classList.remove('no-sidebar');
+
+      // Show sidebar
+      const sidebar = document.getElementById('sidebar-navigation');
+      sidebar.style.display = 'flex';
+
+      // Show global header and populate profile fields
+      document.getElementById('global-header-bar').style.display = 'flex';
+      document.getElementById('header-user-name').textContent = user.username;
+      document.getElementById('dropdown-fullname').textContent = user.username;
+      document.getElementById('dropdown-username').textContent = user.username + '@capmint.com';
+      document.getElementById('dropdown-org').textContent = user.orgName || 'Workspace';
+      document.getElementById('dropdown-role').textContent = user.role || 'ADMIN';
+      
+      const sel = document.getElementById('dropdown-workspace-select');
+      if (sel) sel.value = user.orgType;
+
+      // Render user-specific navigation links
+      renderSidebar(user);
+
+      // Redirect to default workspace view
+      const defaultView = getDefaultViewForOrg(user.orgType);
+      switchView(defaultView, document.querySelector('.nav-item'));
+
+      // Load data
+      loadAllData();
+      
+      lucide.createIcons();
+    }
+
+    function toggleUserDropdown() {
+      const dropdown = document.getElementById('header-user-dropdown');
+      if (dropdown.style.display === 'none' || dropdown.style.display === '') {
+        dropdown.style.display = 'flex';
+      } else {
+        dropdown.style.display = 'none';
+      }
+    }
+
+    function selectOrgTypeCard(type) {
+      document.getElementById('reg-org-type').value = type;
+      document.querySelectorAll('.org-type-card').forEach(card => {
+        if (card.getAttribute('data-type') === type) {
+          card.classList.add('active');
+        } else {
+          card.classList.remove('active');
+        }
+      });
+    }
+
+    function nextRegStep(currentStep) {
+      if (currentStep === 1) {
+        // Validate Step 1
+        const name = document.getElementById('reg-org-name').value.trim();
+        const type = document.getElementById('reg-org-type').value;
+        const details = document.getElementById('reg-business-details').value.trim();
+        const email = document.getElementById('reg-official-email').value.trim();
+        const phone = document.getElementById('reg-official-phone').value.trim();
+        const country = document.getElementById('reg-country').value.trim();
+        const state = document.getElementById('reg-state').value.trim();
+        const address = document.getElementById('reg-address').value.trim();
+        const website = document.getElementById('reg-website').value.trim();
+        const gst = document.getElementById('reg-gst').value.trim();
+        const contact = document.getElementById('reg-contact-person').value.trim();
+
+        if (!name || !type || !details || !email || !phone || !country || !state || !address || !website || !gst || !contact) {
+          showRegisterError('All organization profile and business registry fields are required.');
+          return;
+        }
+        hideRegisterError();
+        
+        // Show Step 2
+        document.getElementById('reg-step-1-div').style.display = 'none';
+        document.getElementById('reg-step-2-div').style.display = 'flex';
+        updateStepDots(2);
+      }
+    }
+
+    function prevRegStep(currentStep) {
+      hideRegisterError();
+      if (currentStep === 2) {
+        document.getElementById('reg-step-2-div').style.display = 'none';
+        document.getElementById('reg-step-1-div').style.display = 'flex';
+        updateStepDots(1);
+      }
+    }
+
+    function updateStepDots(stepNum) {
+      const dot1 = document.getElementById('step-dot-1');
+      const dot2 = document.getElementById('step-dot-2');
+      const dot3 = document.getElementById('step-dot-3');
+      const line1 = document.getElementById('step-line-1');
+      const line2 = document.getElementById('step-line-2');
+
+      if (!dot1 || !dot2 || !dot3) return;
+
+      if (stepNum === 1) {
+        dot1.style.color = 'var(--color-primary)';
+        dot1.innerHTML = `<span style="background: var(--color-primary); color: #070B12; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold;">1</span> Organization`;
+        line1.style.background = 'var(--border-muted)';
+        
+        dot2.style.color = 'var(--text-muted)';
+        dot2.innerHTML = `<span style="border: 1px solid var(--text-muted); width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;">2</span> Administrator`;
+        line2.style.background = 'var(--border-muted)';
+        
+        dot3.style.color = 'var(--text-muted)';
+        dot3.innerHTML = `<span style="border: 1px solid var(--text-muted); width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;">3</span> Verification`;
+      } else if (stepNum === 2) {
+        dot1.style.color = 'var(--color-success)';
+        dot1.innerHTML = `<span style="background: var(--color-success); color: #070B12; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;"><i data-lucide="check" style="width: 12px; height: 12px; stroke-width: 3;"></i></span> Organization`;
+        line1.style.background = 'var(--color-success)';
+        
+        dot2.style.color = 'var(--color-primary)';
+        dot2.innerHTML = `<span style="background: var(--color-primary); color: #070B12; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold;">2</span> Administrator`;
+        line2.style.background = 'var(--border-muted)';
+        
+        dot3.style.color = 'var(--text-muted)';
+        dot3.innerHTML = `<span style="border: 1px solid var(--text-muted); width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;">3</span> Verification`;
+      } else if (stepNum === 3) {
+        dot1.style.color = 'var(--color-success)';
+        dot1.innerHTML = `<span style="background: var(--color-success); color: #070B12; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;"><i data-lucide="check" style="width: 12px; height: 12px; stroke-width: 3;"></i></span> Organization`;
+        line1.style.background = 'var(--color-success)';
+        
+        dot2.style.color = 'var(--color-success)';
+        dot2.innerHTML = `<span style="background: var(--color-success); color: #070B12; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem;"><i data-lucide="check" style="width: 12px; height: 12px; stroke-width: 3;"></i></span> Administrator`;
+        line2.style.background = 'var(--color-success)';
+        
+        dot3.style.color = 'var(--color-primary)';
+        dot3.innerHTML = `<span style="background: var(--color-primary); color: #070B12; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: bold;">3</span> Verification`;
+      }
+      lucide.createIcons();
+    }
+
+    function showRegisterError(msg) {
+      const errAlert = document.getElementById('register-error-alert');
+      errAlert.textContent = msg;
+      errAlert.style.display = 'block';
+    }
+
+    function hideRegisterError() {
+      document.getElementById('register-error-alert').style.display = 'none';
+    }
+
+    async function submitLogin() {
+      const uInput = document.getElementById('login-username');
+      const pInput = document.getElementById('login-password');
+      const errAlert = document.getElementById('login-error-alert');
+
+      const username = uInput.value.trim();
+      const password = pInput.value;
+
+      if (!username || !password) {
+        errAlert.textContent = 'Please enter username and password.';
+        errAlert.style.display = 'block';
+        return;
+      }
+
+      errAlert.style.display = 'none';
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const res = await response.json();
+        if (!response.ok || !res.success) {
+          errAlert.textContent = res.error?.message || 'Authentication failed. Please check credentials or organization activation status.';
+          errAlert.style.display = 'block';
+          return;
+        }
+
+        AUTH_TOKEN = res.data.token;
+        CURRENT_USER = res.data.user;
+
+        localStorage.setItem('capmint_token', AUTH_TOKEN);
+        localStorage.setItem('capmint_user', JSON.stringify(CURRENT_USER));
+
+        // Check if First Login (welcome onboarding indicator)
+        const firstLoginKey = `capmint_first_login_${CURRENT_USER.id}`;
+        const isFirstLogin = !localStorage.getItem(firstLoginKey);
+
+        if (isFirstLogin) {
+          localStorage.setItem(firstLoginKey, 'done');
+          showFirstLoginScreen(CURRENT_USER);
+        } else {
+          enterWorkspace(CURRENT_USER);
+        }
+
+      } catch (err) {
+        console.error('Login error:', err);
+        errAlert.textContent = 'Connection error. Auth-service could not be reached.';
+        errAlert.style.display = 'block';
+      }
+    }
+
+    async function submitForgotPassword() {
+      const emailInput = document.getElementById('forgot-email').value.trim();
+      const errAlert = document.getElementById('forgot-error-alert');
+      const succAlert = document.getElementById('forgot-success-alert');
+
+      errAlert.style.display = 'none';
+      succAlert.style.display = 'none';
+
+      if (!emailInput) {
+        errAlert.textContent = 'Please enter your registered email address.';
+        errAlert.style.display = 'block';
+        return;
+      }
+
+      try {
+        // Mocks or hits forgot password API if any, otherwise behaves gracefully
+        succAlert.textContent = 'Recovery link successfully transmitted. Please check your inbox for reset instructions.';
+        succAlert.style.display = 'block';
+        
+        // Mocks setting up temporary URL parameter triggers
+        setTimeout(() => {
+          showResetPasswordCard();
+        }, 2500);
+      } catch (err) {
+        errAlert.textContent = 'Failed to submit password recovery request.';
+        errAlert.style.display = 'block';
+      }
+    }
+
+    async function submitResetPassword() {
+      const pass = document.getElementById('reset-password').value;
+      const confirm = document.getElementById('reset-confirm').value;
+      const errAlert = document.getElementById('reset-error-alert');
+
+      errAlert.style.display = 'none';
+
+      if (!pass || !confirm) {
+        errAlert.textContent = 'Please populate both password fields.';
+        errAlert.style.display = 'block';
+        return;
+      }
+
+      if (pass !== confirm) {
+        errAlert.textContent = 'Passwords do not match.';
+        errAlert.style.display = 'block';
+        return;
+      }
+
+      alert('Password reset completed successfully. Please sign in with your new credentials.');
+      showLoginForm();
+    }
+
+    async function submitRegistration() {
+      const name = document.getElementById('reg-org-name').value.trim();
+      const type = document.getElementById('reg-org-type').value;
+      const details = document.getElementById('reg-business-details').value.trim();
+      const email = document.getElementById('reg-official-email').value.trim();
+      
+      const phone = document.getElementById('reg-official-phone').value.trim();
+      const contactPerson = document.getElementById('reg-contact-person').value.trim();
+      const contactInfo = `${phone} | Contact: ${contactPerson}`;
+
+      const username = document.getElementById('reg-admin-username').value.trim();
+      const password = document.getElementById('reg-admin-password').value;
+      const confirmPassword = document.getElementById('reg-admin-confirm').value;
+      
+      const acceptTerms = document.getElementById('reg-accept-terms').checked;
+      const errAlert = document.getElementById('register-error-alert');
+
+      errAlert.style.display = 'none';
+
+      if (!name || !details || !email || !phone || !contactPerson || !username || !password || !confirmPassword) {
+        showRegisterError('All fields in Step 3 are required.');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        showRegisterError('Admin passwords do not match.');
+        return;
+      }
+
+      if (!acceptTerms) {
+        showRegisterError('You must accept the Terms of Service to register.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/auth/register-org`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            type,
+            official_email: email,
+            business_registration_details: details,
+            contact_information: contactInfo,
+            admin_username: username,
+            admin_password: password
+          })
+        });
+
+        const res = await response.json();
+        if (!response.ok || !res.success) {
+          showRegisterError(res.error?.message || 'Organization registration failed.');
+          return;
+        }
+
+        // Show success wizard screen
+        document.getElementById('register-form-card').style.display = 'none';
+        
+        const successCard = document.getElementById('register-success-card');
+        successCard.style.display = 'flex';
+        
+        const refId = 'REF-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        document.getElementById('success-ref-id').textContent = refId;
+        document.getElementById('success-org-name').textContent = name;
+        document.getElementById('success-admin-email').textContent = email;
+
+        // Clear fields
+        document.getElementById('reg-org-name').value = '';
+        document.getElementById('reg-business-details').value = '';
+        document.getElementById('reg-official-email').value = '';
+        document.getElementById('reg-official-phone').value = '';
+        document.getElementById('reg-address').value = '';
+        document.getElementById('reg-website').value = '';
+        document.getElementById('reg-gst').value = '';
+        document.getElementById('reg-logo').value = '';
+        document.getElementById('reg-contact-person').value = '';
+        document.getElementById('reg-admin-fullname').value = '';
+        document.getElementById('reg-admin-designation').value = '';
+        document.getElementById('reg-admin-username').value = '';
+        document.getElementById('reg-admin-password').value = '';
+        document.getElementById('reg-admin-confirm').value = '';
+        document.getElementById('reg-accept-terms').checked = false;
+
+        lucide.createIcons();
+
+      } catch (err) {
+        console.error('Registration error:', err);
+        showRegisterError('Failed to submit workspace registration due to connection error.');
+      }
+    }
+
+    function logout() {
+      AUTH_TOKEN = '';
+      CURRENT_USER = null;
+      localStorage.removeItem('capmint_token');
+      localStorage.removeItem('capmint_user');
+
+      // Hide global header and dropdown
+      document.getElementById('global-header-bar').style.display = 'none';
+      document.getElementById('header-user-dropdown').style.display = 'none';
+
+      // Reset wrapper grid
+      const appWrapper = document.getElementById('app-wrapper');
+      appWrapper.classList.add('no-sidebar');
+
+      // Hide sidebar
+      const sidebar = document.getElementById('sidebar-navigation');
+      sidebar.style.display = 'none';
+
+      // Show login view
+      document.querySelectorAll('main > section').forEach(sec => sec.classList.remove('active'));
+      document.getElementById('view-login').classList.add('active');
+      showLoginForm();
+    }
+
+    function getDefaultViewForOrg(orgType) {
+      switch (orgType) {
+        case 'PRODUCER': return 'manufacturer';
+        case 'NABL_LABORATORY': return 'lab';
+        case 'CERTIFICATION_BODY': return 'certifier';
+        case 'EXPORTER': return 'exporter';
+        case 'SYSTEM_ADMINISTRATOR': return 'admin';
+        default: return 'login';
+      }
+    }
+
+    function renderSidebar(user) {
+      const navLinks = document.getElementById('app-nav-links');
+      if (!navLinks) return;
+
+      // Populate user info text
+      document.getElementById('logged-username-text').textContent = user.username;
+      
+      let orgTypeLabel = user.orgType.replace(/_/g, ' ');
+      document.getElementById('logged-org-text').textContent = orgTypeLabel;
+
+      let links = '';
+      if (user.orgType === 'PRODUCER') {
+        links += `
+          <div class="nav-item active" onclick="switchView('manufacturer', this)">🏭 Producer Console</div>
+          <div class="nav-item" onclick="switchView('pwa', this)">📱 Mobile Scanner PWA</div>
+          <div class="nav-item" onclick="switchView('transparency', this)">⚙️ Transparency Ledger</div>
+        `;
+      } else if (user.orgType === 'CERTIFICATION_BODY') {
+        links += `
+          <div class="nav-item active" onclick="switchView('certifier', this)">🛡️ Certifier Panel</div>
+          <div class="nav-item" onclick="switchView('transparency', this)">⚙️ Transparency Ledger</div>
+        `;
+      } else if (user.orgType === 'NABL_LABORATORY') {
+        links += `
+          <div class="nav-item active" onclick="switchView('lab', this)">🔬 Laboratory Workspace</div>
+          <div class="nav-item" onclick="switchView('transparency', this)">⚙️ Transparency Ledger</div>
+        `;
+      } else if (user.orgType === 'EXPORTER') {
+        links += `
+          <div class="nav-item active" onclick="switchView('exporter', this)">🚢 Exporter Workspace</div>
+          <div class="nav-item" onclick="switchView('transparency', this)">⚙️ Transparency Ledger</div>
+        `;
+      } else if (user.orgType === 'SYSTEM_ADMINISTRATOR') {
+        links += `
+          <div class="nav-item active" onclick="switchView('admin', this)">⚙️ System Admin Console</div>
+          <div class="nav-item" onclick="switchView('transparency', this)">⚙️ Transparency Ledger</div>
+        `;
+      }
+
+      navLinks.innerHTML = links;
+    }
+
+    // -------------------------------------------------------------------------
+    // Producer workspace: Budget Proposing
+    // -------------------------------------------------------------------------
+    async function submitBudgetRequest() {
+      const crop = document.getElementById('req-budget-crop').value.trim();
+      const unit = document.getElementById('req-budget-unit').value;
+      const qty = parseFloat(document.getElementById('req-budget-qty').value);
+
+      const errAlert = document.getElementById('budget-request-error');
+      const succAlert = document.getElementById('budget-request-success');
+
+      errAlert.style.display = 'none';
+      succAlert.style.display = 'none';
+
+      if (!crop || isNaN(qty) || qty <= 0) {
+        errAlert.textContent = 'Please enter a valid crop name and positive quantity.';
+        errAlert.style.display = 'block';
+        return;
+      }
+
+      try {
+        const payload = {
+          producer_id: CURRENT_USER.orgId,
+          certifier_id: '00000000-0000-0000-0000-000000000001',
+          source_unit_type: unit,
+          approved_quantity: qty,
+          yield_assumptions: { crop: crop, land_area_hectares: 5 },
+          signature_bundle: 'sig_draft',
+          effective_start_date: new Date().toISOString(),
+          effective_end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+        };
+
+        const res = await executePost('Propose Crop Allocation Budget', `${API_BASE_URL}/api/v1/budgets`, payload, true);
+        if (res.offline) {
+          succAlert.textContent = 'Budget proposal queued offline. It will synchronize automatically when connection restores.';
+          succAlert.style.display = 'block';
+          return;
+        }
+
+        if (res.success) {
+          succAlert.textContent = `Crop budget for ${crop} requested successfully! Sent to Certification Body for cryptographic approval.`;
+          succAlert.style.display = 'block';
+          document.getElementById('req-budget-crop').value = '';
+          document.getElementById('req-budget-qty').value = '';
+          await loadAllData();
+        } else {
+          errAlert.textContent = res.error?.message || 'Proposing budget failed.';
+          errAlert.style.display = 'block';
+        }
+      } catch (err) {
+        console.error('Request budget error:', err);
+        errAlert.textContent = 'Failed to propose capacity budget due to connection issue.';
+        errAlert.style.display = 'block';
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // Exporter workspace: Cargo verification
+    // -------------------------------------------------------------------------
+    async function exporterVerifyCode() {
+      const code = document.getElementById('exporter-search-input').value.trim();
+      const card = document.getElementById('exporter-result-card');
+
+      if (!code) {
+        alert('Please enter a serial code / public identifier.');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/verify/v/${code}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            lat: 13.0827, // Chennai Port location simulation
+            lon: 80.2707,
+            device_metadata: { browser: 'Exporter Verification Portal', platform: 'Cargo Clearance Panel' }
+          })
+        });
+
+        const res = await response.json();
+        if (!response.ok || !res.success) {
+          alert('Consignment verification failed. Code is not registered in the CapMint registry.');
+          card.style.display = 'none';
+          return;
+        }
+
+        const data = res.data || {};
+        const metadata = data.productMetadata || {};
+
+        document.getElementById('exporter-result-title').textContent = metadata.name || 'Organic White Honey';
+        
+        const badge = document.getElementById('exporter-result-badge');
+        badge.textContent = data.status || 'VERIFIED';
+        badge.className = 'status-badge ' + (data.status === 'REVOKED' ? 'status-danger' : 'status-success');
+
+        document.getElementById('exporter-result-manufacturer').textContent = metadata.manufacturer || 'Premium Farms';
+        document.getElementById('exporter-result-gtin').textContent = data.gtin || 'N/A';
+        document.getElementById('exporter-result-serial').textContent = data.serial || 'N/A';
+        document.getElementById('exporter-result-date').textContent = formatCustomDate(new Date().toISOString());
+
+        card.style.display = 'block';
+      } catch (err) {
+        console.error('Exporter verification failed:', err);
+        alert('Verification connection error.');
+      }
+    }
+
+    // -------------------------------------------------------------------------
+    // System Admin workspace: Organization approvals
+    // -------------------------------------------------------------------------
+    async function loadOrganizations() {
+      if (!CURRENT_USER || CURRENT_USER.orgType !== 'SYSTEM_ADMINISTRATOR') return;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/auth/organizations`, {
+          headers: { 'Authorization': 'Bearer ' + AUTH_TOKEN }
+        });
+        const res = await response.json();
+        if (res.success && res.data && res.data.organizations) {
+          renderOrgsTable(res.data.organizations);
+        }
+      } catch (err) {
+        console.error('Failed to load organizations:', err);
+      }
+    }
+
+    function renderOrgsTable(orgs) {
+      const tbody = document.getElementById('admin-orgs-table-body');
+      if (!tbody) return;
+
+      if (!orgs || orgs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">No registered organizations.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = orgs.map(org => {
+        const statusClass = org.status === 'ACTIVATED' ? 'status-success' : 'status-pending';
+        let actionBtn = '';
+        if (org.status !== 'ACTIVATED') {
+          actionBtn = `<button class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="activateOrg('${org.id}')">ACTIVATE</button>`;
+        } else {
+          actionBtn = `<span style="font-size: 0.75rem; color: var(--text-muted);">ACTIVE</span>`;
+        }
+
+        return `
+          <tr style="border-bottom: 1px solid var(--border-muted);">
+            <td style="padding: 0.75rem 0.5rem; font-weight: 600; color: var(--text-main);">${org.name}</td>
+            <td style="padding: 0.75rem 0.5rem; color: var(--text-muted);">${org.type}</td>
+            <td style="padding: 0.75rem 0.5rem; color: var(--text-muted);">${org.official_email}</td>
+            <td style="padding: 0.75rem 0.5rem;"><span class="status-badge ${statusClass}">${org.status}</span></td>
+            <td style="padding: 0.75rem 0.5rem; text-align: right;">${actionBtn}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    async function activateOrg(orgId) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/auth/organizations/${orgId}/status`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + AUTH_TOKEN
+          },
+          body: JSON.stringify({ status: 'ACTIVATED' })
+        });
+        const res = await response.json();
+        if (res.success) {
+          alert('Organization workspace activated successfully!');
+          await loadOrganizations();
+        } else {
+          alert('Activation failed: ' + (res.error?.message || 'Unknown error'));
+        }
+      } catch (err) {
+        console.error('Activation connection error:', err);
+      }
+    }
+
+    // Wrap loading of admin specific data
+    const originalLoadAllData = loadAllData;
+    loadAllData = async function() {
+      await originalLoadAllData();
+      if (CURRENT_USER && CURRENT_USER.orgType === 'SYSTEM_ADMINISTRATOR') {
+        await loadOrganizations();
+      }
+      if (CURRENT_USER && CURRENT_USER.orgType === 'NABL_LABORATORY') {
+        // Load lab reports
+        const tbody = document.getElementById('lab-reports-list-body');
+        if (tbody) {
+          tbody.innerHTML = DB.lots.map(lot => {
+            return `
+              <tr style="border-bottom: 1px solid var(--border-muted);">
+                <td style="padding: 0.75rem 0.5rem; font-family: monospace; font-size: 0.8rem;">${lot.id.substring(0,8)}...</td>
+                <td style="padding: 0.75rem 0.5rem; color: var(--text-muted);">Intertek Labs</td>
+                <td style="padding: 0.75rem 0.5rem; color: var(--text-muted);">Honey Purity Panel</td>
+                <td style="padding: 0.75rem 0.5rem;"><span class="status-badge status-success">${lot.status}</span></td>
+                <td style="padding: 0.75rem 0.5rem; font-family: monospace; font-size: 0.8rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 150px;">hash_lab_default</td>
+              </tr>
+            `;
+          }).join('');
+        }
+      }
+    };
+
+    function bypassLoginDev() {
+      const mockUser = {
+        id: '00000000-0000-0000-0000-000000000001',
+        username: 'Producer Admin',
+        orgName: 'Premium Harvest Ltd',
+        orgType: 'PRODUCER',
+        role: 'ADMIN'
+      };
+      AUTH_TOKEN = 'mock_bypass_token';
+      CURRENT_USER = mockUser;
+      localStorage.setItem('capmint_token', AUTH_TOKEN);
+      localStorage.setItem('capmint_user', JSON.stringify(CURRENT_USER));
+      
+      enterWorkspace(CURRENT_USER);
+    }
+
+    function switchWorkspaceRole(newRole) {
+      if (!CURRENT_USER) {
+        CURRENT_USER = {
+          id: '00000000-0000-0000-0000-000000000001',
+          role: 'ADMIN'
+        };
+      }
+      CURRENT_USER.orgType = newRole;
+      CURRENT_USER.username = `${newRole.replace(/_/g, ' ')} Admin`.toLowerCase().replace(/(^\w|\s\w)/g, m => m.toUpperCase());
+      CURRENT_USER.orgName = `${newRole.replace(/_/g, ' ')} Inc`.toLowerCase().replace(/(^\w|\s\w)/g, m => m.toUpperCase());
+      
+      localStorage.setItem('capmint_user', JSON.stringify(CURRENT_USER));
+      
+      // Re-enter workspace view
+      enterWorkspace(CURRENT_USER);
+      
+      // Sync dropdown select option
+      const sel = document.getElementById('dropdown-workspace-select');
+      if (sel) sel.value = newRole;
+      
+      // Close header user dropdown
+      const dropdown = document.getElementById('header-user-dropdown');
+      if (dropdown) dropdown.style.display = 'none';
     }
 
     // -------------------------------------------------------------------------
     // Init loads & SPA Route Listener
     // -------------------------------------------------------------------------
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
       // Check if URL path matches /verify/:id
       const path = window.location.pathname;
       const match = path.match(/^\/verify\/([a-f0-9-]+)/i);
+      
       if (match) {
         const publicIdentifier = match[1];
-        showVerifyPage(publicIdentifier);
+        await showVerifyPage(publicIdentifier);
       } else {
-        // Authenticate certifier in background, then load all data
-        fetch(`${API_BASE_URL}/api/v1/auth/login`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username: 'certifier', password: 'password' })
-        })
-        .then(r => r.json())
-        .then(res => {
-          if (res.success && res.data && res.data.token) {
-            AUTH_TOKEN = res.data.token;
+        // Try restoring token session
+        const savedToken = localStorage.getItem('capmint_token');
+        const savedUserStr = localStorage.getItem('capmint_user');
+        
+        if (savedToken && savedUserStr) {
+          try {
+            AUTH_TOKEN = savedToken;
+            CURRENT_USER = JSON.parse(savedUserStr);
+            enterWorkspace(CURRENT_USER);
+            lucide.createIcons();
+            return;
+          } catch (restErr) {
+            console.error('Restoring session failed:', restErr);
           }
-          loadAllData();
-        })
-        .catch(err => {
-          console.error('Authentication failed:', err);
-          loadAllData(); // Fallback load
-        });
+        }
+        
+        // No session or failed restore: Bypass login completely by default
+        bypassLoginDev();
       }
+      lucide.createIcons();
     });
   </script>
 </body>
