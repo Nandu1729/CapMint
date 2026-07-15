@@ -6,9 +6,7 @@ This directory houses the OpenAPI contracts, JSON validation schemas, and webhoo
 
 | Document | Purpose | Canonical Owner | Related Documents | Stable Section Identifiers |
 |---|---|---|---|---|
-| **[schemas/api_scaffolding.md](schemas/api_scaffolding.md)** | Route registry and request-response payload scaffolding. | Integration Team | None | None |
-| **[schemas/webhooks.md](schemas/webhooks.md)** | Outbound webhook models and validation signatures. | Integration Team | None | None |
-| **[openapi/checkpoint_review.md](openapi/checkpoint_review.md)** | Contract verification checklists and API quality gate logs. | Integration Team | None | None |
+| **[API_BLUEPRINT.md](API_BLUEPRINT.md)** | Consolidated API routes, standard envelopes, webhook signature verifications, and retry policies. | Integration Team | None | `[API-001]` to `[API-006]` |
 
 ---
 
@@ -27,3 +25,15 @@ These are the strict JSON schemas loaded at route prevalidation gates:
 *   **[schemas/v1/mint.json](schemas/v1/mint.json)** - Serial assignment and capacity drawdown checks.
 *   **[schemas/v1/verify.json](schemas/v1/verify.json)** - Public scan check coordinates and telemetry logs.
 *   **[schemas/v1/webhooks.json](schemas/v1/webhooks.json)** - Webhook registration parameters.
+
+---
+
+## 4. Section Identifier Mappings
+
+### API_BLUEPRINT Section Identifiers
+- `[API-001]` : [1. Executive Summary](API_BLUEPRINT.md#1-executive-summary-api-001)
+- `[API-002]` : [2. API Endpoint Catalog](API_BLUEPRINT.md#2-api-endpoint-catalog-api-002)
+- `[API-003]` : [3. Global Schema Conventions](API_BLUEPRINT.md#3-global-schema-conventions-api-003)
+- `[API-004]` : [4. HTTP Status Code Mapping Matrix](API_BLUEPRINT.md#4-http-status-code-mapping-matrix-api-004)
+- `[API-005]` : [5. Webhooks & Client Contracts](API_BLUEPRINT.md#5-webhooks--client-contracts-api-005)
+- `[API-006]` : [6. Checkpoint Review Logs](API_BLUEPRINT.md#6-checkpoint-review-logs-api-006)

@@ -6,13 +6,7 @@ This directory maps the logical relational database blueprint, entity models, sc
 
 | Document | Purpose | Canonical Owner | Related Documents | Stable Section Identifiers |
 |---|---|---|---|---|
-| **[erd/erd.md](erd/erd.md)** | Entity relationship diagrams and primary tables catalog. | Database Architect | [schema/schema.sql](schema/schema.sql) | None |
-| **[erd/entity_catalog.md](erd/entity_catalog.md)** | Detailed mapping of tables, columns, constraints, and datatypes. | Database Architect | [erd/erd.md](erd/erd.md) | None |
-| **[erd/domain_discovery.md](erd/domain_discovery.md)** | Logical domain entities and descriptions. | Database Architect | None | None |
-| **[erd/domain_relationships.md](erd/domain_relationships.md)** | Structural foreign key maps and join behaviors. | Database Architect | [erd/erd.md](erd/erd.md) | None |
-| **[erd/state_machines.md](erd/state_machines.md)** | Budgets, Lots, and Unit state machine mapping. | Database Architect | [sequence/DATA_FLOW.md](../architecture/sequence/DATA_FLOW.md) | None |
-| **[erd/business_rules_mapping.md](erd/business_rules_mapping.md)** | Budget capacity constraints and cascading logic. | Database Architect | None | None |
-| **[erd/checkpoint_review.md](erd/checkpoint_review.md)** | Pre-development schema reviews and quality logs. | Database Architect | None | None |
+| **[DATABASE_BLUEPRINT.md](DATABASE_BLUEPRINT.md)** | Consolidated entity database schemas, relationships, state lifecycles, triggers, and rules mapping. | Database Architect | [schema/schema.sql](schema/schema.sql) | `[DB-001]` to `[DB-008]` |
 
 ---
 
@@ -20,3 +14,17 @@ This directory maps the logical relational database blueprint, entity models, sc
 
 The physical schema files exist in the database folder structure:
 *   **[schema/schema.sql](schema/schema.sql)** - Canonical DDL schema script creating tables, constraints, checks, and foreign keys.
+
+---
+
+## 3. Section Identifier Mappings
+
+### DATABASE_BLUEPRINT Section Identifiers
+- `[DB-001]` : [1. Executive Summary](DATABASE_BLUEPRINT.md#1-executive-summary-db-001)
+- `[DB-002]` : [2. Business Domain Discovery](DATABASE_BLUEPRINT.md#2-business-domain-discovery-db-002)
+- `[DB-003]` : [3. Entity Catalog](DATABASE_BLUEPRINT.md#3-entity-catalog-db-003)
+- `[DB-004]` : [4. Domain Relationships](DATABASE_BLUEPRINT.md#4-domain-relationships-db-004)
+- `[DB-005]` : [5. Visual Entity Relationship Diagram](DATABASE_BLUEPRINT.md#5-visual-entity-relationship-diagram-db-005)
+- `[DB-006]` : [6. Entity State Machines](DATABASE_BLUEPRINT.md#6-entity-state-machines-db-006)
+- `[DB-007]` : [7. Business Rules & Constraints Mapping](DATABASE_BLUEPRINT.md#7-business-rules--constraints-mapping-db-007)
+- `[DB-008]` : [8. Checkpoint Review Logs](DATABASE_BLUEPRINT.md#8-checkpoint-review-logs-db-008)

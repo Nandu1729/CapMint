@@ -1,15 +1,18 @@
-# CapMint — API Scaffolding (CP-003.1)
+# API Blueprint [API_BLUEPRINT]
 
-## 1. Executive Summary
-
-This document represents the deliverables for **CP-003.1 (API Scaffolding)** under the API Contracts phase. It establishes the HTTP routing tree, JSON Schema validation structures, error handling schema standards, and status code behaviors for all microservices in the CapMint system.
+This consolidated document defines the HTTP routing tree, JSON Schema validation envelopes, status code behaviors, and outbound webhook signatures for the CapMint platform.
 
 ---
 
-## 2. API Endpoint Catalog (Routing Tree)
+## 1. Executive Summary [API-001]
 
-All API endpoints are versioned under `/api/v1` and map to the respective bounded context owner services:
+All CapMint APIs are versioned under `/api/v1` and enforce strict schema prevalidation gates, standardized success/error response envelopes, and cryptographic signatures for outbound webhooks to prevent spoofing and playback attacks.
 
+---
+
+## 2. API Endpoint Catalog [API-002]
+
+API routes map to their bounded context microservices as follows:
 ```
 /api/v1/
 ├── identity/                  # Identity Service
@@ -34,12 +37,11 @@ All API endpoints are versioned under `/api/v1` and map to the respective bounde
 
 ---
 
-## 3. Global Schema Conventions
+## 3. Global Schema Conventions [API-003]
 
-### 3.1 Standard Response Envelopes
-To enforce consistent output structures across all 14 services, all REST responses must follow either the Success envelope or the Error envelope.
+To enforce consistent output structures across all microservices, all REST responses must follow either the Success envelope or the Error envelope.
 
-#### 3.1.1 Success Response Envelope
+### 3.1 Success Response Envelope
 ```json
 {
   "type": "object",
@@ -59,7 +61,7 @@ To enforce consistent output structures across all 14 services, all REST respons
 }
 ```
 
-#### 3.1.2 Error Response Envelope (RFC 7807 Problem Details)
+### 3.2 Error Response Envelope (RFC 7807 Problem Details)
 ```json
 {
   "type": "object",
@@ -92,9 +94,9 @@ To enforce consistent output structures across all 14 services, all REST respons
 
 ---
 
-## 4. HTTP Status Code Mapping Matrix
+## 4. HTTP Status Code Mapping Matrix [API-004]
 
-| Status Code | Usage Condition | Example Endpoint Scenario |
+| Status Code | Usage Condition | Endpoint Scenario |
 | :--- | :--- | :--- |
 | **`200 OK`** | Successful read or non-creation write. | `GET /api/v1/budgets/:id` |
 | **`201 Created`** | Successful creation of a resource. | `POST /api/v1/mint/lots` |
@@ -107,4 +109,57 @@ To enforce consistent output structures across all 14 services, all REST respons
 | **`500 Server Error`**| Unhandled system exception. | Database timeout or connection drop. |
 
 ---
-*End of api_scaffolding.md*
+
+## 5. Webhooks & Client Contracts [API-005]
+
+### 5.1 Webhook Event Registry
+The platform publishes webhook events on key lifecycle transitions to registered subscriber URLs:
+*   **`budget.activated`**: Proposed budget is activated by certifier signing.
+*   **`budget.exhausted`**: Budget remaining capacity reaches exactly `0.00`.
+*   **`lot.revoked`**: A lot run is invalidated, cascading revocation to child unit codes.
+*   **`unit.clone_detected`**: Anomaly heuristics flag a duplicate/impossible scan query.
+
+### 5.2 Webhook Security (HMAC-SHA256 Signature Verification)
+HTTP outbound request headers:
+*   `X-CapMint-Event-ID`: Unique event UUID.
+*   `X-CapMint-Timestamp`: Generation timestamp (Unix epoch).
+*   `X-CapMint-Signature`: The computed HMAC-SHA256 hex string:
+    $$\text{signature} = \text{Hex}(\text{HMAC-SHA256}(\text{shared\_secret}, \text{timestamp} + \text{payload}))$$
+
+Verification implementation:
+```javascript
+const crypto = require('crypto');
+
+function verifyWebhook(payload, receivedSignature, timestamp, sharedSecret) {
+  const currentTimestamp = Math.floor(Date.now() / 1000);
+  
+  // Guard 1: Anti-replay protection (maximum 5 minutes skew allowed)
+  if (Math.abs(currentTimestamp - timestamp) > 300) {
+    throw new Error('REPLAY_ATTACK_DETECTED');
+  }
+
+  // Guard 2: Compute and verify HMAC signature
+  const hmac = crypto.createHmac('sha256', sharedSecret);
+  hmac.update(`${timestamp}.${JSON.stringify(payload)}`);
+  const computedSignature = hmac.digest('hex');
+
+  return crypto.timingSafeEqual(
+    Buffer.from(computedSignature, 'hex'),
+    Buffer.from(receivedSignature, 'hex')
+  );
+}
+```
+
+### 5.3 Retry Policy
+*   **HTTP Target Timeout**: Webhook calls timeout if the target does not respond within $5000\text{ms}$.
+*   **Retry Schedule**: Exponential backoff with jitter up to 5 attempts (Intervals: 1m, 5m, 15m, 1h, 6h).
+*   **Circuit Breaker**: If failing continuously for more than 48 hours, subscription is `SUSPENDED` and alerts are raised.
+
+---
+
+## 6. Checkpoint Review Logs [API-006]
+
+*   **Checkpoint ID**: CP-003 (API Contracts)
+*   **Target Date / Completion**: 2026-07-11 / 2026-07-11
+*   **Status**: ✅ COMPLETE / SIGNED-OFF
+*   **Compliance Features**: strictly implements RFC 7807 Error Standard, 5-minute replay attack mitigation boundaries, and consistent output envelopes.
