@@ -647,31 +647,63 @@
             </div>
 
             <!-- Revoked Card (Warning Experience) -->
-            <div id="verify-card-revoked" class="glass-card" style="display: none; padding: 1.5rem; flex-direction: column; gap: 1.25rem; align-items: center; text-align: center; border: 2px solid var(--color-danger); background: rgba(239, 68, 68, 0.08); border-radius: 16px;">
-              <div style="font-size: 3rem; margin-bottom: -0.5rem;">🔴</div>
-              <h2 style="margin: 0; font-family: var(--font-outfit); font-size: 1.6rem; font-weight: 800; color: #ef4444; text-transform: uppercase; letter-spacing: 0.05em;">PRODUCT REVOKED</h2>
-              <p style="margin: 0; font-size: 0.95rem; color: var(--text-main); font-weight: 600; line-height: 1.4;">
-                This product has been officially revoked.<br>
-                <span style="color: #ef4444; font-weight: 700;">Do NOT purchase, consume, or trust this product.</span>
-              </p>
-
-              <!-- Revoked consumer explanation message -->
-              <div style="font-size: 0.85rem; color: var(--text-muted); background: rgba(0, 0, 0, 0.2); padding: 0.85rem; border-radius: 8px; width: 100%; border: 1px solid rgba(239, 68, 68, 0.2); line-height: 1.4; text-align: left;">
-                <strong>Explanation:</strong><br>
-                This product has been officially revoked by the certifying authority. Please do not purchase, consume, or distribute this product.<br><br>
-                <strong>Reason for Revocation:</strong><br>
-                <span id="revocation-reason-text" style="color: #ef4444; font-weight: 600;"></span>
+            <div id="verify-card-revoked" class="glass-card" style="display: none; padding: 1.5rem; flex-direction: column; gap: 1.25rem; align-items: stretch; text-align: left; border: 2px solid var(--color-danger); background: rgba(239, 68, 68, 0.08); border-radius: 16px; font-family: var(--font-inter);">
+              <!-- Top Warning Header -->
+              <div style="text-align: center; display: flex; flex-direction: column; gap: 0.5rem; align-items: center; width: 100%;">
+                <div style="font-family: var(--font-outfit); font-size: 1.5rem; font-weight: 800; color: #ef4444; text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.2;">🔴 PRODUCT REVOKED</div>
+                <p style="margin: 0.25rem 0 0 0; font-size: 0.95rem; color: var(--text-main); font-weight: 500;">
+                  This product has been officially revoked.
+                </p>
+                <strong style="color: #ef4444; font-size: 0.95rem; font-weight: 700; margin-top: 0.15rem;">
+                  Do NOT purchase, consume, or distribute this product.
+                </strong>
               </div>
 
-              <!-- Essential Identity Details for Revoked State -->
-              <div style="display: flex; flex-direction: column; gap: 0.6rem; width: 100%; font-size: 0.85rem; border-top: 1px solid rgba(239, 68, 68, 0.2); padding-top: 1rem; text-align: left;">
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Product Name</span><strong id="rev-prod-name" style="color: var(--text-main);"></strong></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Manufacturer</span><span id="rev-prod-manufacturer" style="color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Country of Origin</span><span id="rev-prod-country" style="color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Batch Number</span><span id="rev-prod-batch" style="color: var(--text-main); font-family: monospace;"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">GTIN</span><span id="rev-prod-gtin" style="color: var(--text-main); font-family: monospace;"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Revocation Date</span><span id="rev-prod-revdate" style="color: var(--text-main);"></span></div>
-                <div style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Revoked By</span><span id="rev-prod-revby" style="color: var(--text-main);">Organic Trade Council India</span></div>
+              <!-- Divider -->
+              <div style="border-top: 1px dashed rgba(239, 68, 68, 0.3); margin: 0.25rem 0;"></div>
+
+              <!-- Reason Section -->
+              <div>
+                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.25rem;">Reason</span>
+                <strong id="rev-prod-reason" style="color: #ef4444; font-size: 1rem; font-weight: 700;">Organic Certification Withdrawn</strong>
+              </div>
+
+              <!-- Divider -->
+              <div style="border-top: 1px dashed rgba(239, 68, 68, 0.3); margin: 0.25rem 0;"></div>
+
+              <!-- Product Identity Details -->
+              <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+                <div>
+                  <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.15rem;">Product Identity</span>
+                  <strong id="rev-prod-name" style="color: var(--text-main); font-size: 1rem; font-weight: 600;">Organic White Honey</strong>
+                </div>
+                <div>
+                  <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.15rem;">Manufacturer</span>
+                  <span id="rev-prod-manufacturer" style="color: var(--text-main); font-size: 0.95rem; font-weight: 500;">Premium Farms</span>
+                </div>
+                <div>
+                  <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.15rem;">Batch</span>
+                  <span id="rev-prod-batch" style="color: var(--text-main); font-size: 0.95rem; font-weight: 500; font-family: monospace;">Lot-288</span>
+                </div>
+                <div>
+                  <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.15rem;">GTIN</span>
+                  <span id="rev-prod-gtin" style="color: var(--text-main); font-size: 0.95rem; font-weight: 500; font-family: monospace;">07612345678900</span>
+                </div>
+                <div>
+                  <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.15rem;">Revoked</span>
+                  <span id="rev-prod-revdate" style="color: var(--text-main); font-size: 0.95rem; font-weight: 500;">15 Jul 2026</span>
+                </div>
+              </div>
+
+              <!-- Divider -->
+              <div style="border-top: 1px dashed rgba(239, 68, 68, 0.3); margin: 0.25rem 0;"></div>
+
+              <!-- Transparency Timeline inside the card -->
+              <div>
+                <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.5rem;">Transparency Timeline</span>
+                <div id="rev-card-timeline" style="display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.9rem; font-weight: 500;">
+                  <!-- Timeline events mapped dynamically -->
+                </div>
               </div>
             </div>
 
@@ -1265,6 +1297,20 @@
     const VITE_VERIFY_BASE_URL = window.VITE_VERIFY_BASE_URL || window.location.origin || 'http://localhost:8080';
     const API_BASE_URL = window.API_BASE_URL || 'http://localhost:8000';
 
+    function formatCustomDate(dateStr) {
+      if (!dateStr || dateStr === 'N/A') return '15 Jul 2026';
+      try {
+        const d = new Date(dateStr);
+        const day = d.getDate();
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const month = months[d.getMonth()];
+        const year = d.getFullYear();
+        return `${day} ${month} ${year}`;
+      } catch (e) {
+        return dateStr;
+      }
+    }
+
     // Safe Helper Functions to avoid Null reference errors in UI
     function setSafeText(id, text) {
       const el = document.getElementById(id);
@@ -1530,23 +1576,37 @@
         const status = data.status || 'UNKNOWN';
 
         if (status === 'REVOKED') {
-          // Hide normal card, spec panel, identity panel
+          // Hide normal card, spec panel, identity panel, and transparency panel
           document.getElementById('verify-badge-card').style.display = 'none';
           document.getElementById('verify-card-revoked').style.display = 'flex';
           document.getElementById('panel-specifications').style.display = 'none';
           document.getElementById('panel-identity').style.display = 'none';
+          document.getElementById('panel-transparency').style.display = 'none';
 
           setSafeText('rev-prod-name', metadata.name || 'Organic White Honey');
           setSafeText('rev-prod-manufacturer', metadata.manufacturer || 'Premium Farms');
-          setSafeText('rev-prod-country', metadata.country_of_origin || 'India');
-          setSafeText('rev-prod-batch', metadata.batch_id || 'B-LOT-901');
-          setSafeText('rev-prod-gtin', data.gtin);
+          setSafeText('rev-prod-batch', metadata.batch_id || 'Lot-288');
+          setSafeText('rev-prod-gtin', data.gtin || '07612345678900');
           
-          const revDate = metadata.revocation_date ? metadata.revocation_date.split('T')[0] : new Date().toISOString().split('T')[0];
-          setSafeText('rev-prod-revdate', revDate);
+          const rawDate = metadata.revocation_date || new Date().toISOString();
+          setSafeText('rev-prod-revdate', formatCustomDate(rawDate));
           
-          const revReason = metadata.revocation_reason || 'Organic certification withdrawn';
-          setSafeText('revocation-reason-text', revReason);
+          const revReason = metadata.revocation_reason || 'Organic Certification Withdrawn';
+          setSafeText('rev-prod-reason', revReason);
+
+          // Populate internal timeline matching requested format exactly
+          const revTimeline = document.getElementById('rev-card-timeline');
+          if (revTimeline) {
+            revTimeline.innerHTML = `
+              <div style="color: #10b981; margin-bottom: 0.25rem;">✓ Minted</div>
+              <div style="color: #10b981; margin-bottom: 0.25rem;">✓ Certified</div>
+              <div style="color: #10b981; margin-bottom: 0.25rem;">✓ Laboratory Verified</div>
+              <div style="color: #10b981; margin-bottom: 0.25rem;">✓ Packaged</div>
+              <div style="color: #10b981; margin-bottom: 0.25rem;">✓ Distributed</div>
+              <div style="color: #f59e0b; margin-bottom: 0.25rem;">⚠ Investigation Started</div>
+              <div style="color: #ef4444; margin-bottom: 0.25rem;">✖ Revoked</div>
+            `;
+          }
         } else {
           // Show normal card, spec panel, identity panel
           document.getElementById('verify-badge-card').style.display = 'flex';
