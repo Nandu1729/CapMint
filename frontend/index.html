@@ -791,38 +791,19 @@
 
   <script>
     // -------------------------------------------------------------------------
-    // CapMint In-Browser Mock Database Engine
+    // CapMint Frontend API & Ledger Integrations
     // -------------------------------------------------------------------------
+    let AUTH_TOKEN = '';
+
     const DB = {
-      budgets: [
-        {
-          id: 'b-901',
-          producer: 'FPO Organic Honey Co.',
-          allocated: 10000,
-          consumed: 0,
-          status: 'PENDING_APPROVAL',
-          crop: 'Organic White Honey',
-          start: '2026-07-11',
-          end: '2027-07-11'
-        }
-      ],
+      budgets: [],
       lots: [],
       unitCodes: [],
       scans: [],
-      logs: [
-        {
-          index: 0,
-          entity: 'SYSTEM',
-          id: 'genesis',
-          event: 'GENESIS_BLOCK_ANCHOR',
-          payloadHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-          prevHash: '0000000000000000000000000000000000000000000000000000000000000000',
-          currentHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
-        }
-      ]
+      logs: []
     };
 
-    // Helper: Compute simple hash (simulates SHA-256 for browser rendering)
+    // Helper: Compute simple hash (fallback)
     function simulateSHA256(text) {
       let hash = 0;
       for (let i = 0; i < text.length; i++) {
@@ -833,22 +814,90 @@
       return 'hash_' + Math.abs(hash).toString(16).padStart(16, '0') + '_sha256_mock';
     }
 
-    // Helper: Append a node to mock transparency ledger
+    // Helper: Append a node to the real transparency ledger in the database
     function appendToLedger(entity, id, event, payload) {
-      const prevHash = DB.logs[DB.logs.length - 1].currentHash;
-      const payloadHash = simulateSHA256(JSON.stringify(payload));
-      const currentHash = simulateSHA256(entity + id + event + payloadHash + prevHash);
-      
-      DB.logs.push({
-        index: DB.logs.length,
-        entity,
-        id,
-        event,
-        payloadHash,
-        prevHash,
-        currentHash
+      let formattedId = id;
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+        formattedId = '00000000-0000-0000-0000-000000000003'; // Default budget UUID fallback
+      }
+
+      fetch(`${API_BASE_URL}/log/api/v1/log`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          entity_type: entity,
+          entity_id: formattedId,
+          event_type: event,
+          payload: payload
+        })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          loadLedgerLogs();
+        } else {
+          console.error('Ledger append failed:', res.error);
+        }
+      })
+      .catch(err => {
+        console.error('Network error during ledger append:', err);
       });
-      renderLedger();
+    }
+
+    async function loadBudgets() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/budgets`);
+        const res = await response.json();
+        if (res.success && res.data && res.data.budgets) {
+          DB.budgets = res.data.budgets;
+          renderBudgets();
+          renderManufacturerStats();
+        }
+      } catch (err) {
+        console.error('Failed to load budgets from backend:', err);
+      }
+    }
+
+    async function loadUnitCodes() {
+      try {
+        const [ucRes, lotRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/v1/verify/unit-codes`).then(r => r.json()),
+          fetch(`${API_BASE_URL}/api/v1/verify/lots`).then(r => r.json())
+        ]);
+        if (ucRes.success && ucRes.data && ucRes.data.unitCodes) {
+          DB.unitCodes = ucRes.data.unitCodes;
+        }
+        if (lotRes.success && lotRes.data && lotRes.data.lots) {
+          DB.lots = lotRes.data.lots;
+        }
+        renderMintsCatalog();
+        renderRevocationSelect();
+      } catch (err) {
+        console.error('Failed to load unit codes or lots from backend:', err);
+      }
+    }
+
+    async function loadLedgerLogs() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/log/api/v1/log/entries`);
+        const res = await response.json();
+        if (res.success && res.data && res.data.logs) {
+          DB.logs = res.data.logs;
+          renderLedger();
+        }
+      } catch (err) {
+        console.error('Failed to load ledger logs from backend:', err);
+      }
+    }
+
+    async function loadAllData() {
+      await Promise.all([
+        loadBudgets(),
+        loadUnitCodes(),
+        loadLedgerLogs()
+      ]);
     }
 
     // Coordinates Presets
@@ -992,14 +1041,27 @@
     // Business Logic Actions
     // -------------------------------------------------------------------------
     function approveBudget(id) {
-      const budget = DB.budgets.find(b => b.id === id);
-      if (budget) {
-        budget.status = 'ACTIVE';
-        appendToLedger('BUDGET', id, 'BUDGET_APPROVED_AND_ACTIVATED', { id, allocated: budget.allocated });
-        alert(`Budget approved and activated! Capacity of ${budget.allocated} KG is now mintable.`);
-        renderBudgets();
-        renderManufacturerStats();
-      }
+      fetch(`${API_BASE_URL}/api/v1/budgets/${id}/activate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + AUTH_TOKEN
+        }
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          appendToLedger('BUDGET', id, 'BUDGET_APPROVED_AND_ACTIVATED', { id, allocated: res.data.budget.approved_quantity || 10000 });
+          alert(`Budget approved and activated! Capacity is now mintable.`);
+          loadBudgets();
+        } else {
+          alert(`Activation failed: ${res.error?.message || 'Unknown error'}`);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to approve budget:', err);
+        alert('Failed to approve budget due to network error.');
+      });
     }
 
     function triggerMinting() {
@@ -1028,96 +1090,87 @@
         return;
       }
 
-      // Deduct budget
-      activeBudget.consumed += weight;
-      if (activeBudget.consumed === activeBudget.allocated) {
-        activeBudget.status = 'EXHAUSTED';
-      }
-
-      const lotId = 'lot-' + Math.floor(100 + Math.random() * 900);
-      DB.lots.push({
-        id: lotId,
-        budgetId: activeBudget.id,
-        crop: activeBudget.crop,
-        weight,
-        status: 'ACTIVE'
-      });
-
-      // Client-side UUIDv4 generator
-      const publicIdentifier = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-      });
-      const verificationUrl = `${VITE_VERIFY_BASE_URL}/verify/${publicIdentifier}`;
-      
-      // Dynamic QR code generation using QRious
-      const qrObj = new QRious({
-        value: verificationUrl,
-        size: 200
-      });
-      const qrCodeDataUri = qrObj.toDataURL();
-
-      // Generate 1 item barcode serial representing this packaging run
-      const serial = 'SN' + Math.floor(100000 + Math.random() * 900000);
-
-      // Construct product specifications for database persistence
-      const productMetadata = {
-        name: activeBudget.crop,
-        manufacturer: 'Premium Farms',
-        country_of_origin: 'India',
-        batch_id: lotId,
-        packaging_date: new Date().toISOString().split('T')[0],
-        expiry_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
-        net_weight: `${weight} KG`,
-        organic_certificate_number: 'NPOP-OTC-2026-8802',
-        certifying_authority: 'Organic Trade Council India',
-        scan_count: '0',
-        mint_date: new Date().toISOString().split('T')[0]
-      };
-
-      // Persist verification record to real database
-      fetch(`${API_BASE_URL}/api/v1/verify/register`, {
+      // 1. Draw down budget capacity in backend database
+      fetch(`${API_BASE_URL}/api/v1/budgets/${activeBudget.id}/drawdown`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + AUTH_TOKEN
         },
-        body: JSON.stringify({
-          public_identifier: publicIdentifier,
-          gtin: gtin,
-          serial: serial,
-          verification_url: verificationUrl,
-          qr_code_data_uri: qrCodeDataUri,
-          product_metadata: productMetadata
-        })
+        body: JSON.stringify({ amount: weight })
       })
       .then(r => r.json())
-      .then(res => {
-        if (!res.success) {
-          console.error('Database persistence failed:', res.error);
+      .then(drawdownRes => {
+        if (!drawdownRes.success) {
+          alert(`Drawdown failed: ${drawdownRes.error?.message || 'Unknown error'}`);
+          return;
         }
+
+        // 2. Generate identifiers
+        const lotId = 'lot-' + Math.floor(100 + Math.random() * 900);
+        const publicIdentifier = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+          const r = Math.random() * 16 | 0;
+          const v = c === 'x' ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+        const verificationUrl = `${VITE_VERIFY_BASE_URL}/verify/${publicIdentifier}`;
+        
+        // Dynamic QR code generation using QRious
+        const qrObj = new QRious({
+          value: verificationUrl,
+          size: 200
+        });
+        const qrCodeDataUri = qrObj.toDataURL();
+        const serial = 'SN' + Math.floor(100000 + Math.random() * 900000);
+
+        const productMetadata = {
+          name: activeBudget.crop,
+          manufacturer: 'Premium Farms',
+          country_of_origin: 'India',
+          batch_id: lotId,
+          packaging_date: new Date().toISOString().split('T')[0],
+          expiry_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
+          net_weight: `${weight} KG`,
+          organic_certificate_number: 'NPOP-OTC-2026-8802',
+          certifying_authority: 'Organic Trade Council India',
+          scan_count: '0',
+          mint_date: new Date().toISOString().split('T')[0]
+        };
+
+        // 3. Persist verification lot and unit code record to backend
+        fetch(`${API_BASE_URL}/api/v1/verify/register`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            public_identifier: publicIdentifier,
+            gtin: gtin,
+            serial: serial,
+            verification_url: verificationUrl,
+            qr_code_data_uri: qrCodeDataUri,
+            product_metadata: productMetadata
+          })
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res.success) {
+            appendToLedger('LOT', lotId, 'LOT_MINTED_AND_SERIALIZED', { lotId, gtin, weight, serial, verificationUrl });
+            alert(`Mint complete! Code serial ${serial} generated under Batch Lot #${lotId}.`);
+            loadBudgets();
+            loadUnitCodes();
+          } else {
+            console.error('Database persistence failed:', res.error);
+          }
+        })
+        .catch(err => {
+          console.error('Network error during database persistence:', err);
+        });
       })
       .catch(err => {
-        console.error('Network error during database persistence:', err);
+        console.error('Drawdown network error:', err);
+        alert('Drawdown failed due to network error.');
       });
-
-      DB.unitCodes.push({
-        lotId,
-        serial,
-        gtin,
-        public_identifier: publicIdentifier,
-        verification_url: verificationUrl,
-        qrCodeDataUri: qrCodeDataUri,
-        state: 'MINTED',
-        clone_flag: false
-      });
-
-      appendToLedger('LOT', lotId, 'LOT_MINTED_AND_SERIALIZED', { lotId, gtin, weight, serial, verificationUrl });
-      alert(`Mint complete! Code serial ${serial} generated under Batch Lot #${lotId}.`);
-
-      renderManufacturerStats();
-      renderMintsCatalog();
-      renderRevocationSelect();
     }
 
     function triggerCascadeRevocation() {
@@ -1130,43 +1183,30 @@
       }
 
       const reasonVal = reasonSelect ? reasonSelect.value : 'Organic certification withdrawn';
-      const lot = DB.lots.find(l => l.id === lotId);
-      if (lot) {
-        // Persist revocation to real backend database
-        fetch(`${API_BASE_URL}/api/v1/verify/revoke`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ batch_id: lotId, reason: reasonVal })
-        })
-        .then(r => r.json())
-        .then(res => {
-          if (!res.success) {
-            console.error('Database revocation failed:', res.error);
-          }
-        })
-        .catch(err => {
-          console.error('Network error during database revocation:', err);
-        });
-
-        lot.status = 'REVOKED';
-        lot.reason = reasonVal;
-        lot.revocationDate = new Date().toISOString().split('T')[0];
-        
-        // Cascade update unit codes
-        DB.unitCodes.forEach(code => {
-          if (code.lotId === lotId) {
-            code.state = 'REVOKED';
-          }
-        });
-
-        appendToLedger('LOT', lotId, 'LOT_REVOKED_CASCADE', { lotId });
-        alert(`Revocation processed! Lot #${lotId} and all associated barcodes are now permanently deactivated.`);
-        
-        renderRevocationSelect();
-        renderMintsCatalog();
-      }
+      
+      // Persist revocation to real backend database
+      fetch(`${API_BASE_URL}/api/v1/verify/revoke`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ batch_id: lotId, reason: reasonVal })
+      })
+      .then(r => r.json())
+      .then(res => {
+        if (res.success) {
+          appendToLedger('LOT', lotId, 'LOT_REVOKED_CASCADE', { lotId });
+          alert(`Revocation processed! Lot #${lotId} and all associated barcodes are now permanently deactivated.`);
+          loadUnitCodes();
+        } else {
+          console.error('Database revocation failed:', res.error);
+          alert('Revocation failed: ' + (res.error?.message || 'Unknown error'));
+        }
+      })
+      .catch(err => {
+        console.error('Network error during database revocation:', err);
+        alert('Revocation failed due to network error.');
+      });
     }
 
     // -------------------------------------------------------------------------
@@ -1288,7 +1328,19 @@
     }
 
     function verifyLedgerIntegrity() {
-      alert('Ledger integrity verified successfully! No block hash links are broken. Signature validations are green.');
+      fetch(`${API_BASE_URL}/log/api/v1/log/verify`)
+      .then(r => r.json())
+      .then(res => {
+        if (res.success && res.data && res.data.unbroken) {
+          alert(`Ledger integrity verified successfully! Count: ${res.data.logCount}. No block hash links are broken. Signature validations are green.`);
+        } else {
+          alert(`Ledger integrity compromised! Error details: ${res.data?.error || 'Unknown error'}`);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to verify ledger integrity:', err);
+        alert('Failed to verify ledger integrity. Connection error.');
+      });
     }
 
     // -------------------------------------------------------------------------
@@ -1754,9 +1806,23 @@
         const publicIdentifier = match[1];
         showVerifyPage(publicIdentifier);
       } else {
-        renderBudgets();
-        renderManufacturerStats();
-        renderLedger();
+        // Authenticate certifier in background, then load all data
+        fetch(`${API_BASE_URL}/api/v1/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: 'certifier', password: 'password' })
+        })
+        .then(r => r.json())
+        .then(res => {
+          if (res.success && res.data && res.data.token) {
+            AUTH_TOKEN = res.data.token;
+          }
+          loadAllData();
+        })
+        .catch(err => {
+          console.error('Authentication failed:', err);
+          loadAllData(); // Fallback load
+        });
       }
     });
   </script>

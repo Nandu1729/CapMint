@@ -472,6 +472,49 @@ server.post('/api/v1/lots/:id/revoke', {
   }
 });
 
+// Route: Get all unit codes
+server.get('/api/v1/verify/unit-codes', async (request, reply) => {
+  const result = await pgPool.query(`
+    SELECT u.*, l.product_metadata 
+    FROM unit_codes u
+    LEFT JOIN lots l ON u.lot_id = l.id
+    ORDER BY u.minted_at DESC
+  `);
+  return {
+    success: true,
+    data: {
+      unitCodes: result.rows.map(row => ({
+        lotId: row.lot_id,
+        serial: row.serial,
+        gtin: row.gtin,
+        public_identifier: row.public_identifier,
+        verification_url: row.verification_url,
+        qrCodeDataUri: row.qr_code_data_uri,
+        state: row.current_state,
+        clone_flag: row.clone_flag,
+        productMetadata: row.product_metadata
+      }))
+    }
+  };
+});
+
+// Route: Get all lots
+server.get('/api/v1/verify/lots', async (request, reply) => {
+  const result = await pgPool.query('SELECT * FROM lots ORDER BY created_at DESC');
+  return {
+    success: true,
+    data: {
+      lots: result.rows.map(row => ({
+        id: row.id,
+        budgetId: row.budget_id,
+        crop: row.product_metadata?.name || 'Organic White Honey',
+        weight: parseFloat(row.batch_size),
+        status: row.revocation_status === 'REVOKED' ? 'REVOKED' : 'ACTIVE'
+      }))
+    }
+  };
+});
+
 // Start the server
 const start = async () => {
   try {

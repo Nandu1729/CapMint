@@ -244,10 +244,59 @@ server.post('/api/v1/budgets/:id/drawdown', {
         client.release();
     }
 });
+// Route: Get all budgets
+server.get('/api/v1/budgets', async (request, reply) => {
+    const result = await pgPool.query(`
+    SELECT b.*, p.name as producer 
+    FROM budgets b 
+    LEFT JOIN producers p ON b.producer_id = p.id 
+    ORDER BY b.created_at DESC
+  `);
+    return {
+        success: true,
+        data: {
+            budgets: result.rows.map(row => ({
+                id: row.id,
+                producer: row.producer || 'Premium Farms',
+                allocated: parseFloat(row.approved_quantity),
+                consumed: parseFloat(row.consumed_quantity),
+                status: row.status,
+                crop: row.yield_assumptions?.crop || 'Organic White Honey',
+                start: row.effective_start_date,
+                end: row.effective_end_date
+            }))
+        }
+    };
+});
 // Start the server
 const start = async () => {
     try {
         const port = parseInt(process.env.PORT || '8082', 10);
+        // Seed default entities
+        const client = await pgPool.connect();
+        try {
+            await client.query(`
+        INSERT INTO certifiers (id, name, accreditation_details, public_key, key_status)
+        VALUES ('00000000-0000-0000-0000-000000000001', 'Organic Trade Council India', '{}', 'pk_default', 'ACTIVE')
+        ON CONFLICT (id) DO NOTHING
+      `);
+            await client.query(`
+        INSERT INTO producers (id, name, type, registry_references)
+        VALUES ('00000000-0000-0000-0000-000000000002', 'Premium Farms', 'FARMER', '{}')
+        ON CONFLICT (id) DO NOTHING
+      `);
+            await client.query(`
+        INSERT INTO budgets (id, producer_id, certifier_id, source_unit_type, approved_quantity, consumed_quantity, signature_bundle, effective_start_date, effective_end_date, status, yield_assumptions)
+        VALUES ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'UNIT_COUNT', 10000.00, 0.00, 'sig_default', '2026-07-11T00:00:00Z', '2027-07-11T00:00:00Z', 'PENDING_APPROVAL', '{"crop": "Organic White Honey"}')
+        ON CONFLICT (id) DO NOTHING
+      `);
+        }
+        catch (dbErr) {
+            server.log.error(dbErr, 'Seeding database failed');
+        }
+        finally {
+            client.release();
+        }
         await server.listen({ port, host: '0.0.0.0' });
         server.log.info(`CPQ service listening on port ${port}`);
     }

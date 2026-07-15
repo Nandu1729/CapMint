@@ -245,6 +245,37 @@ server.get('/api/v1/auth/producer-only', {
 const start = async () => {
     try {
         const port = parseInt(process.env.PORT || '8081', 10);
+        // Seed default users if users table is empty
+        const client = await pgPool.connect();
+        try {
+            const userCheck = await client.query('SELECT COUNT(*) FROM users');
+            if (parseInt(userCheck.rows[0].count, 10) === 0) {
+                // certifier user
+                const certifierPassHash = await server.bcrypt.hash('password');
+                await client.query(`
+          INSERT INTO users (username, password_hash, role)
+          VALUES ('certifier', $1, 'ADMIN')
+        `, [certifierPassHash]);
+                // producer user
+                const producerPassHash = await server.bcrypt.hash('password');
+                await client.query(`
+          INSERT INTO users (username, password_hash, role)
+          VALUES ('producer', $1, 'ADMIN')
+        `, [producerPassHash]);
+                // packhouse user
+                const packhousePassHash = await server.bcrypt.hash('password');
+                await client.query(`
+          INSERT INTO users (username, password_hash, role)
+          VALUES ('packhouse', $1, 'ADMIN')
+        `, [packhousePassHash]);
+            }
+        }
+        catch (seedErr) {
+            server.log.error(seedErr, 'Seeding default users failed');
+        }
+        finally {
+            client.release();
+        }
         await server.listen({ port, host: '0.0.0.0' });
         server.log.info(`Auth service listening on port ${port}`);
     }
