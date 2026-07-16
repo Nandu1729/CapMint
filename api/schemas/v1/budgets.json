@@ -4,32 +4,64 @@
   "definitions": {
     "proposeBudgetRequest": {
       "type": "object",
+      "required": [
+        "producerId",
+        "cropType",
+        "limitKg"
+      ],
       "properties": {
-        "producer_id": { "type": "string", "format": "uuid" },
-        "certifier_id": { "type": "string", "format": "uuid" },
-        "source_unit_type": { "type": "string", "enum": ["WEIGHT_KG", "VOLUME_L", "UNIT_COUNT"] },
-        "approved_quantity": { "type": "number", "minimum": 0.01 },
-        "yield_assumptions": {
-          "type": "object",
-          "properties": {
-            "plotIds": { "type": "array", "items": { "type": "string", "format": "uuid" } },
-            "areaHectares": { "type": "number" },
-            "expectedYieldMultiplier": { "type": "number" }
-          },
-          "required": ["plotIds"]
+        "producerId": {
+          "type": "string",
+          "format": "uuid"
         },
-        "effective_start_date": { "type": "string", "format": "date-time" },
-        "effective_end_date": { "type": "string", "format": "date-time" }
+        "cropType": {
+          "type": "string"
+        },
+        "limitKg": {
+          "type": "number",
+          "minimum": 0.01
+        }
       },
-      "required": ["producer_id", "certifier_id", "source_unit_type", "approved_quantity", "yield_assumptions", "effective_start_date", "effective_end_date"],
       "additionalProperties": false
     },
-    "activateBudgetRequest": {
+    "approveBudgetRequest": {
       "type": "object",
+      "required": [
+        "budgetId",
+        "certifierId",
+        "signature"
+      ],
       "properties": {
-        "signature_bundle": { "type": "string", "pattern": "^[0-9a-fA-F]{128}$" }
+        "budgetId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "certifierId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "signature": {
+          "type": "string"
+        }
       },
-      "required": ["signature_bundle"],
+      "additionalProperties": false
+    },
+    "budgetDrawdownRequest": {
+      "type": "object",
+      "required": [
+        "budgetId",
+        "amountKg"
+      ],
+      "properties": {
+        "budgetId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "amountKg": {
+          "type": "number",
+          "minimum": 0.01
+        }
+      },
       "additionalProperties": false
     }
   }
