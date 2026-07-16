@@ -628,7 +628,7 @@ const start = async () => {
     // Seed default users if users table is empty
     const client = await pgPool.connect();
     try {
-      const orgCheck = await client.query('SELECT COUNT(*) FROM organizations');
+      const orgCheck = await client.query('SELECT COUNT(*) FROM users');
       if (parseInt(orgCheck.rows[0].count, 10) === 0) {
         // Seed default organizations
         await client.query(`
