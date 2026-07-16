@@ -1,0 +1,28 @@
+title: BudgetListResponse
+type: object
+required:
+  - budgets
+properties:
+  budgets:
+    type: array
+    items:
+      type: object
+      properties:
+        id:
+          type: string
+        producer:
+          type: string
+        allocated:
+          type: number
+        consumed:
+          type: number
+        status:
+          type: string
+        crop:
+          type: string
+        start:
+          type: string
+          format: date-time
+        end:
+          type: string
+          format: date-time

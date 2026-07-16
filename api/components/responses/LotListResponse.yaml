@@ -1,0 +1,5 @@
+description: List of registered batch lots returned
+content:
+  application/json:
+    schema:
+      $ref: '../../schemas/responses/LotListResponse.yaml'

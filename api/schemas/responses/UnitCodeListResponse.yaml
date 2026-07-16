@@ -1,0 +1,28 @@
+title: UnitCodeListResponse
+type: object
+required:
+  - unitCodes
+properties:
+  unitCodes:
+    type: array
+    items:
+      type: object
+      properties:
+        lotId:
+          type: string
+        serial:
+          type: string
+        gtin:
+          type: string
+        public_identifier:
+          type: string
+        verification_url:
+          type: string
+        qrCodeDataUri:
+          type: string
+        state:
+          type: string
+        clone_flag:
+          type: boolean
+        productMetadata:
+          type: object

@@ -1,0 +1,5 @@
+description: List of quota budgets returned
+content:
+  application/json:
+    schema:
+      $ref: '../../schemas/responses/BudgetListResponse.yaml'

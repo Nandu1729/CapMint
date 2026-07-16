@@ -1,0 +1,45 @@
+title: VerifyRegisterRequest
+type: object
+required:
+  - public_identifier
+  - gtin
+  - serial
+  - verification_url
+  - qr_code_data_uri
+  - product_metadata
+properties:
+  public_identifier:
+    type: string
+  gtin:
+    type: string
+  serial:
+    type: string
+  verification_url:
+    type: string
+  qr_code_data_uri:
+    type: string
+  product_metadata:
+    type: object
+    properties:
+      name:
+        type: string
+      manufacturer:
+        type: string
+      country_of_origin:
+        type: string
+      batch_id:
+        type: string
+      packaging_date:
+        type: string
+      expiry_date:
+        type: string
+      net_weight:
+        type: string
+      organic_certificate_number:
+        type: string
+      certifying_authority:
+        type: string
+      scan_count:
+        type: string
+      mint_date:
+        type: string

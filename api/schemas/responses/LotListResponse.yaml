@@ -6,4 +6,15 @@ properties:
   lots:
     type: array
     items:
-      $ref: '../domain/Lot.yaml'
+      type: object
+      properties:
+        id:
+          type: string
+        budgetId:
+          type: string
+        crop:
+          type: string
+        weight:
+          type: number
+        status:
+          type: string

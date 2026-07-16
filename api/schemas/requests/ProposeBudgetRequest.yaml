@@ -1,13 +1,40 @@
 title: ProposeBudgetRequest
 type: object
 required:
-  - producerId
-  - cropType
-  - limitKg
+  - producer_id
+  - certifier_id
+  - source_unit_type
+  - approved_quantity
+  - yield_assumptions
+  - signature_bundle
+  - effective_start_date
+  - effective_end_date
 properties:
-  producerId:
+  producer_id:
     type: string
-  cropType:
+    format: uuid
+  certifier_id:
     type: string
-  limitKg:
+    format: uuid
+  source_unit_type:
+    type: string
+    enum: [UNIT_COUNT, WEIGHT_KG]
+  approved_quantity:
     type: number
+  yield_assumptions:
+    type: object
+    required:
+      - crop
+    properties:
+      crop:
+        type: string
+      land_area_hectares:
+        type: number
+  signature_bundle:
+    type: string
+  effective_start_date:
+    type: string
+    format: date-time
+  effective_end_date:
+    type: string
+    format: date-time

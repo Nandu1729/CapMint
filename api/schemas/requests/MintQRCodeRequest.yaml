@@ -1,19 +1,13 @@
 title: MintQRCodeRequest
 type: object
 required:
-  - budgetId
-  - cropType
-  - weightKg
-  - count
+  - lot_id
   - gtin
+  - quantity
 properties:
-  budgetId:
+  lot_id:
     type: string
-  cropType:
-    type: string
-  weightKg:
-    type: number
-  count:
-    type: number
   gtin:
     type: string
+  quantity:
+    type: integer

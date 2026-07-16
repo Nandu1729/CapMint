@@ -1,0 +1,17 @@
+title: VerifyScanRequest
+type: object
+required:
+  - lat
+  - lon
+properties:
+  lat:
+    type: number
+  lon:
+    type: number
+  device_metadata:
+    type: object
+    properties:
+      browser:
+        type: string
+      platform:
+        type: string

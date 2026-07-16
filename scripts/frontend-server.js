@@ -49,7 +49,7 @@ const server = http.createServer((req, res) => {
     return proxyApi(8081, req, res);
   } else if (urlPath.startsWith('/api/v1/budgets')) {
     return proxyApi(8082, req, res);
-  } else if (urlPath.startsWith('/api/v1/qr')) {
+  } else if (urlPath.startsWith('/api/v1/qr') || urlPath.startsWith('/api/v1/mint') || urlPath.startsWith('/api/v1/gs1')) {
     return proxyApi(8083, req, res);
   } else if (urlPath.startsWith('/01/')) {
     return proxyApi(8084, req, res);

@@ -1,10 +1,8 @@
 title: BudgetDrawdownRequest
 type: object
 required:
-  - budgetId
-  - amountKg
+  - amount
 properties:
-  budgetId:
-    type: string
-  amountKg:
+  amount:
     type: number
+    description: The quantity to draw down from the budget capacity.

@@ -1,0 +1,5 @@
+description: List of registered unit serialization codes returned
+content:
+  application/json:
+    schema:
+      $ref: '../../schemas/responses/UnitCodeListResponse.yaml'
