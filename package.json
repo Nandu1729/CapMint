@@ -16,7 +16,9 @@
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "clean": "rm -rf node_modules **/node_modules **/dist"
+    "clean": "rm -rf node_modules **/node_modules **/dist",
+    "start": "concurrently \"node scripts/frontend-server.js\" \"npm run start --workspace=backend/auth-service\" \"npm run start --workspace=backend/cpq-service\" \"npm run start --workspace=backend/mint-service\" \"npm run start --workspace=backend/resolver-service\" \"npm run start --workspace=backend/transparency-service\" \"npm run start --workspace=backend/verification-service\" \"npm run start --workspace=backend/integration-service\"",
+    "dev": "concurrently \"node scripts/frontend-server.js\" \"npm run dev --workspace=backend/auth-service\" \"npm run dev --workspace=backend/cpq-service\" \"npm run dev --workspace=backend/mint-service\" \"npm run dev --workspace=backend/resolver-service\" \"npm run dev --workspace=backend/transparency-service\" \"npm run dev --workspace=backend/verification-service\" \"npm run dev --workspace=backend/integration-service\""
   },
   "devDependencies": {
     "concurrently": "^8.2.0",

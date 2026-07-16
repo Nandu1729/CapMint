@@ -18,11 +18,17 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer((req, res) => {
-  let filePath = path.join(PUBLIC_DIR, req.url === '/' ? 'index.html' : req.url.split('?')[0]);
+  const urlPath = req.url.split('?')[0];
+  let filePath;
 
-  // If path starts with /verify/, serve index.html (SPA routing)
-  if (req.url.startsWith('/verify/')) {
+  if (urlPath.startsWith('/playground/')) {
+    filePath = path.join(__dirname, '..', urlPath);
+  } else if (urlPath.startsWith('/api/')) {
+    filePath = path.join(__dirname, '..', urlPath);
+  } else if (urlPath.startsWith('/verify/')) {
     filePath = path.join(PUBLIC_DIR, 'index.html');
+  } else {
+    filePath = path.join(PUBLIC_DIR, urlPath === '/' ? 'index.html' : urlPath);
   }
 
   const extname = String(path.extname(filePath)).toLowerCase();
