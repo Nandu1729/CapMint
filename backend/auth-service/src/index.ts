@@ -7,6 +7,36 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+import crypto from 'crypto';
+
+function hashSHA256(data: string): string {
+  return crypto.createHash('sha256').update(data).digest('hex');
+}
+
+async function appendAuditLog(
+  client: pg.PoolClient | pg.Pool,
+  entityType: string,
+  entityId: string,
+  eventType: string,
+  payload: any
+): Promise<void> {
+  let previousHash = '0000000000000000000000000000000000000000000000000000000000000000';
+  const queryLatest = 'SELECT current_hash FROM log_entries ORDER BY created_at DESC, id DESC LIMIT 1';
+  const latestRes = await client.query(queryLatest);
+  if (latestRes.rowCount && latestRes.rowCount > 0) {
+    previousHash = latestRes.rows[0].current_hash;
+  }
+
+  const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
+  const payloadHash = hashSHA256(payloadStr);
+  const currentHash = hashSHA256(entityType + entityId + eventType + payloadHash + previousHash);
+
+  await client.query(`
+    INSERT INTO log_entries (entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
+    VALUES ($1, $2, $3, $4, $5, $6)
+  `, [entityType, entityId, eventType, payloadHash, previousHash, currentHash]);
+}
+
 declare module 'fastify' {
   interface FastifyInstance {
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
@@ -168,10 +198,7 @@ server.post('/api/v1/auth/register-org', async (request, reply) => {
     const userRes = await client.query(userQuery, [newOrg.id, admin_username, adminPassHash]);
 
     // 3. Write immutable audit log for Org Registration
-    await client.query(`
-      INSERT INTO log_entries (entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
-      VALUES ('ORGANIZATION', $1, 'ORGANIZATION_REGISTERED', $2, '0', $3)
-    `, [newOrg.id, 'hash_placeholder', 'current_hash_' + newOrg.id.substring(0,8)]);
+    await appendAuditLog(client, 'ORGANIZATION', newOrg.id, 'ORGANIZATION_REGISTERED', { organization_id: newOrg.id });
 
     await client.query('COMMIT');
 
@@ -271,10 +298,7 @@ server.post('/api/v1/auth/login', async (request, reply) => {
   }
 
   // Write immutable audit log for Login
-  await pgPool.query(`
-    INSERT INTO log_entries (entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
-    VALUES ('USER', $1, 'USER_LOGIN', 'hash_placeholder', '0', $2)
-  `, [user.id, 'login_hash_' + user.id.substring(0,8)]);
+  await appendAuditLog(pgPool, 'USER', user.id, 'USER_LOGIN', { user_id: user.id });
 
   // Sign JWT carrying Organization ID, Type, and Role
   const token = server.jwt.sign({
@@ -382,10 +406,7 @@ server.post('/api/v1/auth/organizations/:id/status', {
     }
 
     // 4. Log immutable audit trail for status change
-    await client.query(`
-      INSERT INTO log_entries (entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
-      VALUES ('ORGANIZATION', $1, 'ORGANIZATION_STATUS_UPDATED', $2, '0', $3)
-    `, [id, 'hash_placeholder', 'status_hash_' + id.substring(0,8) + '_' + status]);
+    await appendAuditLog(client, 'ORGANIZATION', id, 'ORGANIZATION_STATUS_UPDATED', { status });
 
     await client.query('COMMIT');
 
@@ -442,10 +463,7 @@ server.post('/api/v1/auth/users/invite', {
     const newUser = result.rows[0];
 
     // Log immutable audit entry for User Invitation
-    await client.query(`
-      INSERT INTO log_entries (entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
-      VALUES ('USER', $1, 'USER_INVITED', 'hash_placeholder', '0', $2)
-    `, [newUser.id, 'invite_hash_' + newUser.id.substring(0,8)]);
+    await appendAuditLog(client, 'USER', newUser.id, 'USER_INVITED', { user_id: newUser.id });
 
     await client.query('COMMIT');
 
