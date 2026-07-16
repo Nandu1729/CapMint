@@ -14,11 +14,53 @@ const MIME_TYPES = {
   '.jpg': 'image/jpeg',
   '.gif': 'image/gif',
   '.svg': 'image/svg+xml',
-  '.ico': 'image/x-icon'
+  '.ico': 'image/x-icon',
+  '.yaml': 'text/yaml',
+  '.yml': 'text/yaml'
+};
+
+const proxyApi = (targetPort, req, res) => {
+  const options = {
+    hostname: '127.0.0.1',
+    port: targetPort,
+    path: req.url,
+    method: req.method,
+    headers: req.headers
+  };
+
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res, { end: true });
+  });
+
+  proxyReq.on('error', (err) => {
+    res.writeHead(502, { 'Content-Type': 'text/plain' });
+    res.end(`Bad Gateway: ${err.message}`);
+  });
+
+  req.pipe(proxyReq, { end: true });
 };
 
 const server = http.createServer((req, res) => {
   const urlPath = req.url.split('?')[0];
+
+  // Proxy API requests to backend microservices
+  if (urlPath.startsWith('/api/v1/auth')) {
+    return proxyApi(8081, req, res);
+  } else if (urlPath.startsWith('/api/v1/budgets')) {
+    return proxyApi(8082, req, res);
+  } else if (urlPath.startsWith('/api/v1/qr')) {
+    return proxyApi(8083, req, res);
+  } else if (urlPath.startsWith('/01/')) {
+    return proxyApi(8084, req, res);
+  } else if (urlPath.startsWith('/log')) {
+    return proxyApi(8085, req, res);
+  } else if (urlPath.startsWith('/api/v1/verify') || urlPath.startsWith('/api/v1/revocation')) {
+    return proxyApi(8086, req, res);
+  } else if (urlPath.startsWith('/api/v1/integrations')) {
+    return proxyApi(8087, req, res);
+  }
+
   let filePath;
 
   if (urlPath.startsWith('/playground/')) {
