@@ -20,10 +20,10 @@ This document owns:
 - The completion guidelines, validation rules, and Repository Freeze Policy.
 
 This document intentionally does NOT define:
-- Core business invariants or agricultural crop rules (defined in [SYSTEM_CONTEXT.md](../architecture/system/SYSTEM_CONTEXT.md)).
-- Container topologies, network ports, or database replication configurations (defined in [L2_CONTAINER.md](../architecture/C4/L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](../architecture/deployment/DEPLOYMENT_ARCHITECTURE.md)).
-- Service contracts, Bounded Context boundaries, or API routes (defined in [SERVICE_BOUNDARIES.md](../architecture/system/SERVICE_BOUNDARIES.md) and [DATA_FLOW.md](../architecture/sequence/DATA_FLOW.md)).
-- Specific code-level technology stacks or compiler settings (defined in [TECHNOLOGY_STACK.md](../architecture/system/TECHNOLOGY_STACK.md)).
+- Core business invariants or agricultural crop rules (defined in [SYSTEM_CONTEXT.md](../architecture/SYSTEM_CONTEXT.md)).
+- Container topologies, network ports, or database replication configurations (defined in [L2_CONTAINER.md](../architecture/L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](../architecture/DEPLOYMENT_ARCHITECTURE.md)).
+- Service contracts, Bounded Context boundaries, or API routes (defined in [SERVICE_BOUNDARIES.md](../architecture/SERVICE_BOUNDARIES.md) and [DATA_FLOW.md](../architecture/DATA_FLOW.md)).
+- Specific code-level technology stacks or compiler settings (defined in [TECHNOLOGY_STACK.md](../architecture/TECHNOLOGY_STACK.md)).
 
 ---
 
@@ -66,11 +66,11 @@ Agents must never perform broad repository-wide searches when ownership boundari
 If architectural understanding is required:
 
 ```
-Load [ARCHITECTURE_SUMMARY.md](file:///Users/nandyyy/Project/CapMint/BRAIN/ARCHITECTURE_SUMMARY.md)
+Load the main Architecture Index [INDEX.md](../architecture/INDEX.md)
   ↓
-Determine affected architecture area
+Identify the specific blueprint document from the catalog
   ↓
-Load only the relevant architecture documents
+Load only that designated target markdown file
 ```
 
 *Note: Do not load the complete architecture directory.*
@@ -164,59 +164,59 @@ When modifying application services, restrict context loading to the specific se
 
 - **gateway-service**:
   - Required Folder: `services/gateway-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_CONTEXT.md`, `../architecture/system/SERVICE_BOUNDARIES.md`
+  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`, `../architecture/SERVICE_BOUNDARIES.md`
   - Optional Dependencies: `api/`
 - **identity-service**:
   - Required Folder: `services/identity-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_CONTEXT.md`, `../architecture/system/SERVICE_BOUNDARIES.md`
+  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`, `../architecture/SERVICE_BOUNDARIES.md`
   - Optional Dependencies: `database/`
 - **auth-service**:
   - Required Folder: `services/auth-service/`
-  - Required Architecture: `../architecture/security/SECURITY_ARCHITECTURE.md`
+  - Required Architecture: `../architecture/SECURITY_ARCHITECTURE.md`
   - Optional Dependencies: `api/`, `packages/`
 - **cpq-service**:
   - Required Folder: `services/cpq-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_CONTEXT.md`, `../architecture/system/SERVICE_BOUNDARIES.md`
+  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`, `../architecture/SERVICE_BOUNDARIES.md`
   - Optional Dependencies: `services/identity-service/`
 - **mint-service**:
   - Required Folder: `services/mint-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_CONTEXT.md`, `../architecture/sequence/DATA_FLOW.md`
+  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`, `../architecture/DATA_FLOW.md`
   - Optional Dependencies: `services/auth-service/`
 - **resolver-service**:
   - Required Folder: `services/resolver-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_OVERVIEW.md`
+  - Required Architecture: `../architecture/SYSTEM_OVERVIEW.md`
   - Optional Dependencies: `services/verification-service/`
 - **verification-service**:
   - Required Folder: `services/verification-service/`
-  - Required Architecture: `../architecture/security/SECURITY_ARCHITECTURE.md`, `../architecture/C4/L2_CONTAINER.md`
+  - Required Architecture: `../architecture/SECURITY_ARCHITECTURE.md`, `../architecture/L2_CONTAINER.md`
   - Optional Dependencies: `services/mint-service/`
 - **transparency-service**:
   - Required Folder: `services/transparency-service/`
-  - Required Architecture: `../architecture/sequence/DATA_FLOW.md`
+  - Required Architecture: `../architecture/DATA_FLOW.md`
   - Optional Dependencies: `packages/`
 - **clone-detection-service**:
   - Required Folder: `services/clone-detection-service/`
-  - Required Architecture: `../architecture/security/SECURITY_ARCHITECTURE.md`
+  - Required Architecture: `../architecture/SECURITY_ARCHITECTURE.md`
   - Optional Dependencies: `services/verification-service/`
 - **notification-service**:
   - Required Folder: `services/notification-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_CONTEXT.md`
+  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`
   - Optional Dependencies: `packages/`
 - **integration-service**:
   - Required Folder: `services/integration-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_CONTEXT.md`
+  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`
   - Optional Dependencies: `api/`
 - **analytics-service**:
   - Required Folder: `services/analytics-service/`
-  - Required Architecture: `../architecture/deployment/DEPLOYMENT_ARCHITECTURE.md`
+  - Required Architecture: `../architecture/DEPLOYMENT_ARCHITECTURE.md`
   - Optional Dependencies: `services/verification-service/`
 - **audit-service**:
   - Required Folder: `services/audit-service/`
-  - Required Architecture: `../architecture/security/SECURITY_ARCHITECTURE.md`
+  - Required Architecture: `../architecture/SECURITY_ARCHITECTURE.md`
   - Optional Dependencies: `services/transparency-service/`
 - **scan-service**:
   - Required Folder: `services/scan-service/`
-  - Required Architecture: `../architecture/C4/L1_SYSTEM_CONTEXT.md`
+  - Required Architecture: `../architecture/L1_SYSTEM_CONTEXT.md`
   - Optional Dependencies: `services/verification-service/`
 
 ---

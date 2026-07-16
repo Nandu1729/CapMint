@@ -37,7 +37,7 @@ When multiple documents define different guidance, AI agents must follow this pr
 3. **`PROJECT_BRAIN.md`**
 4. **`PROJECT_CONTEXT.md`**
 5. **`CONTEXT_INDEX.md`**
-6. **Architecture Blueprints** (under `../architecture/`)
+6. **Architecture Index (`INDEX.md` under `../architecture/`)** and specific blueprints
 7. **Implementation Documents** (Lowest Precedence)
 
 Higher-priority documents always override lower-priority documents.
@@ -103,10 +103,11 @@ Before modifying any source code, the AI agent must perform the following contex
 2. Read [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) to understand coding standards and technical context.
 3. Read [CONTEXT_INDEX.md](CONTEXT_INDEX.md) to resolve target files and limit in-memory context.
 4. Load only the minimum required folder scope.
-5. Read relevant service architecture blueprints under `../architecture/`.
-6. Understand cross-service and module dependencies.
-7. Validate domain ownership rules.
-8. Only then proceed with implementation edits.
+5. Read the Architecture Index [INDEX.md](../architecture/INDEX.md) to locate relevant blueprints.
+6. Read the specific service architecture blueprints mapped in the index.
+7. Understand cross-service and module dependencies.
+8. Validate domain ownership rules.
+9. Only then proceed with implementation edits.
 
 ---
 
