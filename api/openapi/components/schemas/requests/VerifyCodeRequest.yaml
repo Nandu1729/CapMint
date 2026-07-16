@@ -1,0 +1,9 @@
+title: VerifyCodeRequest
+type: object
+properties:
+  lat:
+    type: number
+  lon:
+    type: number
+  device_metadata:
+    type: object

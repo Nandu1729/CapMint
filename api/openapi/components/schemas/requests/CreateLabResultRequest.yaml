@@ -1,0 +1,22 @@
+title: CreateLabResultRequest
+type: object
+required:
+  - lot_id
+  - lab_name
+  - test_type
+  - result_summary
+  - report_hash
+properties:
+  lot_id:
+    type: string
+  lab_name:
+    type: string
+  test_type:
+    type: string
+  result_summary:
+    type: string
+    enum: [PASSED, FAILED]
+  report_hash:
+    type: string
+  report_reference:
+    type: string

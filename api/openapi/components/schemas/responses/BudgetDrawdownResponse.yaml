@@ -1,0 +1,13 @@
+title: BudgetDrawdownResponse
+type: object
+required:
+  - success
+  - budgetId
+  - remainingKg
+properties:
+  success:
+    type: boolean
+  budgetId:
+    type: string
+  remainingKg:
+    type: number

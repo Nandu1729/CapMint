@@ -1,0 +1,13 @@
+title: RevocationResponse
+type: object
+required:
+  - success
+  - lotId
+  - status
+properties:
+  success:
+    type: boolean
+  lotId:
+    type: string
+  status:
+    type: string

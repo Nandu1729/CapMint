@@ -1,0 +1,23 @@
+title: AuditMetadata
+description: User and creation audit trail parameters
+type: object
+required:
+  - created_by
+  - created_at
+properties:
+  created_by:
+    type: string
+    format: uuid
+    description: Identity UUID of the creator
+  created_at:
+    type: string
+    format: date-time
+    description: ISO date-time of creation
+  updated_by:
+    type: string
+    format: uuid
+    nullable: true
+  updated_at:
+    type: string
+    format: date-time
+    nullable: true

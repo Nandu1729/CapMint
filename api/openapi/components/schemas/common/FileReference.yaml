@@ -1,0 +1,15 @@
+title: FileReference
+description: Hash bound reference to an external PDF or certificate
+type: object
+required:
+  - file_url
+  - file_hash
+properties:
+  file_url:
+    type: string
+    format: uri
+    example: "https://storage.capmint.org/reports/NMR_102.pdf"
+  file_hash:
+    type: string
+    description: SHA-256 file checksum hash
+    example: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"

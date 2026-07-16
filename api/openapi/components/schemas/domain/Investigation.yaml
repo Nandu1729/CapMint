@@ -1,0 +1,25 @@
+title: Investigation
+description: Risk investigation case logs for suspected clones
+type: object
+required:
+  - id
+  - gtin
+  - serial
+  - status
+  - riskScore
+  - scansCount
+properties:
+  id:
+    type: string
+    format: uuid
+  gtin:
+    type: string
+  serial:
+    type: string
+  status:
+    type: string
+    enum: [OPEN, INVESTIGATING, REVOKED, DISMISSED]
+  riskScore:
+    type: number
+  scansCount:
+    type: integer

@@ -1,0 +1,10 @@
+title: TransparencyLedgerVerificationResponse
+type: object
+required:
+  - success
+  - details
+properties:
+  success:
+    type: boolean
+  details:
+    type: string

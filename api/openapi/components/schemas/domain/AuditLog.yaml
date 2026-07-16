@@ -1,0 +1,22 @@
+title: AuditLog
+description: Admin/user operations audit trail log
+type: object
+required:
+  - id
+  - userId
+  - action
+  - timestamp
+  - payload
+properties:
+  id:
+    type: string
+    format: uuid
+  userId:
+    type: string
+    format: uuid
+  action:
+    type: string
+  timestamp:
+    type: string
+  payload:
+    type: object

@@ -1,0 +1,9 @@
+title: TransparencyLedgerChainResponse
+type: object
+required:
+  - chain
+properties:
+  chain:
+    type: array
+    items:
+      $ref: '../domain/TransparencyLedgerEntry.yaml'

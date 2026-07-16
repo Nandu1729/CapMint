@@ -1,0 +1,7 @@
+title: QRCodeResponse
+type: object
+required:
+  - code
+properties:
+  code:
+    $ref: '../domain/QRCode.yaml'

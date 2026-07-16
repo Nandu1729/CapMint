@@ -1,0 +1,5 @@
+description: User registered successfully
+content:
+  application/json:
+    schema:
+      $ref: '../schemas/responses/RegisterUserResponse.yaml'

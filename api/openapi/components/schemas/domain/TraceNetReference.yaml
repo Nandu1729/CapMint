@@ -1,0 +1,18 @@
+title: TraceNetReference
+description: TraceNet integration certification record reference
+type: object
+required:
+  - referenceId
+  - licenseNumber
+  - status
+  - cropType
+properties:
+  referenceId:
+    type: string
+  licenseNumber:
+    type: string
+  status:
+    type: string
+    enum: [VALID, EXPIRED, SUSPENDED]
+  cropType:
+    type: string

@@ -1,0 +1,15 @@
+title: CertificationBody
+description: Registered certification body entity
+type: object
+required:
+  - id
+  - name
+  - authorityCode
+properties:
+  id:
+    type: string
+    format: uuid
+  name:
+    type: string
+  authorityCode:
+    type: string

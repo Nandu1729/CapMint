@@ -1,0 +1,23 @@
+title: LabResult
+description: Chemical NMR testing laboratory verification
+type: object
+required:
+  - id
+  - lotId
+  - labName
+  - resultSummary
+  - reportHash
+properties:
+  id:
+    type: string
+    format: uuid
+  lotId:
+    type: string
+    format: uuid
+  labName:
+    type: string
+  resultSummary:
+    type: string
+    enum: [PASSED, FAILED]
+  reportHash:
+    type: string

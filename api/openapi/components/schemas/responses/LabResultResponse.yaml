@@ -1,0 +1,7 @@
+title: LabResultResponse
+type: object
+required:
+  - labResult
+properties:
+  labResult:
+    $ref: '../domain/LabResult.yaml'

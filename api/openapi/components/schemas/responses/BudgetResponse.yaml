@@ -1,0 +1,7 @@
+title: BudgetResponse
+type: object
+required:
+  - budget
+properties:
+  budget:
+    $ref: '../domain/Budget.yaml'

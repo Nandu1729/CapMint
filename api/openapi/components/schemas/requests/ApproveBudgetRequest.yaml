@@ -1,0 +1,13 @@
+title: ApproveBudgetRequest
+type: object
+required:
+  - budgetId
+  - certifierId
+  - signature
+properties:
+  budgetId:
+    type: string
+  certifierId:
+    type: string
+  signature:
+    type: string

@@ -20,24 +20,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - username
-                - password
-                - role
-              properties:
-                username:
-                  type: string
-                password:
-                  type: string
-                role:
-                  type: string
-                  enum: [ADMIN, PRODUCER, PACK_HOUSE, CERTIFIER, LAB]
-                associated_entity_id:
-                  type: string
+              $ref: './components/schemas/requests/RegisterUserRequest.yaml'
       responses:
         '201':
-          description: User registered successfully
+          $ref: './components/responses/RegisterUserResponse.yaml'
 
   /api/v1/auth/login:
     post:
@@ -49,18 +35,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - username
-                - password
-              properties:
-                username:
-                  type: string
-                password:
-                  type: string
+              $ref: './components/schemas/requests/LoginRequest.yaml'
       responses:
         '200':
-          description: Login successful and JWT returned
+          $ref: './components/responses/LoginResponse.yaml'
 
   /api/v1/auth/users:
     get:
@@ -69,7 +47,7 @@ paths:
         - Authentication
       responses:
         '200':
-          description: List of registered users
+          $ref: './components/responses/UserListResponse.yaml'
 
   # 2. CPQ Service
   /api/v1/budgets/propose:
@@ -82,21 +60,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - producerId
-                - cropType
-                - limitKg
-              properties:
-                producerId:
-                  type: string
-                cropType:
-                  type: string
-                limitKg:
-                  type: number
+              $ref: './components/schemas/requests/ProposeBudgetRequest.yaml'
       responses:
         '201':
-          description: Quota proposed successfully
+          $ref: './components/responses/BudgetResponse.yaml'
 
   /api/v1/budgets/approve:
     post:
@@ -108,21 +75,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - budgetId
-                - certifierId
-                - signature
-              properties:
-                budgetId:
-                  type: string
-                certifierId:
-                  type: string
-                signature:
-                  type: string
+              $ref: './components/schemas/requests/ApproveBudgetRequest.yaml'
       responses:
         '200':
-          description: Quota approved and activated
+          $ref: './components/responses/BudgetApprovalResponse.yaml'
 
   /api/v1/budgets/drawdown:
     post:
@@ -134,18 +90,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - budgetId
-                - amountKg
-              properties:
-                budgetId:
-                  type: string
-                amountKg:
-                  type: number
+              $ref: './components/schemas/requests/BudgetDrawdownRequest.yaml'
       responses:
         '200':
-          description: Capacity locked and drawn down
+          $ref: './components/responses/BudgetDrawdownResponse.yaml'
 
   /api/v1/budgets/{id}:
     get:
@@ -153,14 +101,10 @@ paths:
       tags:
         - Quota & Budgets (CPQ)
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: './components/parameters/BudgetId.yaml'
       responses:
         '200':
-          description: Budget details returned
+          $ref: './components/responses/BudgetResponse.yaml'
 
   # 3. Mint Service
   /api/v1/qr/mint:
@@ -173,27 +117,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - budgetId
-                - cropType
-                - weightKg
-                - count
-                - gtin
-              properties:
-                budgetId:
-                  type: string
-                cropType:
-                  type: string
-                weightKg:
-                  type: number
-                count:
-                  type: number
-                gtin:
-                  type: string
+              $ref: './components/schemas/requests/MintQRCodeRequest.yaml'
       responses:
         '201':
-          description: Unique QR codes minted and lot generated
+          $ref: './components/responses/MintQRCodeResponse.yaml'
 
   /api/v1/qr/lot/{id}:
     get:
@@ -201,14 +128,10 @@ paths:
       tags:
         - Serialization & Minting
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: './components/parameters/LotId.yaml'
       responses:
         '200':
-          description: Minted lot details returned
+          $ref: './components/responses/LotResponse.yaml'
 
   # 4. Resolver Service
   /01/{gtin}/21/{serial}:
@@ -217,16 +140,8 @@ paths:
       tags:
         - Resolver Redirects
       parameters:
-        - name: gtin
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: serial
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: './components/parameters/GTIN.yaml'
+        - $ref: './components/parameters/Serial.yaml'
       responses:
         '302':
           description: Redirects to consumer provenance verification interface
@@ -242,24 +157,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - entity_type
-                - entity_id
-                - event_type
-                - payload
-              properties:
-                entity_type:
-                  type: string
-                entity_id:
-                  type: string
-                event_type:
-                  type: string
-                payload:
-                  type: object
+              $ref: './components/schemas/requests/AppendTransparencyLogRequest.yaml'
       responses:
         '201':
-          description: Cryptographic block appended to the log chain
+          $ref: './components/responses/TransparencyLedgerEntryResponse.yaml'
 
   /log/chain:
     get:
@@ -268,7 +169,7 @@ paths:
         - Transparency Log
       responses:
         '200':
-          description: Entire block history returned
+          $ref: './components/responses/TransparencyLedgerChainResponse.yaml'
 
   /log/verify:
     get:
@@ -277,7 +178,7 @@ paths:
         - Transparency Log
       responses:
         '200':
-          description: Cryptographic chain check results returned
+          $ref: './components/responses/TransparencyLedgerVerificationResponse.yaml'
 
   # 6. Verification Service
   /api/v1/verify/{gtin}/{serial}:
@@ -286,32 +187,17 @@ paths:
       tags:
         - Verification & Clones
       parameters:
-        - name: gtin
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: serial
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: './components/parameters/GTIN.yaml'
+        - $ref: './components/parameters/Serial.yaml'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                lat:
-                  type: number
-                lon:
-                  type: number
-                device_metadata:
-                  type: object
+              $ref: './components/schemas/requests/VerifyCodeRequest.yaml'
       responses:
         '200':
-          description: Code scan logged and verdict returned
+          $ref: './components/responses/VerificationResponse.yaml'
 
   /api/v1/revocation/lot:
     post:
@@ -323,18 +209,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - lotId
-                - reason
-              properties:
-                lotId:
-                  type: string
-                reason:
-                  type: string
+              $ref: './components/schemas/requests/RevokeLotRequest.yaml'
       responses:
         '200':
-          description: Batch lot and child codes successfully deactivated
+          $ref: './components/responses/RevocationResponse.yaml'
 
   /api/v1/revocation/code:
     post:
@@ -346,21 +224,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - gtin
-                - serial
-                - reason
-              properties:
-                gtin:
-                  type: string
-                serial:
-                  type: string
-                reason:
-                  type: string
+              $ref: './components/schemas/requests/RevokeQRCodeRequest.yaml'
       responses:
         '200':
-          description: Serial code deactivated successfully
+          $ref: './components/responses/RevocationResponse.yaml'
 
   /api/v1/verify/lab-results:
     post:
@@ -374,30 +241,10 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - lot_id
-                - lab_name
-                - test_type
-                - result_summary
-                - report_hash
-              properties:
-                lot_id:
-                  type: string
-                lab_name:
-                  type: string
-                test_type:
-                  type: string
-                result_summary:
-                  type: string
-                  enum: [PASSED, FAILED]
-                report_hash:
-                  type: string
-                report_reference:
-                  type: string
+              $ref: './components/schemas/requests/CreateLabResultRequest.yaml'
       responses:
         '200':
-          description: Lab result registered and PDF hash bound successfully
+          $ref: './components/responses/LabResultResponse.yaml'
 
   /api/v1/verify/investigations:
     get:
@@ -408,7 +255,7 @@ paths:
         - BearerAuth: []
       responses:
         '200':
-          description: List of investigation cases returned
+          $ref: './components/responses/InvestigationListResponse.yaml'
 
   /api/v1/verify/investigations/{id}:
     get:
@@ -418,14 +265,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: './components/parameters/InvestigationId.yaml'
       responses:
         '200':
-          description: Investigation details and evidence logs returned
+          $ref: './components/responses/InvestigationResponse.yaml'
 
   /api/v1/verify/investigations/{id}/approve:
     post:
@@ -435,14 +278,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: './components/parameters/InvestigationId.yaml'
       responses:
         '200':
-          description: Revocation approved and product identity deactivated
+          $ref: './components/responses/InvestigationActionResponse.yaml'
 
   /api/v1/verify/investigations/{id}/dismiss:
     post:
@@ -452,14 +291,10 @@ paths:
       security:
         - BearerAuth: []
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: './components/parameters/InvestigationId.yaml'
       responses:
         '200':
-          description: Investigation case dismissed
+          $ref: './components/responses/InvestigationActionResponse.yaml'
 
   # 7. Integration Service
   /api/v1/integrations/tracenet/certificate/{id}:
@@ -468,14 +303,10 @@ paths:
       tags:
         - External Integrations
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: './components/parameters/CertificateId.yaml'
       responses:
         '200':
-          description: TraceNet record status returned
+          $ref: './components/responses/TraceNetReferenceResponse.yaml'
 
   /api/v1/integrations/agristack/plot/{id}:
     get:
@@ -483,18 +314,12 @@ paths:
       tags:
         - External Integrations
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+        - $ref: './components/parameters/PlotId.yaml'
       responses:
         '200':
-          description: AgriStack parcel geometry returned
+          $ref: './components/responses/AgriStackPlotResponse.yaml'
 
 components:
   securitySchemes:
     BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
+      $ref: './components/security/BearerAuth.yaml'

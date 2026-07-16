@@ -1,0 +1,7 @@
+title: TraceNetReferenceResponse
+type: object
+required:
+  - traceNetRecord
+properties:
+  traceNetRecord:
+    $ref: '../domain/TraceNetReference.yaml'

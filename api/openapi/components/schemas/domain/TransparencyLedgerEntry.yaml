@@ -1,0 +1,26 @@
+title: TransparencyLedgerEntry
+description: Append-only hash chain block entry
+type: object
+required:
+  - id
+  - previousHash
+  - blockHash
+  - entityType
+  - entityId
+  - eventType
+  - payload
+properties:
+  id:
+    type: integer
+  previousHash:
+    type: string
+  blockHash:
+    type: string
+  entityType:
+    type: string
+  entityId:
+    type: string
+  eventType:
+    type: string
+  payload:
+    type: object

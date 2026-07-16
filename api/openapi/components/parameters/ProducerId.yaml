@@ -1,0 +1,6 @@
+name: producerId
+in: path
+required: true
+description: Unique identifier of the producer
+schema:
+  type: string

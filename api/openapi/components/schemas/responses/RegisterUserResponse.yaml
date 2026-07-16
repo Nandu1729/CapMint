@@ -1,0 +1,10 @@
+title: RegisterUserResponse
+type: object
+required:
+  - success
+  - username
+properties:
+  success:
+    type: boolean
+  username:
+    type: string

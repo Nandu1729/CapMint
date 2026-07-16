@@ -1,0 +1,10 @@
+title: BudgetApprovalResponse
+type: object
+required:
+  - success
+  - budgetId
+properties:
+  success:
+    type: boolean
+  budgetId:
+    type: string

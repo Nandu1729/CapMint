@@ -1,0 +1,10 @@
+title: BudgetDrawdownRequest
+type: object
+required:
+  - budgetId
+  - amountKg
+properties:
+  budgetId:
+    type: string
+  amountKg:
+    type: number

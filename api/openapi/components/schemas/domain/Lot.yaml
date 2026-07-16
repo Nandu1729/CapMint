@@ -1,0 +1,29 @@
+title: Lot
+description: Serialized lot run execution
+type: object
+required:
+  - id
+  - budgetId
+  - cropType
+  - weightKg
+  - totalUnits
+  - gtin
+  - verificationStatus
+properties:
+  id:
+    type: string
+    format: uuid
+  budgetId:
+    type: string
+    format: uuid
+  cropType:
+    type: string
+  weightKg:
+    type: number
+  totalUnits:
+    type: integer
+  gtin:
+    type: string
+  verificationStatus:
+    type: string
+    enum: [PENDING, PASSED, FAILED, REVOKED]

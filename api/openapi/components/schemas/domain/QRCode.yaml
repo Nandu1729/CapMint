@@ -1,0 +1,23 @@
+title: QRCode
+description: Unique unit serial code
+type: object
+required:
+  - id
+  - lotId
+  - gtin
+  - serial
+  - currentState
+properties:
+  id:
+    type: string
+    format: uuid
+  lotId:
+    type: string
+    format: uuid
+  gtin:
+    type: string
+  serial:
+    type: string
+  currentState:
+    type: string
+    enum: [MINTED, IN_TRANSIT, VERIFIED, REVOKED]

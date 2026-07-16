@@ -1,0 +1,13 @@
+title: InvestigationActionResponse
+type: object
+required:
+  - success
+  - investigationId
+  - status
+properties:
+  success:
+    type: boolean
+  investigationId:
+    type: string
+  status:
+    type: string

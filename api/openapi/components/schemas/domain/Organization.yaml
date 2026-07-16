@@ -1,0 +1,20 @@
+title: Organization
+description: Registered organization profile
+type: object
+required:
+  - id
+  - name
+  - type
+  - status
+properties:
+  id:
+    type: string
+    format: uuid
+  name:
+    type: string
+  type:
+    type: string
+    enum: [PRODUCER, NABL_LABORATORY, CERTIFICATION_BODY, EXPORTER, SYSTEM_ADMINISTRATOR]
+  status:
+    type: string
+    enum: [PENDING_VERIFICATION, ACTIVATED, SUSPENDED]

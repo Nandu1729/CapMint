@@ -1,0 +1,5 @@
+description: Investigation details and evidence logs returned
+content:
+  application/json:
+    schema:
+      $ref: '../schemas/responses/InvestigationResponse.yaml'

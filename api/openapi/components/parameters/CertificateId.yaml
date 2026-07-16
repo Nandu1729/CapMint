@@ -1,0 +1,6 @@
+name: id
+in: path
+required: true
+description: Unique identifier of the certificate
+schema:
+  type: string

@@ -1,0 +1,15 @@
+title: Money
+description: Cost and currency metadata
+type: object
+required:
+  - amount
+  - currency
+properties:
+  amount:
+    type: number
+    example: 250000.00
+  currency:
+    type: string
+    minLength: 3
+    maxLength: 3
+    example: "INR"

@@ -1,0 +1,5 @@
+description: Batch lot/code successfully deactivated
+content:
+  application/json:
+    schema:
+      $ref: '../schemas/responses/RevocationResponse.yaml'

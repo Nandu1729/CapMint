@@ -1,0 +1,13 @@
+title: RevokeQRCodeRequest
+type: object
+required:
+  - gtin
+  - serial
+  - reason
+properties:
+  gtin:
+    type: string
+  serial:
+    type: string
+  reason:
+    type: string

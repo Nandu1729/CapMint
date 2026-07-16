@@ -1,0 +1,7 @@
+title: InvestigationResponse
+type: object
+required:
+  - investigation
+properties:
+  investigation:
+    $ref: '../domain/Investigation.yaml'

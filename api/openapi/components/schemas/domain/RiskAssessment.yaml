@@ -1,0 +1,15 @@
+title: RiskAssessment
+description: Risk assessment metrics evaluated during scan validation
+type: object
+required:
+  - riskScore
+  - geolocationMatch
+  - scanFrequency24h
+properties:
+  riskScore:
+    type: number
+    example: 0.12
+  geolocationMatch:
+    type: boolean
+  scanFrequency24h:
+    type: integer

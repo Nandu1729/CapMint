@@ -1,0 +1,4 @@
+description: Distributed trace correlation ID
+schema:
+  type: string
+  format: uuid

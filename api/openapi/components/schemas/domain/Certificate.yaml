@@ -1,0 +1,19 @@
+title: Certificate
+description: Organic standard validation certificate
+type: object
+required:
+  - id
+  - type
+  - fileUrl
+  - fileHash
+properties:
+  id:
+    type: string
+    format: uuid
+  type:
+    type: string
+    enum: [NPOP_ORGANIC, NABL_TEST]
+  fileUrl:
+    type: string
+  fileHash:
+    type: string

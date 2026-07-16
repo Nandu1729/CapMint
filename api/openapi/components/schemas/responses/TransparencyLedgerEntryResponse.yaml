@@ -1,0 +1,10 @@
+title: TransparencyLedgerEntryResponse
+type: object
+required:
+  - success
+  - entry
+properties:
+  success:
+    type: boolean
+  entry:
+    $ref: '../domain/TransparencyLedgerEntry.yaml'

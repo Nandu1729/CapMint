@@ -1,0 +1,9 @@
+title: UserListResponse
+type: object
+required:
+  - users
+properties:
+  users:
+    type: array
+    items:
+      $ref: '../domain/User.yaml'

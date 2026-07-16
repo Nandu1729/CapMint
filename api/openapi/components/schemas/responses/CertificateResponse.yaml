@@ -1,0 +1,7 @@
+title: CertificateResponse
+type: object
+required:
+  - certificate
+properties:
+  certificate:
+    $ref: '../domain/Certificate.yaml'

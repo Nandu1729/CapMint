@@ -1,0 +1,5 @@
+description: Unique QR codes minted and lot generated
+content:
+  application/json:
+    schema:
+      $ref: '../schemas/responses/MintQRCodeResponse.yaml'

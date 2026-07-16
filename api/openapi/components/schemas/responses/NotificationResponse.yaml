@@ -1,0 +1,7 @@
+title: NotificationResponse
+type: object
+required:
+  - notification
+properties:
+  notification:
+    $ref: '../domain/Notification.yaml'

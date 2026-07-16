@@ -1,0 +1,16 @@
+title: RegisterUserRequest
+type: object
+required:
+  - username
+  - password
+  - role
+properties:
+  username:
+    type: string
+  password:
+    type: string
+  role:
+    type: string
+    enum: [ADMIN, PRODUCER, PACK_HOUSE, CERTIFIER, LAB]
+  associated_entity_id:
+    type: string

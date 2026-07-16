@@ -1,0 +1,9 @@
+title: QRCodeListResponse
+type: object
+required:
+  - codes
+properties:
+  codes:
+    type: array
+    items:
+      $ref: '../domain/QRCode.yaml'

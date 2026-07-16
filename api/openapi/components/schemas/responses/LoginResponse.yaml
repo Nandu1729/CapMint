@@ -1,0 +1,10 @@
+title: LoginResponse
+type: object
+required:
+  - success
+  - token
+properties:
+  success:
+    type: boolean
+  token:
+    type: string

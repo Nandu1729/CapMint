@@ -1,0 +1,20 @@
+title: User
+description: Registered user record within an organization
+type: object
+required:
+  - id
+  - username
+  - role
+  - associated_entity_id
+properties:
+  id:
+    type: string
+    format: uuid
+  username:
+    type: string
+  role:
+    type: string
+    enum: [ADMIN, PRODUCER, PACK_HOUSE, CERTIFIER, LAB]
+  associated_entity_id:
+    type: string
+    format: uuid

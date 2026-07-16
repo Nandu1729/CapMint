@@ -1,0 +1,14 @@
+title: UploadCertificateRequest
+type: object
+required:
+  - type
+  - fileUrl
+  - fileHash
+properties:
+  type:
+    type: string
+    enum: [NPOP_ORGANIC, NABL_TEST]
+  fileUrl:
+    type: string
+  fileHash:
+    type: string

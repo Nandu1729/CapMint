@@ -1,0 +1,7 @@
+title: OrganizationResponse
+type: object
+required:
+  - organization
+properties:
+  organization:
+    $ref: '../domain/Organization.yaml'

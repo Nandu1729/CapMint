@@ -1,0 +1,13 @@
+title: ProposeBudgetRequest
+type: object
+required:
+  - producerId
+  - cropType
+  - limitKg
+properties:
+  producerId:
+    type: string
+  cropType:
+    type: string
+  limitKg:
+    type: number

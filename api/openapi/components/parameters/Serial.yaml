@@ -1,0 +1,6 @@
+name: serial
+in: path
+required: true
+description: Unique serial number of the unit
+schema:
+  type: string

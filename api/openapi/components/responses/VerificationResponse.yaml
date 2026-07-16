@@ -1,0 +1,5 @@
+description: Code scan logged and verdict returned
+content:
+  application/json:
+    schema:
+      $ref: '../schemas/responses/VerificationResponse.yaml'

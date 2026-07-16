@@ -1,0 +1,7 @@
+title: AgriStackPlotResponse
+type: object
+required:
+  - plotRecord
+properties:
+  plotRecord:
+    $ref: '../domain/AgriStackPlot.yaml'

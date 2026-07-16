@@ -1,0 +1,15 @@
+title: Exporter
+description: Registered exporter entity
+type: object
+required:
+  - id
+  - name
+  - registrationNumber
+properties:
+  id:
+    type: string
+    format: uuid
+  name:
+    type: string
+  registrationNumber:
+    type: string

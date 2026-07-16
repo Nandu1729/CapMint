@@ -1,0 +1,25 @@
+title: Address
+description: Physical address parameters
+type: object
+required:
+  - street
+  - city
+  - state
+  - country
+  - postalCode
+properties:
+  street:
+    type: string
+    example: "123 Farmer Road"
+  city:
+    type: string
+    example: "Ahmedabad"
+  state:
+    type: string
+    example: "Gujarat"
+  country:
+    type: string
+    example: "India"
+  postalCode:
+    type: string
+    example: "380001"

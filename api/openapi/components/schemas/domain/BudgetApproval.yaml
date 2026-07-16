@@ -1,0 +1,16 @@
+title: BudgetApproval
+description: Cryptographic budget approval payload
+type: object
+required:
+  - budgetId
+  - certifierId
+  - signature
+properties:
+  budgetId:
+    type: string
+    format: uuid
+  certifierId:
+    type: string
+    format: uuid
+  signature:
+    type: string

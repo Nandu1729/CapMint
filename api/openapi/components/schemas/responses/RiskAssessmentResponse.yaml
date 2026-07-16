@@ -1,0 +1,7 @@
+title: RiskAssessmentResponse
+type: object
+required:
+  - riskAssessment
+properties:
+  riskAssessment:
+    $ref: '../domain/RiskAssessment.yaml'

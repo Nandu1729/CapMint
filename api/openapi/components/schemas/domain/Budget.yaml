@@ -1,0 +1,26 @@
+title: Budget
+description: Approved organic yield quota allocation
+type: object
+required:
+  - id
+  - producerId
+  - cropType
+  - limitKg
+  - remainingKg
+  - status
+properties:
+  id:
+    type: string
+    format: uuid
+  producerId:
+    type: string
+    format: uuid
+  cropType:
+    type: string
+  limitKg:
+    type: number
+  remainingKg:
+    type: number
+  status:
+    type: string
+    enum: [PROPOSED, ACTIVE, EXHAUSTED, REVOKED]

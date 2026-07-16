@@ -1,0 +1,15 @@
+title: MintQRCodeResponse
+type: object
+required:
+  - success
+  - lotId
+  - codes
+properties:
+  success:
+    type: boolean
+  lotId:
+    type: string
+  codes:
+    type: array
+    items:
+      $ref: '../domain/QRCode.yaml'

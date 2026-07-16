@@ -1,0 +1,23 @@
+title: Notification
+description: Dispatched system alert notification
+type: object
+required:
+  - id
+  - recipientId
+  - title
+  - message
+  - status
+properties:
+  id:
+    type: string
+    format: uuid
+  recipientId:
+    type: string
+    format: uuid
+  title:
+    type: string
+  message:
+    type: string
+  status:
+    type: string
+    enum: [UNREAD, READ]

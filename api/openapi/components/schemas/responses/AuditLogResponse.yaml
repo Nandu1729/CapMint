@@ -1,0 +1,7 @@
+title: AuditLogResponse
+type: object
+required:
+  - auditLog
+properties:
+  auditLog:
+    $ref: '../domain/AuditLog.yaml'

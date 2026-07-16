@@ -1,0 +1,14 @@
+title: SuccessResponse
+description: Standard success response envelope
+type: object
+required:
+  - success
+properties:
+  success:
+    type: boolean
+    description: Indicates if the operation was successful
+    example: true
+  message:
+    type: string
+    description: Informational success message
+    example: "Operation completed successfully"

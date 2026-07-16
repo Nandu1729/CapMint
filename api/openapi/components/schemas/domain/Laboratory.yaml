@@ -1,0 +1,15 @@
+title: Laboratory
+description: Registered testing laboratory entity
+type: object
+required:
+  - id
+  - name
+  - nablLicense
+properties:
+  id:
+    type: string
+    format: uuid
+  name:
+    type: string
+  nablLicense:
+    type: string

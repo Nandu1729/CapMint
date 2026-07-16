@@ -1,0 +1,20 @@
+title: Verification
+description: Serial scan verification results
+type: object
+required:
+  - success
+  - verdict
+  - gtin
+  - serial
+properties:
+  success:
+    type: boolean
+  verdict:
+    type: string
+    enum: [VERIFIED, REVOKED, EXHAUSTED, CLONE-SUSPECT, MISMATCH]
+  gtin:
+    type: string
+  serial:
+    type: string
+  lotDetails:
+    $ref: './Lot.yaml'

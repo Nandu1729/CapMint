@@ -1,0 +1,10 @@
+title: RevokeLotRequest
+type: object
+required:
+  - lotId
+  - reason
+properties:
+  lotId:
+    type: string
+  reason:
+    type: string

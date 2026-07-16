@@ -1,0 +1,5 @@
+description: Lab result registered and PDF hash bound successfully
+content:
+  application/json:
+    schema:
+      $ref: '../schemas/responses/LabResultResponse.yaml'

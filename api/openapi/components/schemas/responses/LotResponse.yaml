@@ -1,0 +1,7 @@
+title: LotResponse
+type: object
+required:
+  - lot
+properties:
+  lot:
+    $ref: '../domain/Lot.yaml'

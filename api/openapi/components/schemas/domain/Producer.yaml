@@ -1,0 +1,15 @@
+title: Producer
+description: Agricultural producer or packaging operator
+type: object
+required:
+  - id
+  - name
+  - traceNetLicense
+properties:
+  id:
+    type: string
+    format: uuid
+  name:
+    type: string
+  traceNetLicense:
+    type: string

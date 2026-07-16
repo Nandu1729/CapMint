@@ -1,0 +1,10 @@
+title: CreateProductRequest
+type: object
+required:
+  - name
+  - gtin
+properties:
+  name:
+    type: string
+  gtin:
+    type: string

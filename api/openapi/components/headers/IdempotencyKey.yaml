@@ -1,0 +1,4 @@
+description: Key to ensure request idempotence
+schema:
+  type: string
+  format: uuid

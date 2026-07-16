@@ -1,0 +1,9 @@
+title: LotListResponse
+type: object
+required:
+  - lots
+properties:
+  lots:
+    type: array
+    items:
+      $ref: '../domain/Lot.yaml'

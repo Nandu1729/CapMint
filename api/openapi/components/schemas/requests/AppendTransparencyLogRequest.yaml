@@ -1,0 +1,16 @@
+title: AppendTransparencyLogRequest
+type: object
+required:
+  - entity_type
+  - entity_id
+  - event_type
+  - payload
+properties:
+  entity_type:
+    type: string
+  entity_id:
+    type: string
+  eventType:
+    type: string
+  payload:
+    type: object

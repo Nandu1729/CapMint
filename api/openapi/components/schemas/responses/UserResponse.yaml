@@ -1,0 +1,7 @@
+title: UserResponse
+type: object
+required:
+  - user
+properties:
+  user:
+    $ref: '../domain/User.yaml'
