@@ -581,12 +581,36 @@ server.post('/api/v1/auth/users/:id/role', {
   };
 });
 
-// Route: List organization users (Admin/Member of same org)
+// Route: List organization users (Admin/Member of same org, or System Admin for all)
 server.get('/api/v1/auth/users', {
   preValidation: [server.authenticate]
 }, async (request, reply) => {
   const currentUser = request.user as any;
-  const result = await pgPool.query('SELECT id, username, role, status, created_at FROM users WHERE organization_id = $1 ORDER BY username ASC', [currentUser.orgId]);
+  
+  let query = `
+    SELECT 
+      u.id, 
+      u.username, 
+      u.role, 
+      u.status, 
+      u.created_at,
+      u.organization_id,
+      o.name AS organization_name,
+      o.type AS organization_type,
+      o.official_email AS organization_email
+    FROM users u
+    LEFT JOIN organizations o ON u.organization_id = o.id
+  `;
+  const params: any[] = [];
+
+  if (currentUser.orgType !== 'SYSTEM_ADMINISTRATOR') {
+    query += ' WHERE u.organization_id = $1';
+    params.push(currentUser.orgId);
+  }
+
+  query += ' ORDER BY u.username ASC';
+
+  const result = await pgPool.query(query, params);
   return {
     success: true,
     data: {
