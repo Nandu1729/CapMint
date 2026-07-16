@@ -9,7 +9,7 @@ dotenv.config();
 declare module 'fastify' {
   interface FastifyInstance {
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
-    authorize: (allowedRoles: string[]) => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    authorize: (allowedSpecs: any[]) => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 }
 
@@ -48,10 +48,33 @@ server.decorate('authenticate', async (request: FastifyRequest, reply: FastifyRe
   }
 });
 
-server.decorate('authorize', (allowedRoles: string[]) => {
+// Decorator: authorize
+server.decorate('authorize', (allowedSpecs: any[]) => {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const user = request.user as any;
-    if (!user || !allowedRoles.includes(user.role)) {
+    if (!user) {
+      return reply.status(401).send({
+        success: false,
+        error: {
+          statusCode: 401,
+          code: 'UNAUTHORIZED',
+          message: 'User context not found.'
+        }
+      });
+    }
+
+    const isAuthorized = allowedSpecs.some(spec => {
+      if (typeof spec === 'string') {
+        return spec === user.role || spec === user.orgType;
+      } else if (spec && typeof spec === 'object') {
+        const matchType = spec.orgType === user.orgType;
+        const matchRole = !spec.role || spec.role === user.role;
+        return matchType && matchRole;
+      }
+      return false;
+    });
+
+    if (!isAuthorized) {
       return reply.status(403).send({
         success: false,
         error: {
@@ -408,7 +431,9 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
 });
 
 // Route: Public simulation registration for Manufacturer Console (persists generated QR/record in DB)
-server.post('/api/v1/verify/register', async (request, reply) => {
+server.post('/api/v1/verify/register', {
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
+}, async (request, reply) => {
   const { public_identifier, gtin, serial, verification_url, qr_code_data_uri, product_metadata } = request.body as any;
 
   if (!public_identifier || !gtin || !serial || !verification_url) {
@@ -422,48 +447,43 @@ server.post('/api/v1/verify/register', async (request, reply) => {
     });
   }
 
+  const user = request.user as any;
   const client = await pgPool.connect();
   try {
     await client.query('BEGIN');
 
-    // 1. Insert default Certifier if not exists
-    await client.query(`
-      INSERT INTO certifiers (id, name, accreditation_details, public_key, key_status)
-      VALUES ('00000000-0000-0000-0000-000000000001', 'Organic Trade Council India', '{}', 'pk_default', 'ACTIVE')
-      ON CONFLICT (id) DO NOTHING
-    `);
+    // 1. Fetch active budget for the calling producer organization
+    const budgetRes = await client.query('SELECT id FROM budgets WHERE producer_id = $1 AND status = \'ACTIVE\' LIMIT 1', [user.orgId]);
+    if (budgetRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(400).send({
+        success: false,
+        error: {
+          statusCode: 400,
+          code: 'NO_ACTIVE_BUDGET',
+          message: 'No active budget found for your organization. Please request a budget and obtain certifier approval.'
+        }
+      });
+    }
+    const budgetId = budgetRes.rows[0].id;
 
-    // 2. Insert default Producer if not exists
-    await client.query(`
-      INSERT INTO producers (id, name, type, registry_references)
-      VALUES ('00000000-0000-0000-0000-000000000002', 'Premium Farms', 'FARMER', '{}')
-      ON CONFLICT (id) DO NOTHING
-    `);
-
-    // 3. Insert default Budget if not exists
-    await client.query(`
-      INSERT INTO budgets (id, producer_id, certifier_id, source_unit_type, approved_quantity, signature_bundle, effective_start_date, effective_end_date, status, yield_assumptions)
-      VALUES ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'UNIT_COUNT', 1000000, 'sig_default', '2026-07-11T00:00:00Z', '2027-07-11T00:00:00Z', 'ACTIVE', '{}')
-      ON CONFLICT (id) DO NOTHING
-    `);
-
-    // 4. Insert dynamic Lot
+    // 2. Insert dynamic Lot
     const lotInsert = await client.query(`
       INSERT INTO lots (id, producer_id, budget_id, product_metadata, batch_size, processing_dates, lab_status)
-      VALUES (uuid_generate_v4(), '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000003', $1, 10000, '{}', 'PASSED')
+      VALUES (uuid_generate_v4(), $1, $2, $3, 10000, '{}', 'PASSED')
       RETURNING id
-    `, [JSON.stringify(product_metadata || { name: 'Organic White Honey', manufacturer: 'Premium Farms' })]);
+    `, [user.orgId, budgetId, JSON.stringify(product_metadata || { name: 'Organic White Honey', manufacturer: 'Premium Farms' })]);
     
     const lotUuid = lotInsert.rows[0].id;
 
-    // 5. Insert Lab Result for the dynamic Lot if not exists
+    // 3. Insert Lab Result for the dynamic Lot if not exists
     await client.query(`
       INSERT INTO lab_results (lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
       VALUES ($1, 'Intertek India Labs', 'Purity Certification Test', 'PASS', 'hash_lab_default', 'NABL-INTK-2026-10492')
       ON CONFLICT (lot_id) DO NOTHING
     `, [lotUuid]);
 
-    // 6. Insert Unit Code
+    // 4. Insert Unit Code
     const digital_link_uri = `https://id.capmint.io/01/${gtin}/21/${serial}`;
     await client.query(`
       INSERT INTO unit_codes (lot_id, serial, gtin, digital_link_uri, public_identifier, verification_url, qr_code_data_uri, current_state)
@@ -482,7 +502,9 @@ server.post('/api/v1/verify/register', async (request, reply) => {
 });
 
 // Route: Public simulation revocation for Manufacturer Console
-server.post('/api/v1/verify/revoke', async (request, reply) => {
+server.post('/api/v1/verify/revoke', {
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+}, async (request, reply) => {
   const { batch_id, reason } = request.body as any;
 
   if (!batch_id) {
@@ -539,7 +561,7 @@ server.post('/api/v1/verify/revoke', async (request, reply) => {
 
 // Route: Cascade Revocation (M-011)
 server.post('/api/v1/lots/:id/revoke', {
-  preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
 }, async (request, reply) => {
   const { id } = request.params as any;
 
@@ -630,7 +652,7 @@ server.get('/api/v1/verify/lots', async (request, reply) => {
 
 // Route: List Investigations
 server.get('/api/v1/verify/investigations', {
-  preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
 }, async (request, reply) => {
   const result = await pgPool.query('SELECT * FROM investigations ORDER BY created_at DESC');
   return {
@@ -654,7 +676,7 @@ server.get('/api/v1/verify/investigations', {
 
 // Route: Get Investigation Details
 server.get('/api/v1/verify/investigations/:id', {
-  preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const result = await pgPool.query('SELECT * FROM investigations WHERE id = $1', [id]);
@@ -686,7 +708,7 @@ server.get('/api/v1/verify/investigations/:id', {
 
 // Route: Approve Revocation
 server.post('/api/v1/verify/investigations/:id/approve', {
-  preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const client = await pgPool.connect();
@@ -787,7 +809,7 @@ server.post('/api/v1/verify/investigations/:id/approve', {
 
 // Route: Dismiss Investigation
 server.post('/api/v1/verify/investigations/:id/dismiss', {
-  preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const client = await pgPool.connect();
@@ -849,7 +871,7 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
 
 // Route: Register Lab Results
 server.post('/api/v1/verify/lab-results', {
-  preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'NABL_LABORATORY' }])]
 }, async (request, reply) => {
   const { lot_id, lab_name, test_type, result_summary, report_hash, report_reference, pdf_content } = request.body as any;
 

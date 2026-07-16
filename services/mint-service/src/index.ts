@@ -11,7 +11,7 @@ dotenv.config();
 declare module 'fastify' {
   interface FastifyInstance {
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
-    authorize: (allowedRoles: string[]) => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    authorize: (allowedSpecs: any[]) => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 }
 
@@ -40,10 +40,33 @@ server.decorate('authenticate', async (request: FastifyRequest, reply: FastifyRe
   }
 });
 
-server.decorate('authorize', (allowedRoles: string[]) => {
+// Decorator: authorize
+server.decorate('authorize', (allowedSpecs: any[]) => {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const user = request.user as any;
-    if (!user || !allowedRoles.includes(user.role)) {
+    if (!user) {
+      return reply.status(401).send({
+        success: false,
+        error: {
+          statusCode: 401,
+          code: 'UNAUTHORIZED',
+          message: 'User context not found.'
+        }
+      });
+    }
+
+    const isAuthorized = allowedSpecs.some(spec => {
+      if (typeof spec === 'string') {
+        return spec === user.role || spec === user.orgType;
+      } else if (spec && typeof spec === 'object') {
+        const matchType = spec.orgType === user.orgType;
+        const matchRole = !spec.role || spec.role === user.role;
+        return matchType && matchRole;
+      }
+      return false;
+    });
+
+    if (!isAuthorized) {
       return reply.status(403).send({
         success: false,
         error: {
@@ -113,7 +136,7 @@ server.post('/api/v1/gs1/validate', async (request, reply) => {
 
 // Route: Mint Serial Numbers (Minting Engine)
 server.post('/api/v1/mint', {
-  preValidation: [server.authenticate, server.authorize(['PACK_HOUSE', 'ADMIN'])]
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
 }, async (request, reply) => {
   const { lot_id, gtin, quantity } = request.body as any;
 

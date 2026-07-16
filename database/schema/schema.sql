@@ -5,6 +5,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Drop existing tables to handle rebuild execution
+DROP TABLE IF EXISTS organizations CASCADE;
 DROP TABLE IF EXISTS users CASCADE;
 DROP TABLE IF EXISTS log_entries CASCADE;
 DROP TABLE IF EXISTS scan_events CASCADE;
@@ -16,16 +17,34 @@ DROP TABLE IF EXISTS plots_or_hive_clusters CASCADE;
 DROP TABLE IF EXISTS producers CASCADE;
 DROP TABLE IF EXISTS certifiers CASCADE;
 
+-- 0.1 Table: organizations
+CREATE TABLE organizations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name VARCHAR(255) NOT NULL UNIQUE,
+    type VARCHAR(64) NOT NULL,
+    business_reg_details JSONB NOT NULL DEFAULT '{}',
+    official_email VARCHAR(255) NOT NULL UNIQUE,
+    contact_info JSONB NOT NULL DEFAULT '{}',
+    status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_organizations_type CHECK (type IN ('PRODUCER', 'NABL_LABORATORY', 'CERTIFICATION_BODY', 'EXPORTER', 'SYSTEM_ADMINISTRATOR')),
+    CONSTRAINT chk_organizations_status CHECK (status IN ('PENDING', 'VERIFICATION', 'APPROVED', 'ACTIVATED'))
+);
+
 -- 0. Table: users
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
     username VARCHAR(100) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role VARCHAR(32) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
     associated_entity_id UUID,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_users_role CHECK (role IN ('ADMIN', 'PRODUCER', 'PACK_HOUSE', 'CERTIFIER', 'LAB'))
+    CONSTRAINT chk_users_role CHECK (role IN ('ADMIN', 'MEMBER')),
+    CONSTRAINT chk_users_status CHECK (status IN ('ACTIVE', 'DISABLED'))
 );
 
 -- 1. Table: certifiers

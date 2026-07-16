@@ -9,7 +9,7 @@ dotenv.config();
 declare module 'fastify' {
   interface FastifyInstance {
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
-    authorize: (allowedRoles: string[]) => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    authorize: (allowedSpecs: any[]) => (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
   }
 }
 
@@ -55,10 +55,32 @@ server.decorate('authenticate', async (request: FastifyRequest, reply: FastifyRe
 });
 
 // Decorator: authorize
-server.decorate('authorize', (allowedRoles: string[]) => {
+server.decorate('authorize', (allowedSpecs: any[]) => {
   return async (request: FastifyRequest, reply: FastifyReply) => {
     const user = request.user as any;
-    if (!user || !allowedRoles.includes(user.role)) {
+    if (!user) {
+      return reply.status(401).send({
+        success: false,
+        error: {
+          statusCode: 401,
+          code: 'UNAUTHORIZED',
+          message: 'User context not found.'
+        }
+      });
+    }
+
+    const isAuthorized = allowedSpecs.some(spec => {
+      if (typeof spec === 'string') {
+        return spec === user.role || spec === user.orgType;
+      } else if (spec && typeof spec === 'object') {
+        const matchType = spec.orgType === user.orgType;
+        const matchRole = !spec.role || spec.role === user.role;
+        return matchType && matchRole;
+      }
+      return false;
+    });
+
+    if (!isAuthorized) {
       return reply.status(403).send({
         success: false,
         error: {
@@ -86,7 +108,7 @@ server.get('/health', async () => {
 
 // Route: Propose/Draft Budget
 server.post('/api/v1/budgets', {
-  preValidation: [server.authenticate, server.authorize(['PRODUCER', 'ADMIN'])]
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
 }, async (request, reply) => {
   const {
     producer_id,
@@ -106,6 +128,19 @@ server.post('/api/v1/budgets', {
         statusCode: 400,
         code: 'BAD_REQUEST',
         message: 'Missing required fields in request body.'
+      }
+    });
+  }
+
+  // Enforce organization ownership validation (No cross-org budget proposals)
+  const user = request.user as any;
+  if (user.orgType === 'PRODUCER' && producer_id !== user.orgId) {
+    return reply.status(403).send({
+      success: false,
+      error: {
+        statusCode: 403,
+        code: 'FORBIDDEN',
+        message: 'You cannot request budgets for another organization.'
       }
     });
   }
@@ -156,7 +191,7 @@ server.post('/api/v1/budgets', {
 
 // Route: Approve / Activate Budget
 server.post('/api/v1/budgets/:id/activate', {
-  preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
 }, async (request, reply) => {
   const { id } = request.params as any;
 
@@ -204,7 +239,7 @@ server.post('/api/v1/budgets/:id/activate', {
 
 // Route: Drawdown Capacity (supports row locking FOR UPDATE to prevent race conditions)
 server.post('/api/v1/budgets/:id/drawdown', {
-  preValidation: [server.authenticate, server.authorize(['PACK_HOUSE', 'ADMIN'])]
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const { amount } = request.body as any;
@@ -241,6 +276,20 @@ server.post('/api/v1/budgets/:id/drawdown', {
     }
 
     const budget = budgetRes.rows[0];
+
+    // Enforce organization ownership validation (No cross-org budget drawdown)
+    const user = request.user as any;
+    if (user.orgType === 'PRODUCER' && budget.producer_id !== user.orgId) {
+      await client.query('ROLLBACK');
+      return reply.status(403).send({
+        success: false,
+        error: {
+          statusCode: 403,
+          code: 'FORBIDDEN',
+          message: 'You cannot drawdown budgets belonging to another organization.'
+        }
+      });
+    }
 
     // 2.5 Query certifier public key to verify Ed25519 signature
     const certifierRes = await client.query('SELECT public_key FROM certifiers WHERE id = $1', [budget.certifier_id]);
@@ -341,13 +390,29 @@ server.post('/api/v1/budgets/:id/drawdown', {
 });
 
 // Route: Get all budgets
-server.get('/api/v1/budgets', async (request, reply) => {
-  const result = await pgPool.query(`
-    SELECT b.*, p.name as producer 
-    FROM budgets b 
-    LEFT JOIN producers p ON b.producer_id = p.id 
-    ORDER BY b.created_at DESC
-  `);
+server.get('/api/v1/budgets', {
+  preValidation: [server.authenticate]
+}, async (request, reply) => {
+  const user = request.user as any;
+  let result;
+  
+  if (user && user.orgType === 'PRODUCER') {
+    result = await pgPool.query(`
+      SELECT b.*, p.name as producer 
+      FROM budgets b 
+      LEFT JOIN producers p ON b.producer_id = p.id 
+      WHERE b.producer_id = $1
+      ORDER BY b.created_at DESC
+    `, [user.orgId]);
+  } else {
+    result = await pgPool.query(`
+      SELECT b.*, p.name as producer 
+      FROM budgets b 
+      LEFT JOIN producers p ON b.producer_id = p.id 
+      ORDER BY b.created_at DESC
+    `);
+  }
+
   return {
     success: true,
     data: {

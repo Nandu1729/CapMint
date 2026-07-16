@@ -43,10 +43,31 @@ server.decorate('authenticate', async (request, reply) => {
     }
 });
 // Decorator: authorize
-server.decorate('authorize', (allowedRoles) => {
+server.decorate('authorize', (allowedSpecs) => {
     return async (request, reply) => {
         const user = request.user;
-        if (!user || !allowedRoles.includes(user.role)) {
+        if (!user) {
+            return reply.status(401).send({
+                success: false,
+                error: {
+                    statusCode: 401,
+                    code: 'UNAUTHORIZED',
+                    message: 'User context not found.'
+                }
+            });
+        }
+        const isAuthorized = allowedSpecs.some(spec => {
+            if (typeof spec === 'string') {
+                return spec === user.role || spec === user.orgType;
+            }
+            else if (spec && typeof spec === 'object') {
+                const matchType = spec.orgType === user.orgType;
+                const matchRole = !spec.role || spec.role === user.role;
+                return matchType && matchRole;
+            }
+            return false;
+        });
+        if (!isAuthorized) {
             return reply.status(403).send({
                 success: false,
                 error: {
@@ -70,7 +91,7 @@ server.get('/health', async () => {
 });
 // Route: Propose/Draft Budget
 server.post('/api/v1/budgets', {
-    preValidation: [server.authenticate, server.authorize(['PRODUCER', 'ADMIN'])]
+    preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
 }, async (request, reply) => {
     const { producer_id, certifier_id, source_unit_type, approved_quantity, yield_assumptions, signature_bundle, effective_start_date, effective_end_date } = request.body;
     if (!producer_id || !certifier_id || !source_unit_type || !approved_quantity || !yield_assumptions || !signature_bundle || !effective_start_date || !effective_end_date) {
@@ -80,6 +101,18 @@ server.post('/api/v1/budgets', {
                 statusCode: 400,
                 code: 'BAD_REQUEST',
                 message: 'Missing required fields in request body.'
+            }
+        });
+    }
+    // Enforce organization ownership validation (No cross-org budget proposals)
+    const user = request.user;
+    if (user.orgType === 'PRODUCER' && producer_id !== user.orgId) {
+        return reply.status(403).send({
+            success: false,
+            error: {
+                statusCode: 403,
+                code: 'FORBIDDEN',
+                message: 'You cannot request budgets for another organization.'
             }
         });
     }
@@ -125,7 +158,7 @@ server.post('/api/v1/budgets', {
 });
 // Route: Approve / Activate Budget
 server.post('/api/v1/budgets/:id/activate', {
-    preValidation: [server.authenticate, server.authorize(['CERTIFIER', 'ADMIN'])]
+    preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
 }, async (request, reply) => {
     const { id } = request.params;
     // 1. Fetch budget first to get approved quantity
@@ -164,7 +197,7 @@ server.post('/api/v1/budgets/:id/activate', {
 });
 // Route: Drawdown Capacity (supports row locking FOR UPDATE to prevent race conditions)
 server.post('/api/v1/budgets/:id/drawdown', {
-    preValidation: [server.authenticate, server.authorize(['PACK_HOUSE', 'ADMIN'])]
+    preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
 }, async (request, reply) => {
     const { id } = request.params;
     const { amount } = request.body;
@@ -197,6 +230,19 @@ server.post('/api/v1/budgets/:id/drawdown', {
             });
         }
         const budget = budgetRes.rows[0];
+        // Enforce organization ownership validation (No cross-org budget drawdown)
+        const user = request.user;
+        if (user.orgType === 'PRODUCER' && budget.producer_id !== user.orgId) {
+            await client.query('ROLLBACK');
+            return reply.status(403).send({
+                success: false,
+                error: {
+                    statusCode: 403,
+                    code: 'FORBIDDEN',
+                    message: 'You cannot drawdown budgets belonging to another organization.'
+                }
+            });
+        }
         // 2.5 Query certifier public key to verify Ed25519 signature
         const certifierRes = await client.query('SELECT public_key FROM certifiers WHERE id = $1', [budget.certifier_id]);
         if (certifierRes.rows.length > 0) {
@@ -286,13 +332,28 @@ server.post('/api/v1/budgets/:id/drawdown', {
     }
 });
 // Route: Get all budgets
-server.get('/api/v1/budgets', async (request, reply) => {
-    const result = await pgPool.query(`
-    SELECT b.*, p.name as producer 
-    FROM budgets b 
-    LEFT JOIN producers p ON b.producer_id = p.id 
-    ORDER BY b.created_at DESC
-  `);
+server.get('/api/v1/budgets', {
+    preValidation: [server.authenticate]
+}, async (request, reply) => {
+    const user = request.user;
+    let result;
+    if (user && user.orgType === 'PRODUCER') {
+        result = await pgPool.query(`
+      SELECT b.*, p.name as producer 
+      FROM budgets b 
+      LEFT JOIN producers p ON b.producer_id = p.id 
+      WHERE b.producer_id = $1
+      ORDER BY b.created_at DESC
+    `, [user.orgId]);
+    }
+    else {
+        result = await pgPool.query(`
+      SELECT b.*, p.name as producer 
+      FROM budgets b 
+      LEFT JOIN producers p ON b.producer_id = p.id 
+      ORDER BY b.created_at DESC
+    `);
+    }
     return {
         success: true,
         data: {

@@ -31,10 +31,31 @@ server.decorate('authenticate', async (request, reply) => {
         });
     }
 });
-server.decorate('authorize', (allowedRoles) => {
+server.decorate('authorize', (allowedSpecs) => {
     return async (request, reply) => {
         const user = request.user;
-        if (!user || !allowedRoles.includes(user.role)) {
+        if (!user) {
+            return reply.status(401).send({
+                success: false,
+                error: {
+                    statusCode: 401,
+                    code: 'UNAUTHORIZED',
+                    message: 'User context not found.'
+                }
+            });
+        }
+        const isAuthorized = allowedSpecs.some(spec => {
+            if (typeof spec === 'string') {
+                return spec === user.role || spec === user.orgType;
+            }
+            else if (spec && typeof spec === 'object') {
+                const matchType = spec.orgType === user.orgType;
+                const matchRole = !spec.role || spec.role === user.role;
+                return matchType && matchRole;
+            }
+            return false;
+        });
+        if (!isAuthorized) {
             return reply.status(403).send({
                 success: false,
                 error: {
@@ -71,74 +92,88 @@ server.setErrorHandler((error, request, reply) => {
 server.get('/health', async () => {
     return { status: 'healthy', service: 'auth-service' };
 });
-// Route: User registration
-server.post('/api/v1/auth/register', async (request, reply) => {
-    const { username, password, role, associated_entity_id } = request.body;
-    if (!username || !password || !role) {
+// Route: Organization Registration (Public signup flow)
+server.post('/api/v1/auth/register-org', async (request, reply) => {
+    const { name, type, business_reg_details, official_email, contact_info, admin_username, admin_password } = request.body;
+    if (!name || !type || !official_email || !admin_username || !admin_password) {
         return reply.status(400).send({
             success: false,
             error: {
                 statusCode: 400,
                 code: 'BAD_REQUEST',
-                message: 'Missing username, password, or role in request body.'
+                message: 'Missing name, type, official_email, admin_username, or admin_password.'
             }
         });
     }
-    // Enforce allowed roles validation
-    const allowedRoles = ['ADMIN', 'PRODUCER', 'PACK_HOUSE', 'CERTIFIER', 'LAB'];
-    if (!allowedRoles.includes(role)) {
+    const allowedTypes = ['PRODUCER', 'NABL_LABORATORY', 'CERTIFICATION_BODY', 'EXPORTER'];
+    if (!allowedTypes.includes(type)) {
         return reply.status(400).send({
             success: false,
             error: {
                 statusCode: 400,
-                code: 'INVALID_ROLE',
-                message: `Role must be one of: ${allowedRoles.join(', ')}`
+                code: 'INVALID_TYPE',
+                message: `Organization type must be one of: ${allowedTypes.join(', ')}`
             }
         });
     }
+    const client = await pgPool.connect();
     try {
-        // Encrypt password using Fastify Bcrypt
-        const passwordHash = await server.bcrypt.hash(password);
-        // Insert user into the PostgreSQL DB
-        const query = `
-      INSERT INTO users (username, password_hash, role, associated_entity_id)
-      VALUES ($1, $2, $3, $4)
-      RETURNING id, username, role, associated_entity_id, created_at
+        await client.query('BEGIN');
+        // 1. Insert organization in PENDING status
+        const orgQuery = `
+      INSERT INTO organizations (name, type, business_reg_details, official_email, contact_info, status)
+      VALUES ($1, $2, $3, $4, $5, 'PENDING')
+      RETURNING *
     `;
-        const result = await pgPool.query(query, [username, passwordHash, role, associated_entity_id || null]);
-        const newUser = result.rows[0];
+        const orgRes = await client.query(orgQuery, [
+            name,
+            type,
+            JSON.stringify(business_reg_details || {}),
+            official_email,
+            JSON.stringify(contact_info || {})
+        ]);
+        const newOrg = orgRes.rows[0];
+        // 2. Hash administrator password and insert user (marked ACTIVE, but login blocked if org is not ACTIVATED)
+        const adminPassHash = await server.bcrypt.hash(admin_password);
+        const userQuery = `
+      INSERT INTO users (organization_id, username, password_hash, role, status)
+      VALUES ($1, $2, $3, 'ADMIN', 'ACTIVE')
+      RETURNING id, username, role, status, created_at
+    `;
+        const userRes = await client.query(userQuery, [newOrg.id, admin_username, adminPassHash]);
+        // 3. Write immutable audit log for Org Registration
+        await client.query(`
+      INSERT INTO log_entries (entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
+      VALUES ('ORGANIZATION', $1, 'ORGANIZATION_REGISTERED', $2, '0', $3)
+    `, [newOrg.id, 'hash_placeholder', 'current_hash_' + newOrg.id.substring(0, 8)]);
+        await client.query('COMMIT');
         return reply.status(201).send({
             success: true,
             data: {
-                user: {
-                    id: newUser.id,
-                    username: newUser.username,
-                    role: newUser.role,
-                    associatedEntityId: newUser.associated_entity_id,
-                    createdAt: newUser.created_at
-                }
-            },
-            meta: {
-                timestamp: new Date().toISOString(),
-                requestId: request.id
+                organization: newOrg,
+                adminUser: userRes.rows[0]
             }
         });
     }
     catch (err) {
+        await client.query('ROLLBACK');
         if (err.code === '23505') {
             return reply.status(409).send({
                 success: false,
                 error: {
                     statusCode: 409,
-                    code: 'USER_EXISTS',
-                    message: 'The username is already registered.'
+                    code: 'REGISTRATION_EXISTS',
+                    message: 'The organization name, official email, or admin username is already registered.'
                 }
             });
         }
         throw err;
     }
+    finally {
+        client.release();
+    }
 });
-// Route: User login (issues signed JWT)
+// Route: User login (issues signed JWT carrying Org ID, Org Type, and User Role)
 server.post('/api/v1/auth/login', async (request, reply) => {
     const { username, password } = request.body;
     if (!username || !password) {
@@ -151,8 +186,12 @@ server.post('/api/v1/auth/login', async (request, reply) => {
             }
         });
     }
-    // Fetch user from PostgreSQL
-    const result = await pgPool.query('SELECT * FROM users WHERE username = $1', [username]);
+    const result = await pgPool.query(`
+    SELECT u.*, o.type as org_type, o.status as org_status 
+    FROM users u 
+    JOIN organizations o ON u.organization_id = o.id 
+    WHERE u.username = $1
+  `, [username]);
     const user = result.rows[0];
     if (!user) {
         return reply.status(401).send({
@@ -164,7 +203,28 @@ server.post('/api/v1/auth/login', async (request, reply) => {
             }
         });
     }
-    // Verify password hash
+    // Refuse access to users of non-activated organizations
+    if (user.org_status !== 'ACTIVATED') {
+        return reply.status(403).send({
+            success: false,
+            error: {
+                statusCode: 403,
+                code: 'INACTIVE_ORGANIZATION',
+                message: `Access denied. Your organization is currently in "${user.org_status}" state. Only activated organizations can access CapMint.`
+            }
+        });
+    }
+    // Refuse access to disabled user accounts
+    if (user.status !== 'ACTIVE') {
+        return reply.status(403).send({
+            success: false,
+            error: {
+                statusCode: 403,
+                code: 'DISABLED_USER',
+                message: 'Your user account has been disabled. Please contact your organization administrator.'
+            }
+        });
+    }
     const isValid = await server.bcrypt.compare(password, user.password_hash);
     if (!isValid) {
         return reply.status(401).send({
@@ -176,12 +236,18 @@ server.post('/api/v1/auth/login', async (request, reply) => {
             }
         });
     }
-    // Sign JWT containing profile context
+    // Write immutable audit log for Login
+    await pgPool.query(`
+    INSERT INTO log_entries (entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
+    VALUES ('USER', $1, 'USER_LOGIN', 'hash_placeholder', '0', $2)
+  `, [user.id, 'login_hash_' + user.id.substring(0, 8)]);
+    // Sign JWT carrying Organization ID, Type, and Role
     const token = server.jwt.sign({
         id: user.id,
         username: user.username,
-        role: user.role,
-        associatedEntityId: user.associated_entity_id
+        orgId: user.organization_id,
+        orgType: user.org_type,
+        role: user.role
     }, {
         expiresIn: '8h'
     });
@@ -193,12 +259,9 @@ server.post('/api/v1/auth/login', async (request, reply) => {
                 id: user.id,
                 username: user.username,
                 role: user.role,
-                associatedEntityId: user.associated_entity_id
+                orgId: user.organization_id,
+                orgType: user.org_type
             }
-        },
-        meta: {
-            timestamp: new Date().toISOString(),
-            requestId: request.id
         }
     });
 });
@@ -206,39 +269,251 @@ server.post('/api/v1/auth/login', async (request, reply) => {
 server.get('/api/v1/auth/me', {
     preValidation: [server.authenticate]
 }, async (request, reply) => {
-    const userPayload = request.user;
+    const user = request.user;
     return {
         success: true,
         data: {
-            user: {
-                id: userPayload.id,
-                username: userPayload.username,
-                role: userPayload.role,
-                associatedEntityId: userPayload.associatedEntityId
-            }
-        },
-        meta: {
-            timestamp: new Date().toISOString(),
-            requestId: request.id
+            user
         }
     };
 });
-// Route: Admin only endpoint
-server.get('/api/v1/auth/admin-only', {
-    preValidation: [server.authenticate, server.authorize(['ADMIN'])]
+// Route: List all organizations (System Administrator only)
+server.get('/api/v1/auth/organizations', {
+    preValidation: [server.authenticate, server.authorize([{ orgType: 'SYSTEM_ADMINISTRATOR', role: 'ADMIN' }])]
 }, async (request, reply) => {
+    const result = await pgPool.query('SELECT * FROM organizations ORDER BY created_at DESC');
     return {
         success: true,
-        message: 'Welcome, Admin! This is a restricted operational endpoint.'
+        data: {
+            organizations: result.rows
+        }
     };
 });
-// Route: Producer only endpoint
-server.get('/api/v1/auth/producer-only', {
-    preValidation: [server.authenticate, server.authorize(['PRODUCER'])]
+// Route: Approve / Verification / Activate Organization (System Administrator only)
+server.post('/api/v1/auth/organizations/:id/status', {
+    preValidation: [server.authenticate, server.authorize([{ orgType: 'SYSTEM_ADMINISTRATOR', role: 'ADMIN' }])]
 }, async (request, reply) => {
+    const { id } = request.params;
+    const { status } = request.body;
+    const allowedStatuses = ['PENDING', 'VERIFICATION', 'APPROVED', 'ACTIVATED'];
+    if (!allowedStatuses.includes(status)) {
+        return reply.status(400).send({
+            success: false,
+            error: { statusCode: 400, code: 'BAD_REQUEST', message: `Invalid status. Must be one of: ${allowedStatuses.join(', ')}` }
+        });
+    }
+    const client = await pgPool.connect();
+    try {
+        await client.query('BEGIN');
+        // 1. Fetch organization first
+        const orgCheck = await client.query('SELECT * FROM organizations WHERE id = $1', [id]);
+        if (orgCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return reply.status(404).send({
+                success: false,
+                error: { statusCode: 404, code: 'NOT_FOUND', message: 'Organization not found.' }
+            });
+        }
+        const org = orgCheck.rows[0];
+        // 2. Update organization status
+        const updateRes = await client.query(`UPDATE organizations SET status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`, [id, status]);
+        // 3. If transitioning to ACTIVATED, auto-provision domain objects to allow business integrations
+        if (status === 'ACTIVATED') {
+            if (org.type === 'PRODUCER') {
+                await client.query(`
+          INSERT INTO producers (id, name, type, registry_references)
+          VALUES ($1, $2, 'FARMER', '{}')
+          ON CONFLICT (id) DO NOTHING
+        `, [org.id, org.name]);
+            }
+            else if (org.type === 'CERTIFICATION_BODY') {
+                await client.query(`
+          INSERT INTO certifiers (id, name, accreditation_details, public_key, key_status)
+          VALUES ($1, $2, '{}', 'pk_temp_key', 'ACTIVE')
+          ON CONFLICT (id) DO NOTHING
+        `, [org.id, org.name]);
+            }
+        }
+        // 4. Log immutable audit trail for status change
+        await client.query(`
+      INSERT INTO log_entries (entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
+      VALUES ('ORGANIZATION', $1, 'ORGANIZATION_STATUS_UPDATED', $2, '0', $3)
+    `, [id, 'hash_placeholder', 'status_hash_' + id.substring(0, 8) + '_' + status]);
+        await client.query('COMMIT');
+        return {
+            success: true,
+            data: {
+                organization: updateRes.rows[0]
+            }
+        };
+    }
+    catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    }
+    finally {
+        client.release();
+    }
+});
+// Route: User management - Invite User (Organization Administrator only)
+server.post('/api/v1/auth/users/invite', {
+    preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER', role: 'ADMIN' }, { orgType: 'CERTIFICATION_BODY', role: 'ADMIN' }, { orgType: 'NABL_LABORATORY', role: 'ADMIN' }, { orgType: 'EXPORTER', role: 'ADMIN' }])]
+}, async (request, reply) => {
+    const { username, password, role } = request.body;
+    const adminUser = request.user;
+    if (!username || !password || !role) {
+        return reply.status(400).send({
+            success: false,
+            error: { statusCode: 400, code: 'BAD_REQUEST', message: 'Missing username, password, or role.' }
+        });
+    }
+    const allowedRoles = ['ADMIN', 'MEMBER'];
+    if (!allowedRoles.includes(role)) {
+        return reply.status(400).send({
+            success: false,
+            error: { statusCode: 400, code: 'INVALID_ROLE', message: 'User role must be ADMIN or MEMBER.' }
+        });
+    }
+    const client = await pgPool.connect();
+    try {
+        await client.query('BEGIN');
+        // Hash password
+        const passHash = await server.bcrypt.hash(password);
+        // Insert user strictly within current Org ID bounds (No cross-org access)
+        const result = await client.query(`
+      INSERT INTO users (organization_id, username, password_hash, role, status)
+      VALUES ($1, $2, $3, $4, 'ACTIVE')
+      RETURNING id, username, role, status, created_at
+    `, [adminUser.orgId, username, passHash, role]);
+        const newUser = result.rows[0];
+        // Log immutable audit entry for User Invitation
+        await client.query(`
+      INSERT INTO log_entries (entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
+      VALUES ('USER', $1, 'USER_INVITED', 'hash_placeholder', '0', $2)
+    `, [newUser.id, 'invite_hash_' + newUser.id.substring(0, 8)]);
+        await client.query('COMMIT');
+        return reply.status(201).send({
+            success: true,
+            data: {
+                user: newUser
+            }
+        });
+    }
+    catch (err) {
+        await client.query('ROLLBACK');
+        if (err.code === '23505') {
+            return reply.status(409).send({
+                success: false,
+                error: { statusCode: 409, code: 'USER_EXISTS', message: 'The username is already registered.' }
+            });
+        }
+        throw err;
+    }
+    finally {
+        client.release();
+    }
+});
+// Route: User management - Disable User (Organization Administrator only)
+server.post('/api/v1/auth/users/:id/disable', {
+    preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER', role: 'ADMIN' }, { orgType: 'CERTIFICATION_BODY', role: 'ADMIN' }, { orgType: 'NABL_LABORATORY', role: 'ADMIN' }, { orgType: 'EXPORTER', role: 'ADMIN' }])]
+}, async (request, reply) => {
+    const { id } = request.params;
+    const adminUser = request.user;
+    // Enforce same-organization containment validation
+    const userCheck = await pgPool.query('SELECT organization_id FROM users WHERE id = $1', [id]);
+    if (userCheck.rows.length === 0) {
+        return reply.status(404).send({
+            success: false,
+            error: { statusCode: 404, code: 'NOT_FOUND', message: 'User not found.' }
+        });
+    }
+    if (userCheck.rows[0].organization_id !== adminUser.orgId) {
+        return reply.status(403).send({
+            success: false,
+            error: { statusCode: 403, code: 'FORBIDDEN', message: 'Cross-organization user management is strictly prohibited.' }
+        });
+    }
+    const result = await pgPool.query(`UPDATE users SET status = 'DISABLED', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id, username, status`, [id]);
     return {
         success: true,
-        message: 'Welcome, Producer! Access to crop budget details authorized.'
+        data: {
+            user: result.rows[0]
+        }
+    };
+});
+// Route: User management - Remove User (Organization Administrator only)
+server.delete('/api/v1/auth/users/:id', {
+    preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER', role: 'ADMIN' }, { orgType: 'CERTIFICATION_BODY', role: 'ADMIN' }, { orgType: 'NABL_LABORATORY', role: 'ADMIN' }, { orgType: 'EXPORTER', role: 'ADMIN' }])]
+}, async (request, reply) => {
+    const { id } = request.params;
+    const adminUser = request.user;
+    // Enforce same-organization containment validation
+    const userCheck = await pgPool.query('SELECT organization_id FROM users WHERE id = $1', [id]);
+    if (userCheck.rows.length === 0) {
+        return reply.status(404).send({
+            success: false,
+            error: { statusCode: 404, code: 'NOT_FOUND', message: 'User not found.' }
+        });
+    }
+    if (userCheck.rows[0].organization_id !== adminUser.orgId) {
+        return reply.status(403).send({
+            success: false,
+            error: { statusCode: 403, code: 'FORBIDDEN', message: 'Cross-organization user management is strictly prohibited.' }
+        });
+    }
+    await pgPool.query('DELETE FROM users WHERE id = $1', [id]);
+    return {
+        success: true,
+        message: 'User removed successfully.'
+    };
+});
+// Route: User management - Assign internal role (Organization Administrator only)
+server.post('/api/v1/auth/users/:id/role', {
+    preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER', role: 'ADMIN' }, { orgType: 'CERTIFICATION_BODY', role: 'ADMIN' }, { orgType: 'NABL_LABORATORY', role: 'ADMIN' }, { orgType: 'EXPORTER', role: 'ADMIN' }])]
+}, async (request, reply) => {
+    const { id } = request.params;
+    const { role } = request.body;
+    const adminUser = request.user;
+    const allowedRoles = ['ADMIN', 'MEMBER'];
+    if (!allowedRoles.includes(role)) {
+        return reply.status(400).send({
+            success: false,
+            error: { statusCode: 400, code: 'BAD_REQUEST', message: 'Role must be ADMIN or MEMBER.' }
+        });
+    }
+    // Enforce same-organization containment validation
+    const userCheck = await pgPool.query('SELECT organization_id FROM users WHERE id = $1', [id]);
+    if (userCheck.rows.length === 0) {
+        return reply.status(404).send({
+            success: false,
+            error: { statusCode: 404, code: 'NOT_FOUND', message: 'User not found.' }
+        });
+    }
+    if (userCheck.rows[0].organization_id !== adminUser.orgId) {
+        return reply.status(403).send({
+            success: false,
+            error: { statusCode: 403, code: 'FORBIDDEN', message: 'Cross-organization user management is strictly prohibited.' }
+        });
+    }
+    const result = await pgPool.query(`UPDATE users SET role = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id, username, role`, [id, role]);
+    return {
+        success: true,
+        data: {
+            user: result.rows[0]
+        }
+    };
+});
+// Route: List organization users (Admin/Member of same org)
+server.get('/api/v1/auth/users', {
+    preValidation: [server.authenticate]
+}, async (request, reply) => {
+    const currentUser = request.user;
+    const result = await pgPool.query('SELECT id, username, role, status, created_at FROM users WHERE organization_id = $1 ORDER BY username ASC', [currentUser.orgId]);
+    return {
+        success: true,
+        data: {
+            users: result.rows
+        }
     };
 });
 // Start the server
@@ -248,26 +523,42 @@ const start = async () => {
         // Seed default users if users table is empty
         const client = await pgPool.connect();
         try {
-            const userCheck = await client.query('SELECT COUNT(*) FROM users');
-            if (parseInt(userCheck.rows[0].count, 10) === 0) {
-                // certifier user
-                const certifierPassHash = await server.bcrypt.hash('password');
+            const orgCheck = await client.query('SELECT COUNT(*) FROM organizations');
+            if (parseInt(orgCheck.rows[0].count, 10) === 0) {
+                // Seed default organizations
                 await client.query(`
-          INSERT INTO users (username, password_hash, role)
-          VALUES ('certifier', $1, 'ADMIN')
-        `, [certifierPassHash]);
-                // producer user
-                const producerPassHash = await server.bcrypt.hash('password');
+          INSERT INTO organizations (id, name, type, status, official_email)
+          VALUES 
+            ('00000000-0000-0000-0000-000000000001', 'Organic Trade Council India', 'CERTIFICATION_BODY', 'ACTIVATED', 'certifier@capmint.org'),
+            ('00000000-0000-0000-0000-000000000002', 'Premium Farms', 'PRODUCER', 'ACTIVATED', 'producer@capmint.org'),
+            ('00000000-0000-0000-0000-000000000004', 'NABL Accredited Labs India', 'NABL_LABORATORY', 'ACTIVATED', 'lab@capmint.org'),
+            ('00000000-0000-0000-0000-000000000005', 'Apex Export Corp', 'EXPORTER', 'ACTIVATED', 'exporter@capmint.org'),
+            ('00000000-0000-0000-0000-000000000006', 'CapMint System Admin', 'SYSTEM_ADMINISTRATOR', 'ACTIVATED', 'admin@capmint.org')
+          ON CONFLICT (id) DO NOTHING
+        `);
+                // Seed domain specific entities to maintain referential integration
                 await client.query(`
-          INSERT INTO users (username, password_hash, role)
-          VALUES ('producer', $1, 'ADMIN')
-        `, [producerPassHash]);
-                // packhouse user
-                const packhousePassHash = await server.bcrypt.hash('password');
+          INSERT INTO certifiers (id, name, accreditation_details, public_key, key_status)
+          VALUES ('00000000-0000-0000-0000-000000000001', 'Organic Trade Council India', '{}', '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAuivJCz//jZz3K7oRzWslrZ8f02pSYSU/9LqPUFgBBHA=\n-----END PUBLIC KEY-----', 'ACTIVE')
+          ON CONFLICT (id) DO NOTHING
+        `);
                 await client.query(`
-          INSERT INTO users (username, password_hash, role)
-          VALUES ('packhouse', $1, 'ADMIN')
-        `, [packhousePassHash]);
+          INSERT INTO producers (id, name, type, registry_references)
+          VALUES ('00000000-0000-0000-0000-000000000002', 'Premium Farms', 'FARMER', '{}')
+          ON CONFLICT (id) DO NOTHING
+        `);
+                // Seed Admin Users for each organization
+                const defaultPasswordHash = await server.bcrypt.hash('password');
+                await client.query(`
+          INSERT INTO users (organization_id, username, password_hash, role, status)
+          VALUES 
+            ('00000000-0000-0000-0000-000000000001', 'certifier', $1, 'ADMIN', 'ACTIVE'),
+            ('00000000-0000-0000-0000-000000000002', 'producer', $1, 'ADMIN', 'ACTIVE'),
+            ('00000000-0000-0000-0000-000000000004', 'lab', $1, 'ADMIN', 'ACTIVE'),
+            ('00000000-0000-0000-0000-000000000005', 'exporter', $1, 'ADMIN', 'ACTIVE'),
+            ('00000000-0000-0000-0000-000000000006', 'admin', $1, 'ADMIN', 'ACTIVE')
+          ON CONFLICT (username) DO NOTHING
+        `, [defaultPasswordHash]);
             }
         }
         catch (seedErr) {
