@@ -489,3 +489,10 @@ paths:
       responses:
         '200':
           description: AgriStack parcel geometry returned
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
