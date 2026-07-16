@@ -10,9 +10,9 @@ servers:
     description: Production Gateway
 paths:
   # 1. Auth Service
-  /api/v1/auth/register:
+  /api/v1/auth/register-org:
     post:
-      summary: Register a user
+      summary: Register an organization and its administrator
       tags:
         - Authentication
       requestBody:
