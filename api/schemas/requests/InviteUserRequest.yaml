@@ -1,11 +1,16 @@
 title: InviteUserRequest
 type: object
 required:
-  - email
+  - username
+  - password
   - role
 properties:
-  email:
+  username:
+    type: string
+  password:
     type: string
   role:
     type: string
-    enum: [ADMIN, MEMBER]
+    enum:
+      - ADMIN
+      - OPERATOR

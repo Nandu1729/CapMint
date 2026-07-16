@@ -43,16 +43,102 @@ paths:
       summary: Get all registered users
       tags:
         - Authentication
+      security:
+        - BearerAuth: []
       responses:
         '200':
           $ref: './components/responses/UserListResponse.yaml'
 
-  # 2. CPQ Service
+  /api/v1/auth/users/invite:
+    post:
+      summary: Invite a new user to the organization
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: './schemas/requests/InviteUserRequest.yaml'
+      responses:
+        '201':
+          description: User invited successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+
+  /api/v1/auth/organizations:
+    get:
+      summary: List all organizations (System Admin only)
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of all organizations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+
+  /api/v1/auth/organizations/{id}/status:
+    post:
+      summary: Update organization status (System Admin only)
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - PENDING
+                    - ACTIVATED
+                    - SUSPENDED
+      responses:
+        '200':
+          description: Organization status updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+
+  # 2. Quota & Budgets (CPQ)
   /api/v1/budgets:
     post:
       summary: Propose a crop yield quota budget
       tags:
         - Quota & Budgets (CPQ)
+      security:
+        - BearerAuth: []
       requestBody:
         required: true
         content:
@@ -66,6 +152,8 @@ paths:
       summary: Retrieve all quota budgets
       tags:
         - Quota & Budgets (CPQ)
+      security:
+        - BearerAuth: []
       responses:
         '200':
           $ref: './components/responses/BudgetListResponse.yaml'
@@ -75,6 +163,8 @@ paths:
       summary: Approve/Activate a proposed quota budget
       tags:
         - Quota & Budgets (CPQ)
+      security:
+        - BearerAuth: []
       parameters:
         - $ref: './components/parameters/BudgetId.yaml'
       responses:
@@ -86,6 +176,8 @@ paths:
       summary: Draw down capacity from active quota
       tags:
         - Quota & Budgets (CPQ)
+      security:
+        - BearerAuth: []
       parameters:
         - $ref: './components/parameters/BudgetId.yaml'
       requestBody:
