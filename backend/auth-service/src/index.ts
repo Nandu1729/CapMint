@@ -622,6 +622,7 @@ server.get('/api/v1/auth/users', {
 // Start the server
 const start = async () => {
   try {
+    await server.ready();
     const port = parseInt(process.env.PORT || '8081', 10);
 
     // Seed default users if users table is empty
