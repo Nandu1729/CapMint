@@ -9,7 +9,7 @@
   },
   "workspaces": [
     "packages/*",
-    "services/*"
+    "backend/*"
   ],
   "scripts": {
     "bootstrap": "npm install",

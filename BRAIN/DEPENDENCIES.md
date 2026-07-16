@@ -13,7 +13,7 @@ CapMint (Root)
  ├── packages/
  │    ├── crypto (Shared cryptographic helpers)
  │    └── database (Shared Postgres connection client)
- └── services/
+ └── backend/
       ├── auth-service (Authentication & Session manager)
       ├── cpq-service (Capacity & Budget allocation manager)
       ├── integration-service (AgriStack / TraceNet APIs gateway)

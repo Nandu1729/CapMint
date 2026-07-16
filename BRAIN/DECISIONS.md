@@ -9,7 +9,7 @@ This document records the key architectural decisions (ADRs) made during the des
 *   **Status:** APPROVED
 *   **Context:** Shared types, schemas, and helper packages must be distributed across 7 microservices without copy-pasting or publishing to public package registries.
 *   **Decision:** We adopted `npm workspaces` in a single monorepo layout.
-*   **Consequences:** Keeps shared logic localized in `packages/` (e.g. `@capmint/crypto` and `@capmint/database`) where it can be directly imported in `services/*` configurations.
+*   **Consequences:** Keeps shared logic localized in `packages/` (e.g. `@capmint/crypto` and `@capmint/database`) where it can be directly imported in `backend/*` configurations.
 
 ---
 
