@@ -2,4 +2,4 @@ description: Entire block history returned
 content:
   application/json:
     schema:
-      $ref: '../schemas/responses/TransparencyLedgerChainResponse.yaml'
+      $ref: '../../schemas/responses/TransparencyLedgerChainResponse.yaml'

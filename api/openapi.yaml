@@ -20,7 +20,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: './components/schemas/requests/RegisterUserRequest.yaml'
+              $ref: './schemas/requests/RegisterUserRequest.yaml'
       responses:
         '201':
           $ref: './components/responses/RegisterUserResponse.yaml'
@@ -35,7 +35,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: './components/schemas/requests/LoginRequest.yaml'
+              $ref: './schemas/requests/LoginRequest.yaml'
       responses:
         '200':
           $ref: './components/responses/LoginResponse.yaml'
@@ -60,7 +60,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: './components/schemas/requests/ProposeBudgetRequest.yaml'
+              $ref: './schemas/requests/ProposeBudgetRequest.yaml'
       responses:
         '201':
           $ref: './components/responses/BudgetResponse.yaml'
@@ -75,7 +75,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: './components/schemas/requests/ApproveBudgetRequest.yaml'
+              $ref: './schemas/requests/ApproveBudgetRequest.yaml'
       responses:
         '200':
           $ref: './components/responses/BudgetApprovalResponse.yaml'
@@ -90,7 +90,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: './components/schemas/requests/BudgetDrawdownRequest.yaml'
+              $ref: './schemas/requests/BudgetDrawdownRequest.yaml'
       responses:
         '200':
           $ref: './components/responses/BudgetDrawdownResponse.yaml'
@@ -117,7 +117,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: './components/schemas/requests/MintQRCodeRequest.yaml'
+              $ref: './schemas/requests/MintQRCodeRequest.yaml'
       responses:
         '201':
           $ref: './components/responses/MintQRCodeResponse.yaml'
@@ -157,7 +157,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: './components/schemas/requests/AppendTransparencyLogRequest.yaml'
+              $ref: './schemas/requests/AppendTransparencyLogRequest.yaml'
       responses:
         '201':
           $ref: './components/responses/TransparencyLedgerEntryResponse.yaml'
@@ -194,7 +194,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: './components/schemas/requests/VerifyCodeRequest.yaml'
+              $ref: './schemas/requests/VerifyCodeRequest.yaml'
       responses:
         '200':
           $ref: './components/responses/VerificationResponse.yaml'
@@ -209,7 +209,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: './components/schemas/requests/RevokeLotRequest.yaml'
+              $ref: './schemas/requests/RevokeLotRequest.yaml'
       responses:
         '200':
           $ref: './components/responses/RevocationResponse.yaml'
@@ -224,7 +224,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: './components/schemas/requests/RevokeQRCodeRequest.yaml'
+              $ref: './schemas/requests/RevokeQRCodeRequest.yaml'
       responses:
         '200':
           $ref: './components/responses/RevocationResponse.yaml'
@@ -241,7 +241,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: './components/schemas/requests/CreateLabResultRequest.yaml'
+              $ref: './schemas/requests/CreateLabResultRequest.yaml'
       responses:
         '200':
           $ref: './components/responses/LabResultResponse.yaml'

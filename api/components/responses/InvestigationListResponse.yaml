@@ -2,4 +2,4 @@ description: List of investigation cases returned
 content:
   application/json:
     schema:
-      $ref: '../schemas/responses/InvestigationListResponse.yaml'
+      $ref: '../../schemas/responses/InvestigationListResponse.yaml'

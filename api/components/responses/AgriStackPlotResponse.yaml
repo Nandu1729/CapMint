@@ -2,4 +2,4 @@ description: AgriStack parcel geometry returned
 content:
   application/json:
     schema:
-      $ref: '../schemas/responses/AgriStackPlotResponse.yaml'
+      $ref: '../../schemas/responses/AgriStackPlotResponse.yaml'

@@ -2,4 +2,4 @@ description: List of registered users
 content:
   application/json:
     schema:
-      $ref: '../schemas/responses/UserListResponse.yaml'
+      $ref: '../../schemas/responses/UserListResponse.yaml'

@@ -2,4 +2,4 @@ description: Login successful and JWT returned
 content:
   application/json:
     schema:
-      $ref: '../schemas/responses/LoginResponse.yaml'
+      $ref: '../../schemas/responses/LoginResponse.yaml'

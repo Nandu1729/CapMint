@@ -2,4 +2,4 @@ description: Capacity locked and drawn down
 content:
   application/json:
     schema:
-      $ref: '../schemas/responses/BudgetDrawdownResponse.yaml'
+      $ref: '../../schemas/responses/BudgetDrawdownResponse.yaml'
