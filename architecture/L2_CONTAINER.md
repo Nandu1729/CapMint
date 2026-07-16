@@ -9,19 +9,19 @@ This document owns:
 - Container-to-container network protocols and communication flows (TCP, HTTP)
 
 This document intentionally does NOT define:
-- Core business invariants, yield calculations, or budget rules (defined in [SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md))
-- Domain-driven bounded contexts and service responsibilities (defined in [SERVICE_BOUNDARIES.md](../system/SERVICE_BOUNDARIES.md))
-- API endpoints, request/response data shapes, or state transitions (defined in [DATA_FLOW.md](../sequence/DATA_FLOW.md))
-- Cryptographic keys, JWT sessions, RBAC rules, or encryption algorithms (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
-- Host VM configurations, staging environment setups, or backup retention policies (defined in [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md))
-- Specific library dependencies or software runtime configurations (defined in [TECHNOLOGY_STACK.md](../system/TECHNOLOGY_STACK.md))
+- Core business invariants, yield calculations, or budget rules (defined in [SYSTEM_CONTEXT.md](SYSTEM_CONTEXT.md))
+- Domain-driven bounded contexts and service responsibilities (defined in [SERVICE_BOUNDARIES.md](SERVICE_BOUNDARIES.md))
+- API endpoints, request/response data shapes, or state transitions (defined in [DATA_FLOW.md](DATA_FLOW.md))
+- Cryptographic keys, JWT sessions, RBAC rules, or encryption algorithms (defined in [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md))
+- Host VM configurations, staging environment setups, or backup retention policies (defined in [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md))
+- Specific library dependencies or software runtime configurations (defined in [TECHNOLOGY_STACK.md](TECHNOLOGY_STACK.md))
 
 ## 1. Purpose
 
 This document defines the container architecture for CapMint. It outlines how the system is decomposed into deployable logical services (containers), detailing their responsibilities, communication protocols, trust boundaries, data ownership, and failure isolation strategies.
 
 ### Relationship to SYSTEM_OVERVIEW.md
-While [SYSTEM_OVERVIEW.md](../system/SYSTEM_OVERVIEW.md) maps the high-level business capabilities and domain models, this document provides the logical runtime structure of the platform. It maps those domain boundaries directly to deployable, isolated boundaries of execution.
+While [SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md) maps the high-level business capabilities and domain models, this document provides the logical runtime structure of the platform. It maps those domain boundaries directly to deployable, isolated boundaries of execution.
 
 ### Architectural Definition of a "Container"
 In this document, a **container** represents a standalone, independently deployable unit of software with its own process execution boundary, network interface, and resource allocation. This includes web applications, background processes, database instances, and key boundaries, regardless of whether they are hosted on virtual machines, serverless runtimes, or container orchestration platforms.
@@ -285,13 +285,13 @@ flowchart LR
 
 ## 9. Trust Boundaries & Security Controls
 
-Cryptographic keys, token sessions, and edge network restrictions protect individual container nodes from unauthorized operations. For detailed zone boundaries and the authorization matrix, refer to [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#6-trust-boundaries).
+Cryptographic keys, token sessions, and edge network restrictions protect individual container nodes from unauthorized operations. For detailed zone boundaries and the authorization matrix, refer to [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md#6-trust-boundaries).
 
 ---
 
 ## 10. Container Deployment Model
 
-Containers require secure hosting zones, CDN caches, and replica subnets to ensure high availability. For physical subnet configurations and environment setups, see [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md#3-deployment-model).
+Containers require secure hosting zones, CDN caches, and replica subnets to ensure high availability. For physical subnet configurations and environment setups, see [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md#3-deployment-model).
 
 ---
 

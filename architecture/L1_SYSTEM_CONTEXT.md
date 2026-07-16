@@ -19,7 +19,7 @@ This document intentionally does NOT describe:
 
 ## Purpose
 
-This C4 Level 1 System Context document provides an executive, bird's-eye view of CapMint's place within the wider agricultural and certification ecosystem. It maps who interacts with CapMint and how information moves across the external boundaries, complementing the conceptual descriptions in **[SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md)**.
+This C4 Level 1 System Context document provides an executive, bird's-eye view of CapMint's place within the wider agricultural and certification ecosystem. It maps who interacts with CapMint and how information moves across the external boundaries, complementing the conceptual descriptions in **[SYSTEM_CONTEXT.md](SYSTEM_CONTEXT.md)**.
 
 ---
 
@@ -98,7 +98,7 @@ CapMint's high-level system interactions traverse three primary trust zones:
 - **Partner Systems**: Trusted external authority gateways (AgriStack, TraceNet) and laboratory networks.
 - **Public Zone**: Untrusted public channels (e.g., standard consumer browsers, external redirect platforms).
 
-For the physical container mappings and cryptographic key details of these boundaries, refer to **[SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#6-trust-boundaries)**.
+For the physical container mappings and cryptographic key details of these boundaries, refer to **[SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md#6-trust-boundaries)**.
 
 ---
 
@@ -181,8 +181,8 @@ flowchart LR
 
 ## Design Decisions
 
-- **System Boundary Isolation**: CapMint is deliberately separated from complex external ERPs and blockchain gas overhead. Kept central to allow simple managed hosting for pilots while preserving decentralized cryptographic auditing. For details, reference **[SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md)** and **[SERVICE_BOUNDARIES.md](../system/SERVICE_BOUNDARIES.md)**.
-- **Standardized URIs**: Using the GS1 Digital Link standard allows the printed QR codes to remain compatible with standard retailer point-of-sale scanner hardware while acting as a consumer-facing web validation page. For details, see **[SYSTEM_OVERVIEW.md](../system/SYSTEM_OVERVIEW.md#20-architectural-decisions--alternatives-matrix)**.
+- **System Boundary Isolation**: CapMint is deliberately separated from complex external ERPs and blockchain gas overhead. Kept central to allow simple managed hosting for pilots while preserving decentralized cryptographic auditing. For details, reference **[SYSTEM_CONTEXT.md](SYSTEM_CONTEXT.md)** and **[SERVICE_BOUNDARIES.md](SERVICE_BOUNDARIES.md)**.
+- **Standardized URIs**: Using the GS1 Digital Link standard allows the printed QR codes to remain compatible with standard retailer point-of-sale scanner hardware while acting as a consumer-facing web validation page. For details, see **[SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md#20-architectural-decisions--alternatives-matrix)**.
 
 ---
 
@@ -206,9 +206,9 @@ flowchart LR
 
 ## References
 
-- **[SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md)**
-- **[SYSTEM_OVERVIEW.md](../system/SYSTEM_OVERVIEW.md)**
-- **[SERVICE_BOUNDARIES.md](../system/SERVICE_BOUNDARIES.md)**
+- **[SYSTEM_CONTEXT.md](SYSTEM_CONTEXT.md)**
+- **[SYSTEM_OVERVIEW.md](SYSTEM_OVERVIEW.md)**
+- **[SERVICE_BOUNDARIES.md](SERVICE_BOUNDARIES.md)**
 
 ---
 

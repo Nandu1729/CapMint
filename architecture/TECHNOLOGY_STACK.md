@@ -10,11 +10,11 @@ This document owns:
 - Replacement difficulties, constraints, and software evolution strategies
 
 This document intentionally does NOT define:
-- Logical container boundaries, network routing paths, or cloud HSM specs (defined in [CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md))
+- Logical container boundaries, network routing paths, or cloud HSM specs (defined in [CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md))
 - Core business invariants or land registration limits (defined in [SYSTEM_CONTEXT.md](./SYSTEM_CONTEXT.md))
 - Service context single-writer boundaries (defined in [SERVICE_BOUNDARIES.md](./SERVICE_BOUNDARIES.md))
-- State transitions, entity state machines, or transactional API sequences (defined in [DATA_FLOW.md](../sequence/DATA_FLOW.md))
-- JWT authentication schemas or RBAC permissions grids (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
+- State transitions, entity state machines, or transactional API sequences (defined in [DATA_FLOW.md](DATA_FLOW.md))
+- JWT authentication schemas or RBAC permissions grids (defined in [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md))
 - Repository directory layouts or workspace tools (defined in [DIRECTORY_OWNERSHIP.md](./DIRECTORY_OWNERSHIP.md))
 
 ## 1. Purpose
@@ -23,9 +23,9 @@ This document defines the technology stack for the CapMint platform. It outlines
 
 ### Structural Relationships
 - **[SYSTEM_CONTEXT.md](./SYSTEM_CONTEXT.md)**: Establishes the core integrity invariants.
-- **[CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md)**: Outlines the physical execution layers.
+- **[CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md)**: Outlines the physical execution layers.
 - **[SERVICE_BOUNDARIES.md](./SERVICE_BOUNDARIES.md)**: Defines domain responsibilities and logical encapsulation.
-- **[DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md)**: Maps deployable infrastructure units.
+- **[DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md)**: Maps deployable infrastructure units.
 - **TECHNOLOGY_STACK.md** (This Document): Focuses on the language, framework, database, and library decisions, explaining why they were chosen and how they are structured.
 
 ---

@@ -11,10 +11,10 @@ This document owns:
 
 This document intentionally does NOT define:
 - Physical Monorepo directory paths or file mapping allocations (defined in [DIRECTORY_OWNERSHIP.md](./DIRECTORY_OWNERSHIP.md))
-- Container runtime models, network VPC subnets, or database servers (defined in [CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md))
+- Container runtime models, network VPC subnets, or database servers (defined in [CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md))
 - Core business invariants or crop yield rules (defined in [SYSTEM_CONTEXT.md](./SYSTEM_CONTEXT.md))
-- API router endpoint specifications or database schema structures (defined in [DATA_FLOW.md](../sequence/DATA_FLOW.md))
-- Cryptographic signature execution, RBAC authorization, or secrets management (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
+- API router endpoint specifications or database schema structures (defined in [DATA_FLOW.md](DATA_FLOW.md))
+- Cryptographic signature execution, RBAC authorization, or secrets management (defined in [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md))
 - Programming languages or technical framework choices (defined in [TECHNOLOGY_STACK.md](./TECHNOLOGY_STACK.md))
 
 ## 1. Purpose
@@ -23,7 +23,7 @@ This document defines the module dependency architecture and layering constraint
 
 ### Structural Relationships
 - **[SYSTEM_CONTEXT.md](./SYSTEM_CONTEXT.md)**: Establishes the system's business mission and invariants.
-- **[CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md)**: Defines deployable runtime boundaries (processes, databases).
+- **[CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md)**: Defines deployable runtime boundaries (processes, databases).
 - **[SERVICE_BOUNDARIES.md](./SERVICE_BOUNDARIES.md)**: Maps logical domains and single writer responsibilities.
 - **MODULE_DEPENDENCIES.md** (This Document): Focuses specifically on code-level relationships, establishing dependency rules to prevent circular references and maintain modular architecture as the codebase scales.
 

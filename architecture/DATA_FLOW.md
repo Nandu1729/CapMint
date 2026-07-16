@@ -10,21 +10,21 @@ This document owns:
 - Entity state transitions (lifecycle state machines)
 
 This document intentionally does NOT define:
-- Database instances, storage container topologies, or TCP network definitions (defined in [CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md))
-- Core business invariants or conceptual trust requirements (defined in [SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md))
-- Domain-driven service boundaries or single-writer logic tables (defined in [SERVICE_BOUNDARIES.md](../system/SERVICE_BOUNDARIES.md))
-- User roles (RBAC), KMS private key encryption, or secure network boundaries (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
-- Deployment scaling tiers, failover topologies, or infrastructure backups (defined in [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md))
-- Build configurations, package directories, or monorepo tools (defined in [DIRECTORY_OWNERSHIP.md](../system/DIRECTORY_OWNERSHIP.md))
+- Database instances, storage container topologies, or TCP network definitions (defined in [CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md))
+- Core business invariants or conceptual trust requirements (defined in [SYSTEM_CONTEXT.md](SYSTEM_CONTEXT.md))
+- Domain-driven service boundaries or single-writer logic tables (defined in [SERVICE_BOUNDARIES.md](SERVICE_BOUNDARIES.md))
+- User roles (RBAC), KMS private key encryption, or secure network boundaries (defined in [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md))
+- Deployment scaling tiers, failover topologies, or infrastructure backups (defined in [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md))
+- Build configurations, package directories, or monorepo tools (defined in [DIRECTORY_OWNERSHIP.md](DIRECTORY_OWNERSHIP.md))
 
 ## 1. Purpose
 
 This document defines the data flow and information lifecycle for CapMint. It traces how data is created, validated, signed, mutated, and resolved across the platform.
 
 ### Structural Relationships
-- **[SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md)**: Establishes the non-negotiable business rules and invariants.
-- **[CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md)**: Maps the execution containers (Fastify, Postgres, Redis, KMS).
-- **[SERVICE_BOUNDARIES.md](../system/SERVICE_BOUNDARIES.md)**: Defines logical service boundaries and component ownership.
+- **[SYSTEM_CONTEXT.md](SYSTEM_CONTEXT.md)**: Establishes the non-negotiable business rules and invariants.
+- **[CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md)**: Maps the execution containers (Fastify, Postgres, Redis, KMS).
+- **[SERVICE_BOUNDARIES.md](SERVICE_BOUNDARIES.md)**: Defines logical service boundaries and component ownership.
 - **DATA_FLOW.md** (This Document): Connects these layers by tracing the step-by-step movement of data payloads through their lifecycles.
 
 ---
@@ -200,7 +200,7 @@ Data progresses through validation levels:
 
 ## 8. Trust Transitions & Privacy Boundaries
 
-Data transitions across security boundaries undergo cryptographic validation, validation filters, and privacy masking. For detailed security policies, RBAC validation rules, and PII masking, see [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md).
+Data transitions across security boundaries undergo cryptographic validation, validation filters, and privacy masking. For detailed security policies, RBAC validation rules, and PII masking, see [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md).
 
 ---
 
@@ -276,7 +276,7 @@ stateDiagram-v2
 
 ## 10. Data Ownership Flow
 
-Write and update privileges are locked to exactly one service owner per database table. For service mappings and logical boundaries, see [SERVICE_BOUNDARIES.md](../system/SERVICE_BOUNDARIES.md#6-data-ownership).
+Write and update privileges are locked to exactly one service owner per database table. For service mappings and logical boundaries, see [SERVICE_BOUNDARIES.md](SERVICE_BOUNDARIES.md#6-data-ownership).
 
 ---
 
@@ -339,13 +339,13 @@ sequenceDiagram
 
 ## 14. Failure & Performance Scenarios
 
-Data flows must degrade gracefully or fail closed when runtime execution limits or capacity constraints are breached. For performance Non-Functional Requirements (NFRs) and disaster recovery, see [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md#10-scalability-model).
+Data flows must degrade gracefully or fail closed when runtime execution limits or capacity constraints are breached. For performance Non-Functional Requirements (NFRs) and disaster recovery, see [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md#10-scalability-model).
 
 ---
 
 ## 15. Operational Constraints
 
-Logical components are constrained by transaction rules and security policies. For system-wide architectural constraints, refer to [SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md#9-system-invariants).
+Logical components are constrained by transaction rules and security policies. For system-wide architectural constraints, refer to [SYSTEM_CONTEXT.md](SYSTEM_CONTEXT.md#9-system-invariants).
 
 ---
 

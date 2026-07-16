@@ -11,11 +11,11 @@ This document owns:
 
 This document intentionally does NOT define:
 - Detailed business invariants or real-world problem definitions (defined in [SYSTEM_CONTEXT.md](./SYSTEM_CONTEXT.md))
-- Container port allocations, database instances, or network components (defined in [CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md))
+- Container port allocations, database instances, or network components (defined in [CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md))
 - Logical Bounded Contexts, domain service boundaries, or single-writer databases (defined in [SERVICE_BOUNDARIES.md](./SERVICE_BOUNDARIES.md))
-- Step-by-step transaction details, state machine transitions, or API routes (defined in [DATA_FLOW.md](../sequence/DATA_FLOW.md))
-- RBAC permissions grids, security policies, KMS keys, or transport encryption (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
-- Host environment specifications (Dev/Staging/Prod) or disaster recovery strategies (defined in [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md))
+- Step-by-step transaction details, state machine transitions, or API routes (defined in [DATA_FLOW.md](DATA_FLOW.md))
+- RBAC permissions grids, security policies, KMS keys, or transport encryption (defined in [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md))
+- Host environment specifications (Dev/Staging/Prod) or disaster recovery strategies (defined in [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md))
 - Programming languages or technical framework choices (defined in [TECHNOLOGY_STACK.md](./TECHNOLOGY_STACK.md))
 
 ## 1. Purpose
@@ -173,11 +173,11 @@ flowchart LR
     Log --> Anchor
 ```
 
-For the physical container execution mappings and network interfaces, see [CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md). For hosting topologies, routing setups, and physical network nodes, see [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md#3-deployment-model).
+For the physical container execution mappings and network interfaces, see [CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md). For hosting topologies, routing setups, and physical network nodes, see [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md#3-deployment-model).
 
 ## 5. Trust Boundaries & Permissions
 
-CapMint enforces cryptographic trust boundaries at its network and API limits to protect the integrity of minted identities and budgets. The canonical trust zone analysis and the Role-Based Access Control (RBAC) permission matrix are owned and documented in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#6-trust-boundaries).
+CapMint enforces cryptographic trust boundaries at its network and API limits to protect the integrity of minted identities and budgets. The canonical trust zone analysis and the Role-Based Access Control (RBAC) permission matrix are owned and documented in [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md#6-trust-boundaries).
 
     Approved --> Revoked
     PendingApproval --> Revoked
@@ -241,11 +241,11 @@ stateDiagram-v2
 
 ## 7. Core System Components & Domain Events
 
-CapMint segregates features into isolated services. For detailed component lists, inputs/outputs, and downstream consumer dependencies, see [SERVICE_BOUNDARIES.md](./SERVICE_BOUNDARIES.md#5-service-responsibilities). For the canonical list of domain events and structural schemas, see [DATA_FLOW.md](../sequence/DATA_FLOW.md#8-domain-event-catalog).
+CapMint segregates features into isolated services. For detailed component lists, inputs/outputs, and downstream consumer dependencies, see [SERVICE_BOUNDARIES.md](./SERVICE_BOUNDARIES.md#5-service-responsibilities). For the canonical list of domain events and structural schemas, see [DATA_FLOW.md](DATA_FLOW.md#8-domain-event-catalog).
 
 ## 8. User Request Lifecycle
 
-API requests traverse strict validation and database commit paths. For step-by-step transaction sequence diagrams, see [DATA_FLOW.md](../sequence/DATA_FLOW.md#3-high-level-information-lifecycle).
+API requests traverse strict validation and database commit paths. For step-by-step transaction sequence diagrams, see [DATA_FLOW.md](DATA_FLOW.md#3-high-level-information-lifecycle).
 
 ## 9. User Journey
 
@@ -297,15 +297,15 @@ No AI architecture is defined in the PRD.
 
 ## 12. Data Flow & Event Processing
 
-Data moves dynamically from upstream registrations to public resolution and asynchronous logging. The detailed path maps and validation limits are owned by [DATA_FLOW.md](../sequence/DATA_FLOW.md).
+Data moves dynamically from upstream registrations to public resolution and asynchronous logging. The detailed path maps and validation limits are owned by [DATA_FLOW.md](DATA_FLOW.md).
 
 ## 13. Security & Telemetry Controls
 
-Application-layer encryption, transport standards, key rotation, and privacy regulations protect the platform boundaries. The comprehensive security design is owned by [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md).
+Application-layer encryption, transport standards, key rotation, and privacy regulations protect the platform boundaries. The comprehensive security design is owned by [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md).
 
 ## 14. Observability & Telemetry Suite
 
-Operational monitoring maps system health via correlation tracing, alerts, and runtime metrics. For details on the observability layout and alert policies, see [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#18-cross-cutting-security-concerns).
+Operational monitoring maps system health via correlation tracing, alerts, and runtime metrics. For details on the observability layout and alert policies, see [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md#18-cross-cutting-security-concerns).
 
 ## 15. Architectural Constraints & Invariants
 
@@ -313,7 +313,7 @@ System constraints and business invariants define CapMint's non-negotiable opera
 
 ## 17. Scalability & Availability Model
 
-Runtime availability, stateless scaling, backups, and physical recovery boundaries protect verification reads. The logical scaling and reliability designs are owned by [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md#10-scalability-model). Performance Non-Functional Requirements (NFRs) are also documented in [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md#13-non-functional-performance-targets).
+Runtime availability, stateless scaling, backups, and physical recovery boundaries protect verification reads. The logical scaling and reliability designs are owned by [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md#10-scalability-model). Performance Non-Functional Requirements (NFRs) are also documented in [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md#13-non-functional-performance-targets).
 
 ## 19. Technology Stack & Decision Matrix
 

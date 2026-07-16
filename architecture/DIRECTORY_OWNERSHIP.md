@@ -11,10 +11,10 @@ This document owns:
 
 This document intentionally does NOT define:
 - Logical import rules and compile-time code dependencies (defined in [MODULE_DEPENDENCIES.md](./MODULE_DEPENDENCIES.md))
-- Container runtime models, network VPC subnets, or database servers (defined in [CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md))
+- Container runtime models, network VPC subnets, or database servers (defined in [CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md))
 - Core business invariants or crop yield rules (defined in [SYSTEM_CONTEXT.md](./SYSTEM_CONTEXT.md))
-- API endpoint specifications or database schema structures (defined in [DATA_FLOW.md](../sequence/DATA_FLOW.md))
-- Cryptographic signature execution, RBAC authorization, or secrets management (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
+- API endpoint specifications or database schema structures (defined in [DATA_FLOW.md](DATA_FLOW.md))
+- Cryptographic signature execution, RBAC authorization, or secrets management (defined in [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md))
 - Programming languages or technical framework choices (defined in [TECHNOLOGY_STACK.md](./TECHNOLOGY_STACK.md))
 
 ## 1. Purpose

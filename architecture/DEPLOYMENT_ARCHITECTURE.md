@@ -11,22 +11,22 @@ This document owns:
 - Performance Non-Functional Requirements (NFR targets)
 
 This document intentionally does NOT define:
-- Logical container boundaries, processes, or internal APIs (defined in [CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md))
-- Core business invariants or land registration limits (defined in [SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md))
-- Domain-driven service boundaries or single-writer database tables (defined in [SERVICE_BOUNDARIES.md](../system/SERVICE_BOUNDARIES.md))
-- State transitions, entity state machines, or transactional API sequences (defined in [DATA_FLOW.md](../sequence/DATA_FLOW.md))
-- JWT authentication specs, RBAC validation parameters, or KMS key rotation rules (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
-- Code repository directory layouts or workspace configurations (defined in [DIRECTORY_OWNERSHIP.md](../system/DIRECTORY_OWNERSHIP.md))
+- Logical container boundaries, processes, or internal APIs (defined in [CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md))
+- Core business invariants or land registration limits (defined in [SYSTEM_CONTEXT.md](SYSTEM_CONTEXT.md))
+- Domain-driven service boundaries or single-writer database tables (defined in [SERVICE_BOUNDARIES.md](SERVICE_BOUNDARIES.md))
+- State transitions, entity state machines, or transactional API sequences (defined in [DATA_FLOW.md](DATA_FLOW.md))
+- JWT authentication specs, RBAC validation parameters, or KMS key rotation rules (defined in [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md))
+- Code repository directory layouts or workspace configurations (defined in [DIRECTORY_OWNERSHIP.md](DIRECTORY_OWNERSHIP.md))
 
 ## 1. Purpose
 
 This document defines the deployment architecture and runtime topology for the CapMint platform. It outlines how the system's software components are packaged into deployable units, where they execute, how runtime isolation is maintained, and how the platform scales and tolerates infrastructure failures.
 
 ### Structural Relationships
-- **[SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md)**: Defines the system mission and core invariants.
-- **[CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md)**: Maps the process boundaries and resource isolation.
-- **[SERVICE_BOUNDARIES.md](../system/SERVICE_BOUNDARIES.md)**: Establishes logical service boundaries and component ownership.
-- **[SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md)**: Maps the key vaults and threat mitigations.
+- **[SYSTEM_CONTEXT.md](SYSTEM_CONTEXT.md)**: Defines the system mission and core invariants.
+- **[CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md)**: Maps the process boundaries and resource isolation.
+- **[SERVICE_BOUNDARIES.md](SERVICE_BOUNDARIES.md)**: Establishes logical service boundaries and component ownership.
+- **[SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md)**: Maps the key vaults and threat mitigations.
 - **DEPLOYMENT_ARCHITECTURE.md** (This Document): Focuses specifically on the physical execution layout, environment isolation, hosting footprints, and runtime failover rules.
 
 ---
@@ -171,7 +171,7 @@ CapMint enforces environment separation:
 
 ## 11. Security Considerations
 
-VPC subnets, API gateway filters, and secure Cloud KMS access are managed at the infrastructure layer. For detailed cryptographic zone setups and user role permissions, see [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md).
+VPC subnets, API gateway filters, and secure Cloud KMS access are managed at the infrastructure layer. For detailed cryptographic zone setups and user role permissions, see [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md).
 
 ---
 

@@ -12,21 +12,21 @@ This document owns:
 - Telemetry, logging, and security monitoring alerts (Observability Suite)
 
 This document intentionally does NOT define:
-- Detailed physical container deployment setups or network VPC routing (defined in [CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md))
-- Core business logic crop yield calculations or budget creation details (defined in [SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md))
-- Domain-driven service writers or logical boundaries (defined in [SERVICE_BOUNDARIES.md](../system/SERVICE_BOUNDARIES.md))
-- State transitions, entity state machines, or transactional API sequences (defined in [DATA_FLOW.md](../sequence/DATA_FLOW.md))
-- Source code directories or repository monorepo layouts (defined in [DIRECTORY_OWNERSHIP.md](../system/DIRECTORY_OWNERSHIP.md))
+- Detailed physical container deployment setups or network VPC routing (defined in [CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md))
+- Core business logic crop yield calculations or budget creation details (defined in [SYSTEM_CONTEXT.md](SYSTEM_CONTEXT.md))
+- Domain-driven service writers or logical boundaries (defined in [SERVICE_BOUNDARIES.md](SERVICE_BOUNDARIES.md))
+- State transitions, entity state machines, or transactional API sequences (defined in [DATA_FLOW.md](DATA_FLOW.md))
+- Source code directories or repository monorepo layouts (defined in [DIRECTORY_OWNERSHIP.md](DIRECTORY_OWNERSHIP.md))
 
 ## 1. Purpose
 
 This document defines the security architecture and threat modeling framework for CapMint. It outlines how the system maintains issuance integrity, implements zero-trust principles, secures cryptographic signatures, and protects data privacy across all operational and verification workflows.
 
 ### Structural Relationships
-- **[SYSTEM_CONTEXT.md](../system/SYSTEM_CONTEXT.md)**: Establishes the foundational business mission and constraints.
-- **[CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md)**: Defines the process boundaries and resource isolation layers.
-- **[SERVICE_BOUNDARIES.md](../system/SERVICE_BOUNDARIES.md)**: Assigns domain responsibility and authorization checks.
-- **[DATA_FLOW.md](../sequence/DATA_FLOW.md)**: Maps payload movement and state validation paths.
+- **[SYSTEM_CONTEXT.md](SYSTEM_CONTEXT.md)**: Establishes the foundational business mission and constraints.
+- **[CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md)**: Defines the process boundaries and resource isolation layers.
+- **[SERVICE_BOUNDARIES.md](SERVICE_BOUNDARIES.md)**: Assigns domain responsibility and authorization checks.
+- **[DATA_FLOW.md](DATA_FLOW.md)**: Maps payload movement and state validation paths.
 - **SECURITY_ARCHITECTURE.md** (This Document): Focuses specifically on the system's defenses, key authority boundaries, threat mitigations, and validation requirements.
 
 ---

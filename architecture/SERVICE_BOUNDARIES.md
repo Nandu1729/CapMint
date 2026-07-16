@@ -10,11 +10,11 @@ This document owns:
 - Service interactions and lifecycle ownership matrix
 
 This document intentionally does NOT define:
-- Physical runtime containers, host subnets, or database servers (defined in [CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md))
+- Physical runtime containers, host subnets, or database servers (defined in [CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md))
 - Core business invariants or real-world crop yield rules (defined in [SYSTEM_CONTEXT.md](./SYSTEM_CONTEXT.md))
-- API endpoint parameters, state machine transitions, or database schemas (defined in [DATA_FLOW.md](../sequence/DATA_FLOW.md))
-- Key management, user sessions, RBAC rules, or encryption algorithms (defined in [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md))
-- Deployment scaling models, backup strategies, or environment VM sizes (defined in [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md))
+- API endpoint parameters, state machine transitions, or database schemas (defined in [DATA_FLOW.md](DATA_FLOW.md))
+- Key management, user sessions, RBAC rules, or encryption algorithms (defined in [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md))
+- Deployment scaling models, backup strategies, or environment VM sizes (defined in [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md))
 - Repository folders or code import pathways (defined in [DIRECTORY_OWNERSHIP.md](./DIRECTORY_OWNERSHIP.md) and [MODULE_DEPENDENCIES.md](./MODULE_DEPENDENCIES.md))
 
 ## 1. Purpose
@@ -23,7 +23,7 @@ This document defines the service boundaries and domain division for the CapMint
 
 ### Structural Relationships
 - **[SYSTEM_CONTEXT.md](./SYSTEM_CONTEXT.md)**: Outlines the high-level business model, mission, and invariants of the CapMint system.
-- **[CONTAINER_ARCHITECTURE.md](../C4/L2_CONTAINER.md)**: Details the runtime deployment layers (Fastify, Redis, Postgres, KMS).
+- **[CONTAINER_ARCHITECTURE.md](L2_CONTAINER.md)**: Details the runtime deployment layers (Fastify, Redis, Postgres, KMS).
 - **SERVICE_BOUNDARIES.md** (This Document): Defines how CapMint's logic is split into cohesive domains to enforce single ownership, clean boundaries, and loose coupling, preventing the creation of a "God Service."
 
 ---
@@ -202,13 +202,13 @@ flowchart TD
 
 ## 9. Trust Boundaries & Security Controls
 
-Cryptographic keys, token sessions, and edge network restrictions protect individual service nodes from unauthorized operations. For detailed zone boundaries and the authorization matrix, refer to [SECURITY_ARCHITECTURE.md](../security/SECURITY_ARCHITECTURE.md#6-trust-boundaries).
+Cryptographic keys, token sessions, and edge network restrictions protect individual service nodes from unauthorized operations. For detailed zone boundaries and the authorization matrix, refer to [SECURITY_ARCHITECTURE.md](SECURITY_ARCHITECTURE.md#6-trust-boundaries).
 
 ---
 
 ## 10. Operational Failure & Scalability Models
 
-Services require high-availability scaling and error-handling capabilities to degrade gracefully under system failures. For details on deployment availability, stateless VM scaling, and backup setups, see [DEPLOYMENT_ARCHITECTURE.md](../deployment/DEPLOYMENT_ARCHITECTURE.md#10-scalability-model).
+Services require high-availability scaling and error-handling capabilities to degrade gracefully under system failures. For details on deployment availability, stateless VM scaling, and backup setups, see [DEPLOYMENT_ARCHITECTURE.md](DEPLOYMENT_ARCHITECTURE.md#10-scalability-model).
 
 ---
 
