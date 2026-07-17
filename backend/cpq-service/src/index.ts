@@ -3,6 +3,7 @@ import jwt from '@fastify/jwt';
 import pg from 'pg';
 import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -225,7 +226,6 @@ server.post('/api/v1/budgets/:id/activate', {
   const message = `budget_id:${id};approved_quantity:${approvedQuantity}`;
 
   // 2. Cryptographically co-sign using certifier Ed25519 private key
-  const crypto = require('crypto');
   const certifierPrivateKey = `-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIMFcJmCXMysxsYYa3t1KRVsOezHmrI+SUDoV0F6BFoK0\n-----END PRIVATE KEY-----`;
   
   let signatureBundle = 'sig_failed';
@@ -321,7 +321,6 @@ server.post('/api/v1/budgets/:id/drawdown', {
       const pubKeyPem = certifierRes.rows[0].public_key;
       const message = `budget_id:${id};approved_quantity:${budget.approved_quantity}`;
       
-      const crypto = require('crypto');
       let isVerified = false;
       try {
         isVerified = crypto.verify(null, Buffer.from(message), pubKeyPem, Buffer.from(budget.signature_bundle, 'hex'));
