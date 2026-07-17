@@ -308,7 +308,7 @@ server.post('/api/v1/auth/organizations/:id/status', {
 }, async (request, reply) => {
     const { id } = request.params;
     const { status } = request.body;
-    const allowedStatuses = ['PENDING', 'VERIFICATION', 'APPROVED', 'ACTIVATED'];
+    const allowedStatuses = ['PENDING', 'VERIFICATION', 'APPROVED', 'ACTIVATED', 'SUSPENDED'];
     if (!allowedStatuses.includes(status)) {
         return reply.status(400).send({
             success: false,
