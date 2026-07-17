@@ -1,36 +1,61 @@
 title: RegisterUserRequest
+description: Payload required to register a new organization and its initial administrator user.
 type: object
 required:
-- username
-- password
-- role
+  - name
+  - type
+  - official_email
+  - admin_username
+  - admin_password
 properties:
-  username:
+  name:
     type: string
-    description: Unique username identifier for the account.
-    example: admin
-  password:
-    type: string
-    description: Secret password for authentication.
-    example: password
-    format: password
-  role:
+    description: Full legal name of the organization.
+    example: "Premium Farms Ltd"
+  type:
     type: string
     enum:
-    - ADMIN
-    - PRODUCER
-    - PACK_HOUSE
-    - CERTIFIER
-    - LAB
-    description: User access role within the organization.
-    example: ADMIN
-  associated_entity_id:
+      - PRODUCER
+      - NABL_LABORATORY
+      - CERTIFICATION_BODY
+      - EXPORTER
+    description: Classification type of the organization.
+    example: "PRODUCER"
+  business_reg_details:
+    type: object
+    description: Official company registration metadata details.
+    example:
+      registration_number: "REG-880293"
+      tax_id: "GSTIN-12AAAFF001"
+  official_email:
     type: string
-    description: The associated_entity_id attribute.
-    example: string
-description: RegisterUserRequest data schema.
+    format: email
+    description: Primary official contact email address.
+    example: "producer@capmint.org"
+  contact_info:
+    type: object
+    description: Organization contact telephone or communication details.
+    example:
+      phone: "+91 98765 43210"
+      address: "123 Agri Lane, Bangalore, India"
+  admin_username:
+    type: string
+    description: Username for the initial organization administrator account.
+    example: "producer_admin"
+  admin_password:
+    type: string
+    format: password
+    description: Secure password for the administrator account.
+    example: "password"
 example:
-  username: admin
-  password: password
-  role: ADMIN
-  associated_entity_id: string
+  name: "Premium Farms Ltd"
+  type: "PRODUCER"
+  business_reg_details:
+    registration_number: "REG-880293"
+    tax_id: "GSTIN-12AAAFF001"
+  official_email: "producer@capmint.org"
+  contact_info:
+    phone: "+91 98765 43210"
+    address: "123 Agri Lane, Bangalore, India"
+  admin_username: "producer_admin"
+  admin_password: "password"
