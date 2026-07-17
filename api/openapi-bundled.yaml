@@ -1,0 +1,2621 @@
+openapi: 3.0.3
+info:
+  title: CapMint Core API Specifications
+  version: 1.0.0
+  description: Canonical REST API contracts and validation schemas for the CapMint anti-counterfeiting platform.
+servers:
+  - url: 'http://localhost:8080'
+    description: Dev Gateway (Local Proxy)
+paths:
+  /api/v1/auth/register-org:
+    post:
+      summary: Register an organization and its administrator
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: RegisterUserRequest
+              type: object
+              required:
+                - username
+                - password
+                - role
+              properties:
+                username:
+                  type: string
+                  description: Unique username identifier for the account.
+                  example: admin
+                password:
+                  type: string
+                  description: Secret password for authentication.
+                  example: password
+                  format: password
+                role:
+                  type: string
+                  enum:
+                    - ADMIN
+                    - PRODUCER
+                    - PACK_HOUSE
+                    - CERTIFIER
+                    - LAB
+                  description: User access role within the organization.
+                  example: ADMIN
+                associated_entity_id:
+                  type: string
+                  description: The associated_entity_id attribute.
+                  example: string
+              description: RegisterUserRequest data schema.
+              example:
+                username: admin
+                password: password
+                role: ADMIN
+                associated_entity_id: string
+            example:
+              username: admin
+              password: password
+              role: ADMIN
+              associated_entity_id: string
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                title: RegisterUserResponse
+                type: object
+                required:
+                  - success
+                  - username
+                properties:
+                  success:
+                    type: boolean
+                    description: Request success indicator.
+                    example: true
+                  username:
+                    type: string
+                    description: Unique username identifier for the account.
+                    example: admin
+                description: RegisterUserResponse data schema.
+                example:
+                  success: true
+                  username: admin
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '409':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/409'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/auth/login:
+    post:
+      summary: Login user
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: LoginRequest
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  description: Unique username identifier for the account.
+                  example: admin
+                password:
+                  type: string
+                  description: Secret password for authentication.
+                  example: password
+                  format: password
+              description: LoginRequest data schema.
+              example:
+                username: admin
+                password: password
+            example:
+              username: admin
+              password: password
+      responses:
+        '200':
+          description: Login successful and JWT returned
+          content:
+            application/json:
+              schema:
+                title: LoginResponse
+                type: object
+                required:
+                  - success
+                  - token
+                properties:
+                  success:
+                    type: boolean
+                    description: Request success indicator.
+                    example: true
+                  token:
+                    type: string
+                    description: The token attribute.
+                    example: string
+                description: LoginResponse data schema.
+                example:
+                  success: true
+                  token: string
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/auth/users:
+    get:
+      summary: Get all registered users
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of registered users
+          content:
+            application/json:
+              schema:
+                title: UserListResponse
+                type: object
+                required:
+                  - users
+                properties:
+                  users:
+                    type: array
+                    items:
+                      title: User
+                      description: Registered user record within an organization
+                      type: object
+                      required:
+                        - id
+                        - username
+                        - role
+                        - associated_entity_id
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          description: Unique identifier (UUID v4).
+                          example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                        username:
+                          type: string
+                          description: Unique username identifier for the account.
+                          example: admin
+                        role:
+                          type: string
+                          enum:
+                            - ADMIN
+                            - PRODUCER
+                            - PACK_HOUSE
+                            - CERTIFIER
+                            - LAB
+                          description: User access role within the organization.
+                          example: ADMIN
+                        associated_entity_id:
+                          type: string
+                          format: uuid
+                          description: The associated_entity_id attribute.
+                          example: string
+                      example:
+                        id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                        username: admin
+                        role: ADMIN
+                        associated_entity_id: string
+                    description: The users attribute.
+                    example: []
+                description: UserListResponse data schema.
+                example:
+                  users: []
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/auth/users/invite:
+    post:
+      summary: Invite a new user to the organization
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: InviteUserRequest
+              type: object
+              required:
+                - username
+                - password
+                - role
+              properties:
+                username:
+                  type: string
+                  description: Unique username identifier for the account.
+                  example: admin
+                password:
+                  type: string
+                  description: Secret password for authentication.
+                  example: password
+                  format: password
+                role:
+                  type: string
+                  enum:
+                    - ADMIN
+                    - OPERATOR
+                  description: User access role within the organization.
+                  example: ADMIN
+              description: InviteUserRequest data schema.
+              example:
+                username: admin
+                password: password
+                role: ADMIN
+            example:
+              username: admin
+              password: password
+              role: ADMIN
+      responses:
+        '201':
+          description: User profile details returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/paths/~1api~1v1~1auth~1register-org/post/responses/201/content/application~1json/schema'
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/auth/organizations:
+    get:
+      summary: List all organizations (System Admin only)
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of registered organizations returned
+          content:
+            application/json:
+              schema:
+                title: OrganizationListResponse
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    description: Indicates request success status.
+                    example: true
+                  data:
+                    type: object
+                    required:
+                      - organizations
+                    properties:
+                      organizations:
+                        type: array
+                        items:
+                          title: Organization
+                          description: Registered organization profile
+                          type: object
+                          required:
+                            - id
+                            - name
+                            - type
+                            - status
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                              description: Unique identifier (UUID v4).
+                              example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                            name:
+                              type: string
+                              description: Human-readable legal name of the entity.
+                              example: Premium Farms Ltd
+                            type:
+                              type: string
+                              enum:
+                                - PRODUCER
+                                - NABL_LABORATORY
+                                - CERTIFICATION_BODY
+                                - EXPORTER
+                                - SYSTEM_ADMINISTRATOR
+                              description: General categorization type.
+                              example: PRODUCER
+                            status:
+                              type: string
+                              enum:
+                                - PENDING_VERIFICATION
+                                - ACTIVATED
+                                - SUSPENDED
+                              description: Current status of the entity.
+                              example: ACTIVATED
+                          example:
+                            id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                            name: Premium Farms Ltd
+                            type: PRODUCER
+                            status: ACTIVATED
+                        description: The organizations attribute.
+                        example: []
+                    description: The data attribute.
+                    example:
+                      organizations: []
+                description: OrganizationListResponse data schema.
+                example:
+                  success: true
+                  data:
+                    organizations:
+                      - id: 00000000-0000-0000-0000-000000000002
+                        name: Premium Farms Ltd
+                        type: PRODUCER
+                        status: ACTIVATED
+                        official_email: producer@capmint.org
+                        created_at: '2026-07-17T10:00:00Z'
+                        updated_at: '2026-07-17T10:05:00Z'
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  '/api/v1/auth/organizations/{id}/status':
+    post:
+      summary: Update organization status (System Admin only)
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - PENDING
+                    - ACTIVATED
+                    - SUSPENDED
+      responses:
+        '200':
+          description: Organization profile details returned
+          content:
+            application/json:
+              schema:
+                title: OrganizationResponse
+                type: object
+                required:
+                  - organization
+                properties:
+                  organization:
+                    $ref: '#/paths/~1api~1v1~1auth~1organizations/get/responses/200/content/application~1json/schema/properties/data/properties/organizations/items'
+                    description: The organization attribute.
+                    example: null
+                description: OrganizationResponse data schema.
+                example:
+                  organization: null
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/budgets:
+    post:
+      summary: Propose a crop yield quota budget
+      tags:
+        - Quota & Budgets (CPQ)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: ProposeBudgetRequest
+              type: object
+              required:
+                - producer_id
+                - certifier_id
+                - source_unit_type
+                - approved_quantity
+                - yield_assumptions
+                - signature_bundle
+                - effective_start_date
+                - effective_end_date
+              properties:
+                producer_id:
+                  type: string
+                  format: uuid
+                  description: Unique identifier referencing the producer organization.
+                  example: 00000000-0000-0000-0000-000000000002
+                certifier_id:
+                  type: string
+                  format: uuid
+                  description: Unique identifier referencing the certifier body.
+                  example: 00000000-0000-0000-0000-000000000001
+                source_unit_type:
+                  type: string
+                  enum:
+                    - UNIT_COUNT
+                    - WEIGHT_KG
+                  description: 'Measurement unit standard (e.g. weight, count).'
+                  example: WEIGHT_KG
+                approved_quantity:
+                  type: number
+                  description: Total certified crop volume allocated.
+                  example: 5000
+                yield_assumptions:
+                  type: object
+                  required:
+                    - crop
+                  properties:
+                    crop:
+                      type: string
+                      description: Crop name.
+                      example: Organic White Honey
+                    land_area_hectares:
+                      type: number
+                      description: Land area in hectares.
+                      example: 5
+                  description: Agricultural yield parameters.
+                  example:
+                    crop: Organic White Honey
+                    land_area_hectares: 5
+                signature_bundle:
+                  type: string
+                  description: Ed25519 cryptographic signatures payload.
+                  example: sig_bundle_xyz123
+                effective_start_date:
+                  type: string
+                  format: date-time
+                  description: ISO-8601 validity start timestamp.
+                  example: '2026-07-17T00:00:00Z'
+                effective_end_date:
+                  type: string
+                  format: date-time
+                  description: ISO-8601 validity expiration timestamp.
+                  example: '2027-07-17T00:00:00Z'
+              description: ProposeBudgetRequest data schema.
+              example:
+                producer_id: 00000000-0000-0000-0000-000000000002
+                certifier_id: 00000000-0000-0000-0000-000000000001
+                source_unit_type: WEIGHT_KG
+                approved_quantity: 5000
+                yield_assumptions:
+                  crop: Organic White Honey
+                  land_area_hectares: 5
+                signature_bundle: sig_bundle_xyz123
+                effective_start_date: '2026-07-17T00:00:00Z'
+                effective_end_date: '2027-07-17T00:00:00Z'
+            example:
+              producer_id: 00000000-0000-0000-0000-000000000002
+              certifier_id: 00000000-0000-0000-0000-000000000001
+              source_unit_type: WEIGHT_KG
+              approved_quantity: 5000
+              yield_assumptions:
+                crop: Organic White Honey
+                land_area_hectares: 5
+              signature_bundle: sig_bundle_xyz123
+              effective_start_date: '2026-07-17T00:00:00Z'
+              effective_end_date: '2027-07-17T00:00:00Z'
+      responses:
+        '201':
+          description: Quota budget details returned
+          content:
+            application/json:
+              schema:
+                title: BudgetResponse
+                type: object
+                required:
+                  - budget
+                properties:
+                  budget:
+                    description: The budget attribute.
+                    example: null
+                    title: Budget
+                    type: object
+                    required:
+                      - id
+                      - producerId
+                      - cropType
+                      - limitKg
+                      - remainingKg
+                      - status
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                        description: Unique identifier (UUID v4).
+                        example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                      producerId:
+                        type: string
+                        format: uuid
+                        description: The producerId attribute.
+                        example: string
+                      cropType:
+                        type: string
+                        description: The cropType attribute.
+                        example: string
+                      limitKg:
+                        type: number
+                        description: The limitKg attribute.
+                        example: 1
+                      remainingKg:
+                        type: number
+                        description: The remainingKg attribute.
+                        example: 1
+                      status:
+                        type: string
+                        enum:
+                          - PROPOSED
+                          - ACTIVE
+                          - EXHAUSTED
+                          - REVOKED
+                        description: Current status of the entity.
+                        example: ACTIVATED
+                description: BudgetResponse data schema.
+                example:
+                  budget: null
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+    get:
+      summary: Retrieve all quota budgets
+      tags:
+        - Quota & Budgets (CPQ)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of quota budgets returned
+          content:
+            application/json:
+              schema:
+                title: BudgetListResponse
+                type: object
+                required:
+                  - budgets
+                properties:
+                  budgets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          description: Unique identifier (UUID v4).
+                          example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                          format: uuid
+                        producer:
+                          type: string
+                          description: The producer attribute.
+                          example: string
+                        allocated:
+                          type: number
+                          description: The allocated attribute.
+                          example: 1
+                        consumed:
+                          type: number
+                          description: The consumed attribute.
+                          example: 1
+                        status:
+                          type: string
+                          description: Current status of the entity.
+                          example: ACTIVATED
+                        crop:
+                          type: string
+                          description: Crop name.
+                          example: Organic White Honey
+                        start:
+                          type: string
+                          format: date-time
+                          description: The start attribute.
+                          example: string
+                        end:
+                          type: string
+                          format: date-time
+                          description: The end attribute.
+                          example: string
+                    description: The budgets attribute.
+                    example:
+                      - id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                        producer: string
+                        allocated: 1
+                        consumed: 1
+                        status: ACTIVATED
+                        crop: Organic White Honey
+                        start: string
+                        end: string
+                description: BudgetListResponse data schema.
+                example:
+                  budgets:
+                    - id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                      producer: string
+                      allocated: 1
+                      consumed: 1
+                      status: ACTIVATED
+                      crop: Organic White Honey
+                      start: string
+                      end: string
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  '/api/v1/budgets/{id}/activate':
+    post:
+      summary: Approve/Activate a proposed quota budget
+      tags:
+        - Quota & Budgets (CPQ)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the quota budget
+          schema:
+            type: string
+          example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+      responses:
+        '200':
+          description: Quota approved and activated
+          content:
+            application/json:
+              schema:
+                title: BudgetApprovalResponse
+                type: object
+                required:
+                  - success
+                  - budgetId
+                properties:
+                  success:
+                    type: boolean
+                    description: Request success indicator.
+                    example: true
+                  budgetId:
+                    type: string
+                    description: Unique identifier of the associated budget.
+                    example: 00000000-0000-0000-0000-000000000010
+                    format: uuid
+                description: BudgetApprovalResponse data schema.
+                example:
+                  success: true
+                  budgetId: 00000000-0000-0000-0000-000000000010
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '409':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/409'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  '/api/v1/budgets/{id}/drawdown':
+    post:
+      summary: Draw down capacity from active quota
+      tags:
+        - Quota & Budgets (CPQ)
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/paths/~1api~1v1~1budgets~1%7Bid%7D~1activate/post/parameters/0'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: BudgetDrawdownRequest
+              type: object
+              required:
+                - amount
+              properties:
+                amount:
+                  type: number
+                  description: The quantity to draw down from the budget capacity.
+                  example: 1
+              description: BudgetDrawdownRequest data schema.
+              example:
+                amount: 1
+            example:
+              amount: 1
+      responses:
+        '200':
+          description: Capacity locked and drawn down
+          content:
+            application/json:
+              schema:
+                title: BudgetDrawdownResponse
+                type: object
+                required:
+                  - success
+                  - budgetId
+                  - remainingKg
+                properties:
+                  success:
+                    type: boolean
+                    description: Request success indicator.
+                    example: true
+                  budgetId:
+                    type: string
+                    description: Unique identifier of the associated budget.
+                    example: 00000000-0000-0000-0000-000000000010
+                    format: uuid
+                  remainingKg:
+                    type: number
+                    description: The remainingKg attribute.
+                    example: 1
+                description: BudgetDrawdownResponse data schema.
+                example:
+                  success: true
+                  budgetId: 00000000-0000-0000-0000-000000000010
+                  remainingKg: 1
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/mint:
+    post:
+      summary: Mint unique serialized numbers for a lot run
+      tags:
+        - Serialization & Minting
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: MintQRCodeRequest
+              type: object
+              required:
+                - lot_id
+                - gtin
+                - quantity
+              properties:
+                lot_id:
+                  type: string
+                  description: Unique batch lot identifier.
+                  example: 00000000-0000-0000-0000-000000000050
+                  format: uuid
+                gtin:
+                  type: string
+                  description: Global Trade Item Number (GS1 standard key).
+                  example: 7612345678900
+                quantity:
+                  type: integer
+                  description: Quantity or volume of items requested.
+                  example: 100
+              description: MintQRCodeRequest data schema.
+              example:
+                lot_id: 00000000-0000-0000-0000-000000000050
+                gtin: 7612345678900
+                quantity: 100
+            example:
+              lot_id: 00000000-0000-0000-0000-000000000050
+              gtin: 7612345678900
+              quantity: 100
+      responses:
+        '201':
+          description: Unique QR codes minted and lot generated
+          content:
+            application/json:
+              schema:
+                title: MintQRCodeResponse
+                type: object
+                required:
+                  - success
+                  - lotId
+                  - codes
+                properties:
+                  success:
+                    type: boolean
+                    description: Request success indicator.
+                    example: true
+                  lotId:
+                    type: string
+                    description: The lotId attribute.
+                    example: string
+                  codes:
+                    type: array
+                    items:
+                      title: QRCode
+                      description: Unique unit serial code
+                      type: object
+                      required:
+                        - id
+                        - lotId
+                        - gtin
+                        - serial
+                        - currentState
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          description: Unique identifier (UUID v4).
+                          example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                        lotId:
+                          type: string
+                          format: uuid
+                          description: The lotId attribute.
+                          example: string
+                        gtin:
+                          type: string
+                          description: Global Trade Item Number (GS1 standard key).
+                          example: 7612345678900
+                        serial:
+                          type: string
+                          description: Unique serial number within the GTIN scope.
+                          example: SN908123
+                        currentState:
+                          type: string
+                          enum:
+                            - MINTED
+                            - IN_TRANSIT
+                            - VERIFIED
+                            - REVOKED
+                          description: The currentState attribute.
+                          example: string
+                      example:
+                        id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                        lotId: string
+                        gtin: 7612345678900
+                        serial: SN908123
+                        currentState: string
+                    description: The codes attribute.
+                    example: []
+                description: MintQRCodeResponse data schema.
+                example:
+                  success: true
+                  lotId: string
+                  codes: []
+        '400':
+          description: Validation error or malformed request payload
+          content:
+            application/json:
+              schema:
+                title: ValidationErrorResponse
+                description: Details of input validation failures
+                type: object
+                required:
+                  - success
+                  - error
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                    description: Request success indicator.
+                  error:
+                    type: object
+                    required:
+                      - statusCode
+                      - code
+                      - message
+                      - details
+                    properties:
+                      statusCode:
+                        type: integer
+                        example: 400
+                        description: The statusCode attribute.
+                      code:
+                        type: string
+                        example: VALIDATION_ERROR
+                        description: The code attribute.
+                      message:
+                        type: string
+                        example: Input validation failed
+                        description: The message attribute.
+                      details:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - field
+                            - message
+                          properties:
+                            field:
+                              type: string
+                              example: username
+                              description: The field attribute.
+                            message:
+                              type: string
+                              example: is a required field
+                              description: The message attribute.
+                        description: The details attribute.
+                        example:
+                          - field: username
+                            message: is a required field
+                    description: The error attribute.
+                    example:
+                      statusCode: 400
+                      code: VALIDATION_ERROR
+                      message: Input validation failed
+                      details:
+                        - field: username
+                          message: is a required field
+                example:
+                  success: false
+                  error:
+                    statusCode: 400
+                    code: VALIDATION_ERROR
+                    message: Input validation failed
+                    details:
+                      - field: username
+                        message: is a required field
+        '401':
+          description: Invalid or missing Authorization Bearer token
+          content:
+            application/json:
+              schema:
+                title: ErrorResponse
+                description: Standard error response envelope conforming to RFC 7807
+                type: object
+                required:
+                  - success
+                  - error
+                properties:
+                  success:
+                    type: boolean
+                    description: Always false for errors
+                    example: false
+                  error:
+                    type: object
+                    required:
+                      - statusCode
+                      - code
+                      - message
+                    properties:
+                      statusCode:
+                        type: integer
+                        description: HTTP status code
+                        example: 400
+                      code:
+                        type: string
+                        description: Internal business error code
+                        example: BAD_REQUEST
+                      message:
+                        type: string
+                        description: Human-readable explanation of the error
+                        example: The request payload was invalid
+                    description: The error attribute.
+                    example:
+                      statusCode: 400
+                      code: BAD_REQUEST
+                      message: The request payload was invalid
+                example:
+                  success: false
+                  error:
+                    statusCode: 400
+                    code: BAD_REQUEST
+                    message: The request payload was invalid
+        '403':
+          description: Access denied due to insufficient permissions or inactive organization
+          content:
+            application/json:
+              schema:
+                $ref: '#/paths/~1api~1v1~1mint/post/responses/401/content/application~1json/schema'
+        '404':
+          description: Requested resource was not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/paths/~1api~1v1~1mint/post/responses/401/content/application~1json/schema'
+        '409':
+          description: Request conflicts with existing resource state
+          content:
+            application/json:
+              schema:
+                $ref: '#/paths/~1api~1v1~1mint/post/responses/401/content/application~1json/schema'
+        '422':
+          description: Semantic validation errors on input properties
+          content:
+            application/json:
+              schema:
+                $ref: '#/paths/~1api~1v1~1mint/post/responses/400/content/application~1json/schema'
+        '500':
+          description: System error encountered while processing the request
+          content:
+            application/json:
+              schema:
+                $ref: '#/paths/~1api~1v1~1mint/post/responses/401/content/application~1json/schema'
+  /api/v1/gs1/validate:
+    post:
+      summary: Validate a GS1 GTIN key format
+      tags:
+        - Serialization & Minting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: GS1ValidateRequest
+              type: object
+              required:
+                - gtin
+              properties:
+                gtin:
+                  type: string
+                  description: Global Trade Item Number (GS1 standard key).
+                  example: 7612345678900
+              description: GS1ValidateRequest data schema.
+              example:
+                gtin: 7612345678900
+            example:
+              gtin: 7612345678900
+      responses:
+        '200':
+          description: GS1 format validation result returned
+          content:
+            application/json:
+              schema:
+                title: GS1ValidateResponse
+                type: object
+                required:
+                  - success
+                  - valid
+                properties:
+                  success:
+                    type: boolean
+                    description: Indicates request success status.
+                    example: true
+                  valid:
+                    type: boolean
+                    description: Indicates whether the GTIN format is valid.
+                    example: true
+                description: GS1ValidateResponse data schema.
+                example:
+                  success: true
+                  valid: true
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  '/01/{gtin}/21/{serial}':
+    get:
+      summary: Resolve canonical GS1 Digital Link redirection
+      tags:
+        - Resolver Redirects
+      parameters:
+        - name: gtin
+          in: path
+          required: true
+          description: 14-digit Global Trade Item Number
+          schema:
+            type: string
+          example: 7612345678900
+        - name: serial
+          in: path
+          required: true
+          description: Unique serial number of the unit
+          schema:
+            type: string
+          example: SN908123
+      responses:
+        '302':
+          description: Redirects to consumer provenance verification interface
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /log/api/v1/log:
+    post:
+      summary: Append a block to the auditable transparency log
+      tags:
+        - Transparency Log
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: AppendTransparencyLogRequest
+              type: object
+              required:
+                - entity_type
+                - entity_id
+                - event_type
+                - payload
+              properties:
+                entity_type:
+                  type: string
+                  description: The resource category being logged.
+                  example: USER
+                entity_id:
+                  type: string
+                  description: UUID referencing the changed resource.
+                  example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                  format: uuid
+                eventType:
+                  type: string
+                  description: The eventType attribute.
+                  example: string
+                payload:
+                  type: object
+                  description: Full structured JSON payload of the event.
+                  example:
+                    user_id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+              description: AppendTransparencyLogRequest data schema.
+              example:
+                entity_type: USER
+                entity_id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                eventType: string
+                payload:
+                  user_id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+            example:
+              entity_type: USER
+              entity_id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+              eventType: string
+              payload:
+                user_id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+      responses:
+        '201':
+          description: Cryptographic block appended to the log chain
+          content:
+            application/json:
+              schema:
+                title: TransparencyLedgerEntryResponse
+                type: object
+                required:
+                  - success
+                  - entry
+                properties:
+                  success:
+                    type: boolean
+                    description: Request success indicator.
+                    example: true
+                  entry:
+                    $ref: '#/paths/~1log~1api~1v1~1log~1entries/get/responses/200/content/application~1json/schema/properties/chain/items'
+                    description: The entry attribute.
+                    example: null
+                description: TransparencyLedgerEntryResponse data schema.
+                example:
+                  success: true
+                  entry: null
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /log/api/v1/log/entries:
+    get:
+      summary: Retrieve the full transparency log chain
+      tags:
+        - Transparency Log
+      responses:
+        '200':
+          description: Entire block history returned
+          content:
+            application/json:
+              schema:
+                title: TransparencyLedgerChainResponse
+                type: object
+                required:
+                  - chain
+                properties:
+                  chain:
+                    type: array
+                    items:
+                      title: TransparencyLedgerEntry
+                      description: Append-only hash chain block entry
+                      type: object
+                      required:
+                        - id
+                        - previousHash
+                        - blockHash
+                        - entityType
+                        - entityId
+                        - eventType
+                        - payload
+                      properties:
+                        id:
+                          type: integer
+                          description: Unique identifier (UUID v4).
+                          example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                          format: uuid
+                        previousHash:
+                          type: string
+                          description: The previousHash attribute.
+                          example: string
+                        blockHash:
+                          type: string
+                          description: The blockHash attribute.
+                          example: string
+                        entityType:
+                          type: string
+                          description: The entityType attribute.
+                          example: string
+                        entityId:
+                          type: string
+                          description: The entityId attribute.
+                          example: string
+                        eventType:
+                          type: string
+                          description: The eventType attribute.
+                          example: string
+                        payload:
+                          type: object
+                          description: Full structured JSON payload of the event.
+                          example:
+                            user_id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                      example:
+                        id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                        previousHash: string
+                        blockHash: string
+                        entityType: string
+                        entityId: string
+                        eventType: string
+                        payload:
+                          user_id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                    description: The chain attribute.
+                    example: []
+                description: TransparencyLedgerChainResponse data schema.
+                example:
+                  chain: []
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /log/api/v1/log/verify:
+    get:
+      summary: Verify the integrity of the transparency ledger
+      tags:
+        - Transparency Log
+      responses:
+        '200':
+          description: Cryptographic chain check results returned
+          content:
+            application/json:
+              schema:
+                title: TransparencyLedgerVerificationResponse
+                type: object
+                required:
+                  - success
+                  - details
+                properties:
+                  success:
+                    type: boolean
+                    description: Request success indicator.
+                    example: true
+                  details:
+                    type: string
+                    description: The details attribute.
+                    example: string
+                description: TransparencyLedgerVerificationResponse data schema.
+                example:
+                  success: true
+                  details: string
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  '/api/v1/verify/{gtin}/{serial}':
+    post:
+      summary: Verify product authenticity & scan coordinates
+      tags:
+        - Verification & Clones
+      parameters:
+        - $ref: '#/paths/~101~1%7Bgtin%7D~121~1%7Bserial%7D/get/parameters/0'
+        - $ref: '#/paths/~101~1%7Bgtin%7D~121~1%7Bserial%7D/get/parameters/1'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: VerifyCodeRequest
+              type: object
+              properties:
+                lat:
+                  type: number
+                  description: Geographical coordinate latitude.
+                  example: 12.9716
+                lon:
+                  type: number
+                  description: Geographical coordinate longitude.
+                  example: 77.5946
+                device_metadata:
+                  type: object
+                  description: Details of scanning device web client.
+                  example:
+                    browser: Mozilla/5.0 Chrome/120.0
+                    platform: macOS
+              description: VerifyCodeRequest data schema.
+              example:
+                lat: 12.9716
+                lon: 77.5946
+                device_metadata:
+                  browser: Mozilla/5.0 Chrome/120.0
+                  platform: macOS
+            example:
+              lat: 12.9716
+              lon: 77.5946
+              device_metadata:
+                browser: Mozilla/5.0 Chrome/120.0
+                platform: macOS
+      responses:
+        '200':
+          description: Code scan logged and verdict returned
+          content:
+            application/json:
+              schema:
+                title: VerificationResponse
+                type: object
+                required:
+                  - success
+                  - verdict
+                  - gtin
+                  - serial
+                properties:
+                  success:
+                    type: boolean
+                    description: Request success indicator.
+                    example: true
+                  verdict:
+                    type: string
+                    enum:
+                      - VERIFIED
+                      - REVOKED
+                      - EXHAUSTED
+                      - CLONE-SUSPECT
+                      - MISMATCH
+                    description: Authenticity verdict of the QR verification check.
+                    example: VERIFIED
+                  gtin:
+                    type: string
+                    description: Global Trade Item Number (GS1 standard key).
+                    example: 7612345678900
+                  serial:
+                    type: string
+                    description: Unique serial number within the GTIN scope.
+                    example: SN908123
+                  lotDetails:
+                    description: The lotDetails attribute.
+                    example: null
+                    title: Lot
+                    type: object
+                    required:
+                      - id
+                      - budgetId
+                      - cropType
+                      - weightKg
+                      - totalUnits
+                      - gtin
+                      - verificationStatus
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                        description: Unique identifier (UUID v4).
+                        example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                      budgetId:
+                        type: string
+                        format: uuid
+                        description: Unique identifier of the associated budget.
+                        example: 00000000-0000-0000-0000-000000000010
+                      cropType:
+                        type: string
+                        description: The cropType attribute.
+                        example: string
+                      weightKg:
+                        type: number
+                        description: The weightKg attribute.
+                        example: 1
+                      totalUnits:
+                        type: integer
+                        description: The totalUnits attribute.
+                        example: 1
+                      gtin:
+                        type: string
+                        description: Global Trade Item Number (GS1 standard key).
+                        example: 7612345678900
+                      verificationStatus:
+                        type: string
+                        enum:
+                          - PENDING
+                          - PASSED
+                          - FAILED
+                          - REVOKED
+                        description: The verificationStatus attribute.
+                        example: string
+                description: VerificationResponse data schema.
+                example:
+                  success: true
+                  verdict: VERIFIED
+                  gtin: 7612345678900
+                  serial: SN908123
+                  lotDetails: null
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  '/api/v1/verify/v/{public_identifier}':
+    post:
+      summary: Verify product scan using public identifier
+      tags:
+        - Verification & Clones
+      parameters:
+        - name: public_identifier
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: VerifyScanRequest
+              type: object
+              required:
+                - lat
+                - lon
+              properties:
+                lat:
+                  type: number
+                  description: Geographical coordinate latitude.
+                  example: 12.9716
+                lon:
+                  type: number
+                  description: Geographical coordinate longitude.
+                  example: 77.5946
+                device_metadata:
+                  type: object
+                  properties:
+                    browser:
+                      type: string
+                      description: The browser attribute.
+                      example: string
+                    platform:
+                      type: string
+                      description: The platform attribute.
+                      example: string
+                  description: Details of scanning device web client.
+                  example:
+                    browser: string
+                    platform: string
+              description: VerifyScanRequest data schema.
+              example:
+                lat: 12.9716
+                lon: 77.5946
+                device_metadata:
+                  browser: string
+                  platform: string
+            example:
+              lat: 12.9716
+              lon: 77.5946
+              device_metadata:
+                browser: string
+                platform: string
+      responses:
+        '200':
+          $ref: '#/paths/~1api~1v1~1verify~1%7Bgtin%7D~1%7Bserial%7D/post/responses/200'
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/verify/register:
+    post:
+      summary: Register a serialized QR code and its product metadata (Producer only)
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: VerifyRegisterRequest
+              type: object
+              required:
+                - public_identifier
+                - gtin
+                - serial
+                - verification_url
+                - qr_code_data_uri
+                - product_metadata
+              properties:
+                public_identifier:
+                  type: string
+                  description: Publicly shareable identifier for consumer verification.
+                  example: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+                  format: uuid
+                gtin:
+                  type: string
+                  description: Global Trade Item Number (GS1 standard key).
+                  example: 7612345678900
+                serial:
+                  type: string
+                  description: Unique serial number within the GTIN scope.
+                  example: SN908123
+                verification_url:
+                  type: string
+                  description: Redirection verification URL link.
+                  example: 'http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2'
+                  format: uri
+                qr_code_data_uri:
+                  type: string
+                  description: Base64 encoded data URI of the generated QR code image.
+                  example: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg...'
+                product_metadata:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      description: Human-readable legal name of the entity.
+                      example: Premium Farms Ltd
+                    manufacturer:
+                      type: string
+                      description: The manufacturer attribute.
+                      example: string
+                    country_of_origin:
+                      type: string
+                      description: The country_of_origin attribute.
+                      example: string
+                    batch_id:
+                      type: string
+                      description: The batch_id attribute.
+                      example: string
+                    packaging_date:
+                      type: string
+                      description: The packaging_date attribute.
+                      example: string
+                    expiry_date:
+                      type: string
+                      description: The expiry_date attribute.
+                      example: string
+                    net_weight:
+                      type: string
+                      description: The net_weight attribute.
+                      example: string
+                    organic_certificate_number:
+                      type: string
+                      description: The organic_certificate_number attribute.
+                      example: string
+                    certifying_authority:
+                      type: string
+                      description: The certifying_authority attribute.
+                      example: string
+                    scan_count:
+                      type: string
+                      description: The scan_count attribute.
+                      example: string
+                    mint_date:
+                      type: string
+                      description: The mint_date attribute.
+                      example: string
+                  description: Additional product description details.
+                  example:
+                    name: Premium Farms Ltd
+                    manufacturer: string
+                    country_of_origin: string
+                    batch_id: string
+                    packaging_date: string
+                    expiry_date: string
+                    net_weight: string
+                    organic_certificate_number: string
+                    certifying_authority: string
+                    scan_count: string
+                    mint_date: string
+              description: VerifyRegisterRequest data schema.
+              example:
+                public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+                gtin: 7612345678900
+                serial: SN908123
+                verification_url: 'http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2'
+                qr_code_data_uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg...'
+                product_metadata:
+                  name: Premium Farms Ltd
+                  manufacturer: string
+                  country_of_origin: string
+                  batch_id: string
+                  packaging_date: string
+                  expiry_date: string
+                  net_weight: string
+                  organic_certificate_number: string
+                  certifying_authority: string
+                  scan_count: string
+                  mint_date: string
+            example:
+              public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+              gtin: 7612345678900
+              serial: SN908123
+              verification_url: 'http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2'
+              qr_code_data_uri: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg...'
+              product_metadata:
+                name: Premium Farms Ltd
+                manufacturer: string
+                country_of_origin: string
+                batch_id: string
+                packaging_date: string
+                expiry_date: string
+                net_weight: string
+                organic_certificate_number: string
+                certifying_authority: string
+                scan_count: string
+                mint_date: string
+      responses:
+        '201':
+          description: Serialized unit registered successfully
+          content:
+            application/json:
+              schema:
+                title: VerificationRegisterResponse
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    description: Indicates request success status.
+                    example: true
+                  data:
+                    type: object
+                    required:
+                      - public_identifier
+                      - gtin
+                      - serial
+                      - verification_url
+                      - qr_code_data_uri
+                      - current_state
+                      - product_metadata
+                    properties:
+                      public_identifier:
+                        type: string
+                        description: Publicly shareable identifier for consumer verification.
+                        example: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+                        format: uuid
+                      gtin:
+                        type: string
+                        description: Global Trade Item Number (GS1 standard key).
+                        example: 7612345678900
+                      serial:
+                        type: string
+                        description: Unique serial number within the GTIN scope.
+                        example: SN908123
+                      verification_url:
+                        type: string
+                        description: Redirection verification URL link.
+                        example: 'http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2'
+                        format: uri
+                      qr_code_data_uri:
+                        type: string
+                        description: Base64 encoded data URI of the generated QR code image.
+                        example: 'data:image/png;base64,iVBORw0KGgoAAAANS...'
+                      current_state:
+                        type: string
+                        description: Current state of the registered code.
+                        example: ACTIVE
+                      product_metadata:
+                        type: object
+                        description: Additional product description details.
+                        example:
+                          name: Organic White Honey
+                          manufacturer: Premium Farms
+                          country_of_origin: India
+                          batch_id: lot-105
+                          packaging_date: '2026-07-16'
+                          expiry_date: '2027-07-16'
+                          net_weight: 150 KG
+                          organic_certificate_number: NPOP-OTC-2026-8802
+                          certifying_authority: Organic Trade Council India
+                          scan_count: '0'
+                          mint_date: '2026-07-16'
+                    description: The data attribute.
+                    example:
+                      public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+                      gtin: 7612345678900
+                      serial: SN908123
+                      verification_url: 'http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2'
+                      qr_code_data_uri: 'data:image/png;base64,iVBORw0KGgoAAAANS...'
+                      current_state: ACTIVE
+                      product_metadata:
+                        name: Organic White Honey
+                        manufacturer: Premium Farms
+                        country_of_origin: India
+                        batch_id: lot-105
+                        packaging_date: '2026-07-16'
+                        expiry_date: '2027-07-16'
+                        net_weight: 150 KG
+                        organic_certificate_number: NPOP-OTC-2026-8802
+                        certifying_authority: Organic Trade Council India
+                        scan_count: '0'
+                        mint_date: '2026-07-16'
+                description: VerificationRegisterResponse data schema.
+                example:
+                  success: true
+                  data:
+                    public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+                    gtin: 7612345678900
+                    serial: SN908123
+                    verification_url: 'http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2'
+                    qr_code_data_uri: 'data:image/png;base64,iVBORw0KGgoAAAANS...'
+                    current_state: ACTIVE
+                    product_metadata:
+                      name: Organic White Honey
+                      manufacturer: Premium Farms
+                      country_of_origin: India
+                      batch_id: lot-105
+                      packaging_date: '2026-07-16'
+                      expiry_date: '2027-07-16'
+                      net_weight: 150 KG
+                      organic_certificate_number: NPOP-OTC-2026-8802
+                      certifying_authority: Organic Trade Council India
+                      scan_count: '0'
+                      mint_date: '2026-07-16'
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '409':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/409'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/verify/revoke:
+    post:
+      summary: Revoke serialized codes under a batch lot
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: RevokeLotRequest
+              type: object
+              required:
+                - lotId
+                - reason
+              properties:
+                lotId:
+                  type: string
+                  description: The lotId attribute.
+                  example: string
+                reason:
+                  type: string
+                  description: The reason attribute.
+                  example: string
+              description: RevokeLotRequest data schema.
+              example:
+                lotId: string
+                reason: string
+            example:
+              lotId: string
+              reason: string
+      responses:
+        '200':
+          description: Batch lot/code successfully deactivated
+          content:
+            application/json:
+              schema:
+                title: RevocationResponse
+                type: object
+                required:
+                  - success
+                  - lotId
+                  - status
+                properties:
+                  success:
+                    type: boolean
+                    description: Request success indicator.
+                    example: true
+                  lotId:
+                    type: string
+                    description: The lotId attribute.
+                    example: string
+                  status:
+                    type: string
+                    description: Current status of the entity.
+                    example: ACTIVATED
+                description: RevocationResponse data schema.
+                example:
+                  success: true
+                  lotId: string
+                  status: ACTIVATED
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '409':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/409'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  '/api/v1/lots/{id}/revoke':
+    post:
+      summary: Revoke an entire batch lot run (Cascades to all codes)
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the batch lot run
+          schema:
+            type: string
+          example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+      responses:
+        '200':
+          $ref: '#/paths/~1api~1v1~1verify~1revoke/post/responses/200'
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '409':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/409'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/verify/unit-codes:
+    get:
+      summary: Get all registered unit serialization codes
+      tags:
+        - Verification & Clones
+      responses:
+        '200':
+          description: List of registered unit serialization codes returned
+          content:
+            application/json:
+              schema:
+                title: UnitCodeListResponse
+                type: object
+                required:
+                  - unitCodes
+                properties:
+                  unitCodes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        lotId:
+                          type: string
+                          description: The lotId attribute.
+                          example: string
+                        serial:
+                          type: string
+                          description: Unique serial number within the GTIN scope.
+                          example: SN908123
+                        gtin:
+                          type: string
+                          description: Global Trade Item Number (GS1 standard key).
+                          example: 7612345678900
+                        public_identifier:
+                          type: string
+                          description: Publicly shareable identifier for consumer verification.
+                          example: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+                          format: uuid
+                        verification_url:
+                          type: string
+                          description: Redirection verification URL link.
+                          example: 'http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2'
+                          format: uri
+                        qrCodeDataUri:
+                          type: string
+                          description: The qrCodeDataUri attribute.
+                          example: string
+                        state:
+                          type: string
+                          description: The state attribute.
+                          example: string
+                        clone_flag:
+                          type: boolean
+                          description: Indicates if a cloning attempt was detected.
+                          example: false
+                        productMetadata:
+                          type: object
+                          description: The productMetadata attribute.
+                          example: {}
+                    description: The unitCodes attribute.
+                    example:
+                      - lotId: string
+                        serial: SN908123
+                        gtin: 7612345678900
+                        public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+                        verification_url: 'http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2'
+                        qrCodeDataUri: string
+                        state: string
+                        clone_flag: false
+                        productMetadata: {}
+                description: UnitCodeListResponse data schema.
+                example:
+                  unitCodes:
+                    - lotId: string
+                      serial: SN908123
+                      gtin: 7612345678900
+                      public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+                      verification_url: 'http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2'
+                      qrCodeDataUri: string
+                      state: string
+                      clone_flag: false
+                      productMetadata: {}
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/verify/lots:
+    get:
+      summary: Get all registered batch lots
+      tags:
+        - Verification & Clones
+      responses:
+        '200':
+          description: List of registered batch lots returned
+          content:
+            application/json:
+              schema:
+                title: LotListResponse
+                type: object
+                required:
+                  - lots
+                properties:
+                  lots:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          description: Unique identifier (UUID v4).
+                          example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                          format: uuid
+                        budgetId:
+                          type: string
+                          description: Unique identifier of the associated budget.
+                          example: 00000000-0000-0000-0000-000000000010
+                          format: uuid
+                        crop:
+                          type: string
+                          description: Crop name.
+                          example: Organic White Honey
+                        weight:
+                          type: number
+                          description: The weight attribute.
+                          example: 1
+                        status:
+                          type: string
+                          description: Current status of the entity.
+                          example: ACTIVATED
+                    description: The lots attribute.
+                    example:
+                      - id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                        budgetId: 00000000-0000-0000-0000-000000000010
+                        crop: Organic White Honey
+                        weight: 1
+                        status: ACTIVATED
+                description: LotListResponse data schema.
+                example:
+                  lots:
+                    - id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                      budgetId: 00000000-0000-0000-0000-000000000010
+                      crop: Organic White Honey
+                      weight: 1
+                      status: ACTIVATED
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/verify/lab-results:
+    post:
+      summary: Upload laboratory result reports and bind PDF hash (Certifier/Lab only)
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: CreateLabResultRequest
+              type: object
+              required:
+                - lot_id
+                - lab_name
+                - test_type
+                - result_summary
+                - report_hash
+              properties:
+                lot_id:
+                  type: string
+                  description: Unique batch lot identifier.
+                  example: 00000000-0000-0000-0000-000000000050
+                  format: uuid
+                lab_name:
+                  type: string
+                  description: The lab_name attribute.
+                  example: string
+                test_type:
+                  type: string
+                  description: The test_type attribute.
+                  example: string
+                result_summary:
+                  type: string
+                  enum:
+                    - PASSED
+                    - FAILED
+                  description: The result_summary attribute.
+                  example: string
+                report_hash:
+                  type: string
+                  description: The report_hash attribute.
+                  example: string
+                report_reference:
+                  type: string
+                  description: The report_reference attribute.
+                  example: string
+              description: CreateLabResultRequest data schema.
+              example:
+                lot_id: 00000000-0000-0000-0000-000000000050
+                lab_name: string
+                test_type: string
+                result_summary: string
+                report_hash: string
+                report_reference: string
+            example:
+              lot_id: 00000000-0000-0000-0000-000000000050
+              lab_name: string
+              test_type: string
+              result_summary: string
+              report_hash: string
+              report_reference: string
+      responses:
+        '200':
+          description: Lab result registered and PDF hash bound successfully
+          content:
+            application/json:
+              schema:
+                title: LabResultResponse
+                type: object
+                required:
+                  - labResult
+                properties:
+                  labResult:
+                    description: The labResult attribute.
+                    example: null
+                    title: LabResult
+                    type: object
+                    required:
+                      - id
+                      - lotId
+                      - labName
+                      - resultSummary
+                      - reportHash
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                        description: Unique identifier (UUID v4).
+                        example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                      lotId:
+                        type: string
+                        format: uuid
+                        description: The lotId attribute.
+                        example: string
+                      labName:
+                        type: string
+                        description: The labName attribute.
+                        example: string
+                      resultSummary:
+                        type: string
+                        enum:
+                          - PASSED
+                          - FAILED
+                        description: The resultSummary attribute.
+                        example: string
+                      reportHash:
+                        type: string
+                        description: The reportHash attribute.
+                        example: string
+                description: LabResultResponse data schema.
+                example:
+                  labResult: null
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/verify/investigations:
+    get:
+      summary: List all risk investigations (Certifier only)
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of investigation cases returned
+          content:
+            application/json:
+              schema:
+                title: InvestigationListResponse
+                type: object
+                required:
+                  - investigations
+                properties:
+                  investigations:
+                    type: array
+                    items:
+                      title: Investigation
+                      description: Risk investigation case logs for suspected clones
+                      type: object
+                      required:
+                        - id
+                        - gtin
+                        - serial
+                        - status
+                        - riskScore
+                        - scansCount
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          description: Unique identifier (UUID v4).
+                          example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                        gtin:
+                          type: string
+                          description: Global Trade Item Number (GS1 standard key).
+                          example: 7612345678900
+                        serial:
+                          type: string
+                          description: Unique serial number within the GTIN scope.
+                          example: SN908123
+                        status:
+                          type: string
+                          enum:
+                            - OPEN
+                            - INVESTIGATING
+                            - REVOKED
+                            - DISMISSED
+                          description: Current status of the entity.
+                          example: ACTIVATED
+                        riskScore:
+                          type: number
+                          description: The riskScore attribute.
+                          example: 1
+                        scansCount:
+                          type: integer
+                          description: The scansCount attribute.
+                          example: 1
+                      example:
+                        id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+                        gtin: 7612345678900
+                        serial: SN908123
+                        status: ACTIVATED
+                        riskScore: 1
+                        scansCount: 1
+                    description: The investigations attribute.
+                    example: []
+                description: InvestigationListResponse data schema.
+                example:
+                  investigations: []
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  '/api/v1/verify/investigations/{id}':
+    get:
+      summary: Get details and evidence for a specific investigation (Certifier only)
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the risk investigation case
+          schema:
+            type: string
+          example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+      responses:
+        '200':
+          description: Investigation details and evidence logs returned
+          content:
+            application/json:
+              schema:
+                title: InvestigationResponse
+                type: object
+                required:
+                  - investigation
+                properties:
+                  investigation:
+                    $ref: '#/paths/~1api~1v1~1verify~1investigations/get/responses/200/content/application~1json/schema/properties/investigations/items'
+                    description: The investigation attribute.
+                    example: null
+                description: InvestigationResponse data schema.
+                example:
+                  investigation: null
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  '/api/v1/verify/investigations/{id}/approve':
+    post:
+      summary: Approve product revocation for an investigation (Certifier only)
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/paths/~1api~1v1~1verify~1investigations~1%7Bid%7D/get/parameters/0'
+      responses:
+        '200':
+          description: Investigation action successfully complete
+          content:
+            application/json:
+              schema:
+                title: InvestigationActionResponse
+                type: object
+                required:
+                  - success
+                  - investigationId
+                  - status
+                properties:
+                  success:
+                    type: boolean
+                    description: Request success indicator.
+                    example: true
+                  investigationId:
+                    type: string
+                    description: The investigationId attribute.
+                    example: string
+                  status:
+                    type: string
+                    description: Current status of the entity.
+                    example: ACTIVATED
+                description: InvestigationActionResponse data schema.
+                example:
+                  success: true
+                  investigationId: string
+                  status: ACTIVATED
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  '/api/v1/verify/investigations/{id}/dismiss':
+    post:
+      summary: Dismiss an investigation case (Certifier only)
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/paths/~1api~1v1~1verify~1investigations~1%7Bid%7D/get/parameters/0'
+      responses:
+        '200':
+          $ref: '#/paths/~1api~1v1~1verify~1investigations~1%7Bid%7D~1approve/post/responses/200'
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  '/api/v1/integrations/tracenet/certificates/{licenseId}':
+    get:
+      summary: Fetch NPOP organic farmer certification status by license ID
+      tags:
+        - External Integrations
+      parameters:
+        - name: licenseId
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The organic license reference number (e.g. NPOP-OTC-2026-8802)
+      responses:
+        '200':
+          description: TraceNet record status returned
+          content:
+            application/json:
+              schema:
+                title: TraceNetReferenceResponse
+                type: object
+                required:
+                  - traceNetRecord
+                properties:
+                  traceNetRecord:
+                    description: The traceNetRecord attribute.
+                    example: null
+                    title: TraceNetReference
+                    type: object
+                    required:
+                      - referenceId
+                      - licenseNumber
+                      - status
+                      - cropType
+                    properties:
+                      referenceId:
+                        type: string
+                        description: The referenceId attribute.
+                        example: string
+                      licenseNumber:
+                        type: string
+                        description: The licenseNumber attribute.
+                        example: string
+                      status:
+                        type: string
+                        enum:
+                          - VALID
+                          - EXPIRED
+                          - SUSPENDED
+                        description: Current status of the entity.
+                        example: ACTIVATED
+                      cropType:
+                        type: string
+                        description: The cropType attribute.
+                        example: string
+                description: TraceNetReferenceResponse data schema.
+                example:
+                  traceNetRecord: null
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  '/api/v1/integrations/agristack/farmers/{id}':
+    get:
+      summary: Fetch AgriStack verified land coordinates bounds by farmer ID
+      tags:
+        - External Integrations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            description: The AgriStack farmer ID
+      responses:
+        '200':
+          description: AgriStack parcel geometry returned
+          content:
+            application/json:
+              schema:
+                title: AgriStackPlotResponse
+                type: object
+                required:
+                  - plotRecord
+                properties:
+                  plotRecord:
+                    description: The plotRecord attribute.
+                    example: null
+                    title: AgriStackPlot
+                    type: object
+                    required:
+                      - plotId
+                      - ownerName
+                      - areaHectares
+                      - cropType
+                      - coordinates
+                    properties:
+                      plotId:
+                        type: string
+                        description: The plotId attribute.
+                        example: string
+                      ownerName:
+                        type: string
+                        description: The ownerName attribute.
+                        example: string
+                      areaHectares:
+                        type: number
+                        description: The areaHectares attribute.
+                        example: 1
+                      cropType:
+                        type: string
+                        description: The cropType attribute.
+                        example: string
+                      coordinates:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - lat
+                            - lon
+                          properties:
+                            lat:
+                              type: number
+                              description: Geographical coordinate latitude.
+                              example: 12.9716
+                            lon:
+                              type: number
+                              description: Geographical coordinate longitude.
+                              example: 77.5946
+                        description: The coordinates attribute.
+                        example:
+                          - lat: 12.9716
+                            lon: 77.5946
+                description: AgriStackPlotResponse data schema.
+                example:
+                  plotRecord: null
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer token authentication
