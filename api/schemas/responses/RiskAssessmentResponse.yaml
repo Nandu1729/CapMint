@@ -1,7 +1,12 @@
 title: RiskAssessmentResponse
 type: object
 required:
-  - riskAssessment
+- riskAssessment
 properties:
   riskAssessment:
-    $ref: '../domain/RiskAssessment.yaml'
+    $ref: ../domain/RiskAssessment.yaml
+    description: The riskAssessment attribute.
+    example: null
+description: RiskAssessmentResponse data schema.
+example:
+  riskAssessment: null

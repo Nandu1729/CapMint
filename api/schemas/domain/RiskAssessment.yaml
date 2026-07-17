@@ -2,14 +2,23 @@ title: RiskAssessment
 description: Risk assessment metrics evaluated during scan validation
 type: object
 required:
-  - riskScore
-  - geolocationMatch
-  - scanFrequency24h
+- riskScore
+- geolocationMatch
+- scanFrequency24h
 properties:
   riskScore:
     type: number
     example: 0.12
+    description: The riskScore attribute.
   geolocationMatch:
     type: boolean
+    description: The geolocationMatch attribute.
+    example: true
   scanFrequency24h:
     type: integer
+    description: The scanFrequency24h attribute.
+    example: 1
+example:
+  riskScore: 0.12
+  geolocationMatch: true
+  scanFrequency24h: 1

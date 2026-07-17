@@ -1,0 +1,11 @@
+description: Access denied due to insufficient permissions or inactive organization
+content:
+  application/json:
+    schema:
+      $ref: '../../schemas/common/ErrorResponse.yaml'
+    example:
+      success: false
+      error:
+        statusCode: 403
+        code: "FORBIDDEN"
+        message: "Access denied. Insufficient permissions to access this resource."

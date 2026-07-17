@@ -1,7 +1,12 @@
 title: CertificateResponse
 type: object
 required:
-  - certificate
+- certificate
 properties:
   certificate:
-    $ref: '../domain/Certificate.yaml'
+    $ref: ../domain/Certificate.yaml
+    description: The certificate attribute.
+    example: null
+description: CertificateResponse data schema.
+example:
+  certificate: null

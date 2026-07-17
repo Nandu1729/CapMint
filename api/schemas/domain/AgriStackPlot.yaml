@@ -2,29 +2,53 @@ title: AgriStackPlot
 description: AgriStack parcel geometry registry mapping
 type: object
 required:
-  - plotId
-  - ownerName
-  - areaHectares
-  - cropType
-  - coordinates
+- plotId
+- ownerName
+- areaHectares
+- cropType
+- coordinates
 properties:
   plotId:
     type: string
+    description: The plotId attribute.
+    example: string
   ownerName:
     type: string
+    description: The ownerName attribute.
+    example: string
   areaHectares:
     type: number
+    description: The areaHectares attribute.
+    example: 1.0
   cropType:
     type: string
+    description: The cropType attribute.
+    example: string
   coordinates:
     type: array
     items:
       type: object
       required:
-        - lat
-        - lon
+      - lat
+      - lon
       properties:
         lat:
           type: number
+          description: Geographical coordinate latitude.
+          example: 12.9716
         lon:
           type: number
+          description: Geographical coordinate longitude.
+          example: 77.5946
+    description: The coordinates attribute.
+    example:
+    - lat: 12.9716
+      lon: 77.5946
+example:
+  plotId: string
+  ownerName: string
+  areaHectares: 1.0
+  cropType: string
+  coordinates:
+  - lat: 12.9716
+    lon: 77.5946

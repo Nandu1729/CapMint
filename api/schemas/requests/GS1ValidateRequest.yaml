@@ -1,0 +1,12 @@
+title: GS1ValidateRequest
+type: object
+required:
+- gtin
+properties:
+  gtin:
+    type: string
+    description: Global Trade Item Number (GS1 standard key).
+    example: 07612345678900
+description: GS1ValidateRequest data schema.
+example:
+  gtin: 07612345678900

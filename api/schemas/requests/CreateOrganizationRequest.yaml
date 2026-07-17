@@ -1,11 +1,23 @@
 title: CreateOrganizationRequest
 type: object
 required:
-  - name
-  - type
+- name
+- type
 properties:
   name:
     type: string
+    description: Human-readable legal name of the entity.
+    example: Premium Farms Ltd
   type:
     type: string
-    enum: [PRODUCER, NABL_LABORATORY, CERTIFICATION_BODY, EXPORTER]
+    enum:
+    - PRODUCER
+    - NABL_LABORATORY
+    - CERTIFICATION_BODY
+    - EXPORTER
+    description: General categorization type.
+    example: PRODUCER
+description: CreateOrganizationRequest data schema.
+example:
+  name: Premium Farms Ltd
+  type: PRODUCER

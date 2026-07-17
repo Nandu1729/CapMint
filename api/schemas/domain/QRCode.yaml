@@ -2,22 +2,42 @@ title: QRCode
 description: Unique unit serial code
 type: object
 required:
-  - id
-  - lotId
-  - gtin
-  - serial
-  - currentState
+- id
+- lotId
+- gtin
+- serial
+- currentState
 properties:
   id:
     type: string
     format: uuid
+    description: Unique identifier (UUID v4).
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
   lotId:
     type: string
     format: uuid
+    description: The lotId attribute.
+    example: string
   gtin:
     type: string
+    description: Global Trade Item Number (GS1 standard key).
+    example: 07612345678900
   serial:
     type: string
+    description: Unique serial number within the GTIN scope.
+    example: SN908123
   currentState:
     type: string
-    enum: [MINTED, IN_TRANSIT, VERIFIED, REVOKED]
+    enum:
+    - MINTED
+    - IN_TRANSIT
+    - VERIFIED
+    - REVOKED
+    description: The currentState attribute.
+    example: string
+example:
+  id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  lotId: string
+  gtin: 07612345678900
+  serial: SN908123
+  currentState: string

@@ -2,4 +2,4 @@ title: Timestamp
 description: Standard ISO-8601 date-time string
 type: string
 format: date-time
-example: "2026-07-16T12:00:00Z"
+example: '2026-07-16T12:00:00Z'

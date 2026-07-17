@@ -2,40 +2,67 @@ title: ValidationErrorResponse
 description: Details of input validation failures
 type: object
 required:
-  - success
-  - error
+- success
+- error
 properties:
   success:
     type: boolean
     example: false
+    description: Request success indicator.
   error:
     type: object
     required:
-      - statusCode
-      - code
-      - message
-      - details
+    - statusCode
+    - code
+    - message
+    - details
     properties:
       statusCode:
         type: integer
         example: 400
+        description: The statusCode attribute.
       code:
         type: string
-        example: "VALIDATION_ERROR"
+        example: VALIDATION_ERROR
+        description: The code attribute.
       message:
         type: string
-        example: "Input validation failed"
+        example: Input validation failed
+        description: The message attribute.
       details:
         type: array
         items:
           type: object
           required:
-            - field
-            - message
+          - field
+          - message
           properties:
             field:
               type: string
-              example: "username"
+              example: username
+              description: The field attribute.
             message:
               type: string
-              example: "is a required field"
+              example: is a required field
+              description: The message attribute.
+        description: The details attribute.
+        example:
+        - &id001
+          field: username
+          message: is a required field
+    description: The error attribute.
+    example:
+      statusCode: 400
+      code: VALIDATION_ERROR
+      message: Input validation failed
+      details:
+      - *id001
+example:
+  success: false
+  error:
+    statusCode: 400
+    code: VALIDATION_ERROR
+    message: Input validation failed
+    details:
+    - field: username
+      message: is a required field

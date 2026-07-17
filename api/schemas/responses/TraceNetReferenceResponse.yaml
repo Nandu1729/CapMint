@@ -1,7 +1,12 @@
 title: TraceNetReferenceResponse
 type: object
 required:
-  - traceNetRecord
+- traceNetRecord
 properties:
   traceNetRecord:
-    $ref: '../domain/TraceNetReference.yaml'
+    $ref: ../domain/TraceNetReference.yaml
+    description: The traceNetRecord attribute.
+    example: null
+description: TraceNetReferenceResponse data schema.
+example:
+  traceNetRecord: null

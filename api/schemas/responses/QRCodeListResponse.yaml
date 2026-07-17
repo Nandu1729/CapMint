@@ -1,9 +1,14 @@
 title: QRCodeListResponse
 type: object
 required:
-  - codes
+- codes
 properties:
   codes:
     type: array
     items:
-      $ref: '../domain/QRCode.yaml'
+      $ref: ../domain/QRCode.yaml
+    description: The codes attribute.
+    example: []
+description: QRCodeListResponse data schema.
+example:
+  codes: []

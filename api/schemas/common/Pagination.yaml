@@ -2,10 +2,10 @@ title: Pagination
 description: Pagination properties for lists
 type: object
 required:
-  - page
-  - limit
-  - total
-  - totalPages
+- page
+- limit
+- total
+- totalPages
 properties:
   page:
     type: integer
@@ -23,3 +23,8 @@ properties:
     type: integer
     description: Total pages count
     example: 5
+example:
+  page: 1
+  limit: 10
+  total: 45
+  totalPages: 5

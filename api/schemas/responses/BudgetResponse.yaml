@@ -1,7 +1,12 @@
 title: BudgetResponse
 type: object
 required:
-  - budget
+- budget
 properties:
   budget:
-    $ref: '../domain/Budget.yaml'
+    $ref: ../domain/Budget.yaml
+    description: The budget attribute.
+    example: null
+description: BudgetResponse data schema.
+example:
+  budget: null

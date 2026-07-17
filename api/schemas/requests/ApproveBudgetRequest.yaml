@@ -1,13 +1,25 @@
 title: ApproveBudgetRequest
 type: object
 required:
-  - budgetId
-  - certifierId
-  - signature
+- budgetId
+- certifierId
+- signature
 properties:
   budgetId:
     type: string
+    description: Unique identifier of the associated budget.
+    example: 00000000-0000-0000-0000-000000000010
+    format: uuid
   certifierId:
     type: string
+    description: The certifierId attribute.
+    example: string
   signature:
     type: string
+    description: The signature attribute.
+    example: string
+description: ApproveBudgetRequest data schema.
+example:
+  budgetId: 00000000-0000-0000-0000-000000000010
+  certifierId: string
+  signature: string

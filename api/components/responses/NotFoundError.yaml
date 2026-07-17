@@ -1,0 +1,11 @@
+description: Requested resource was not found
+content:
+  application/json:
+    schema:
+      $ref: '../../schemas/common/ErrorResponse.yaml'
+    example:
+      success: false
+      error:
+        statusCode: 404
+        code: "NOT_FOUND"
+        message: "The requested resource could not be found."

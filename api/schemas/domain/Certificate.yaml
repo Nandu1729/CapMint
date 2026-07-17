@@ -2,18 +2,33 @@ title: Certificate
 description: Organic standard validation certificate
 type: object
 required:
-  - id
-  - type
-  - fileUrl
-  - fileHash
+- id
+- type
+- fileUrl
+- fileHash
 properties:
   id:
     type: string
     format: uuid
+    description: Unique identifier (UUID v4).
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
   type:
     type: string
-    enum: [NPOP_ORGANIC, NABL_TEST]
+    enum:
+    - NPOP_ORGANIC
+    - NABL_TEST
+    description: General categorization type.
+    example: PRODUCER
   fileUrl:
     type: string
+    description: The fileUrl attribute.
+    example: string
   fileHash:
     type: string
+    description: The fileHash attribute.
+    example: string
+example:
+  id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  type: PRODUCER
+  fileUrl: string
+  fileHash: string

@@ -2,24 +2,47 @@ title: Investigation
 description: Risk investigation case logs for suspected clones
 type: object
 required:
-  - id
-  - gtin
-  - serial
-  - status
-  - riskScore
-  - scansCount
+- id
+- gtin
+- serial
+- status
+- riskScore
+- scansCount
 properties:
   id:
     type: string
     format: uuid
+    description: Unique identifier (UUID v4).
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
   gtin:
     type: string
+    description: Global Trade Item Number (GS1 standard key).
+    example: 07612345678900
   serial:
     type: string
+    description: Unique serial number within the GTIN scope.
+    example: SN908123
   status:
     type: string
-    enum: [OPEN, INVESTIGATING, REVOKED, DISMISSED]
+    enum:
+    - OPEN
+    - INVESTIGATING
+    - REVOKED
+    - DISMISSED
+    description: Current status of the entity.
+    example: ACTIVATED
   riskScore:
     type: number
+    description: The riskScore attribute.
+    example: 1.0
   scansCount:
     type: integer
+    description: The scansCount attribute.
+    example: 1
+example:
+  id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  gtin: 07612345678900
+  serial: SN908123
+  status: ACTIVATED
+  riskScore: 1.0
+  scansCount: 1

@@ -2,22 +2,40 @@ title: Notification
 description: Dispatched system alert notification
 type: object
 required:
-  - id
-  - recipientId
-  - title
-  - message
-  - status
+- id
+- recipientId
+- title
+- message
+- status
 properties:
   id:
     type: string
     format: uuid
+    description: Unique identifier (UUID v4).
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
   recipientId:
     type: string
     format: uuid
+    description: The recipientId attribute.
+    example: string
   title:
     type: string
+    description: The title attribute.
+    example: string
   message:
     type: string
+    description: The message attribute.
+    example: string
   status:
     type: string
-    enum: [UNREAD, READ]
+    enum:
+    - UNREAD
+    - READ
+    description: Current status of the entity.
+    example: ACTIVATED
+example:
+  id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  recipientId: string
+  title: string
+  message: string
+  status: ACTIVATED

@@ -1,13 +1,25 @@
 title: BudgetDrawdownResponse
 type: object
 required:
-  - success
-  - budgetId
-  - remainingKg
+- success
+- budgetId
+- remainingKg
 properties:
   success:
     type: boolean
+    description: Request success indicator.
+    example: true
   budgetId:
     type: string
+    description: Unique identifier of the associated budget.
+    example: 00000000-0000-0000-0000-000000000010
+    format: uuid
   remainingKg:
     type: number
+    description: The remainingKg attribute.
+    example: 1.0
+description: BudgetDrawdownResponse data schema.
+example:
+  success: true
+  budgetId: 00000000-0000-0000-0000-000000000010
+  remainingKg: 1.0

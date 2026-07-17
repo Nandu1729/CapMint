@@ -2,16 +2,21 @@ title: GeoLocation
 description: Geographic coordinate mapping
 type: object
 required:
-  - latitude
-  - longitude
+- latitude
+- longitude
 properties:
   latitude:
     type: number
     minimum: -90
     maximum: 90
     example: 23.0225
+    description: The latitude attribute.
   longitude:
     type: number
     minimum: -180
     maximum: 180
     example: 72.5714
+    description: The longitude attribute.
+example:
+  latitude: 23.0225
+  longitude: 72.5714

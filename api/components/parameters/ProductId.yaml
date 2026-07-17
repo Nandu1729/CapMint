@@ -4,3 +4,4 @@ required: true
 description: Unique identifier of the product
 schema:
   type: string
+example: string

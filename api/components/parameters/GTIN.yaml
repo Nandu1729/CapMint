@@ -4,3 +4,4 @@ required: true
 description: 14-digit Global Trade Item Number
 schema:
   type: string
+example: 07612345678900

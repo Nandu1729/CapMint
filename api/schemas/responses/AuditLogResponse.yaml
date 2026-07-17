@@ -1,7 +1,12 @@
 title: AuditLogResponse
 type: object
 required:
-  - auditLog
+- auditLog
 properties:
   auditLog:
-    $ref: '../domain/AuditLog.yaml'
+    $ref: ../domain/AuditLog.yaml
+    description: The auditLog attribute.
+    example: null
+description: AuditLogResponse data schema.
+example:
+  auditLog: null

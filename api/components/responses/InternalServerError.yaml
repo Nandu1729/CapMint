@@ -1,0 +1,11 @@
+description: System error encountered while processing the request
+content:
+  application/json:
+    schema:
+      $ref: '../../schemas/common/ErrorResponse.yaml'
+    example:
+      success: false
+      error:
+        statusCode: 500
+        code: "INTERNAL_SERVER_ERROR"
+        message: "An internal server error occurred."

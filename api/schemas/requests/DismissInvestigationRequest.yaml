@@ -1,7 +1,12 @@
 title: DismissInvestigationRequest
 type: object
 required:
-  - reason
+- reason
 properties:
   reason:
     type: string
+    description: The reason attribute.
+    example: string
+description: DismissInvestigationRequest data schema.
+example:
+  reason: string

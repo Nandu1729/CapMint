@@ -1,19 +1,41 @@
 title: VerificationResponse
 type: object
 required:
-  - success
-  - verdict
-  - gtin
-  - serial
+- success
+- verdict
+- gtin
+- serial
 properties:
   success:
     type: boolean
+    description: Request success indicator.
+    example: true
   verdict:
     type: string
-    enum: [VERIFIED, REVOKED, EXHAUSTED, CLONE-SUSPECT, MISMATCH]
+    enum:
+    - VERIFIED
+    - REVOKED
+    - EXHAUSTED
+    - CLONE-SUSPECT
+    - MISMATCH
+    description: Authenticity verdict of the QR verification check.
+    example: VERIFIED
   gtin:
     type: string
+    description: Global Trade Item Number (GS1 standard key).
+    example: 07612345678900
   serial:
     type: string
+    description: Unique serial number within the GTIN scope.
+    example: SN908123
   lotDetails:
-    $ref: '../domain/Lot.yaml'
+    $ref: ../domain/Lot.yaml
+    description: The lotDetails attribute.
+    example: null
+description: VerificationResponse data schema.
+example:
+  success: true
+  verdict: VERIFIED
+  gtin: 07612345678900
+  serial: SN908123
+  lotDetails: null

@@ -1,16 +1,32 @@
 title: AppendTransparencyLogRequest
 type: object
 required:
-  - entity_type
-  - entity_id
-  - event_type
-  - payload
+- entity_type
+- entity_id
+- event_type
+- payload
 properties:
   entity_type:
     type: string
+    description: The resource category being logged.
+    example: USER
   entity_id:
     type: string
+    description: UUID referencing the changed resource.
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+    format: uuid
   eventType:
     type: string
+    description: The eventType attribute.
+    example: string
   payload:
     type: object
+    description: Full structured JSON payload of the event.
+    example: &id001
+      user_id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+description: AppendTransparencyLogRequest data schema.
+example:
+  entity_type: USER
+  entity_id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  eventType: string
+  payload: *id001

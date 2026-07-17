@@ -1,16 +1,36 @@
 title: RegisterUserRequest
 type: object
 required:
-  - username
-  - password
-  - role
+- username
+- password
+- role
 properties:
   username:
     type: string
+    description: Unique username identifier for the account.
+    example: admin
   password:
     type: string
+    description: Secret password for authentication.
+    example: password
+    format: password
   role:
     type: string
-    enum: [ADMIN, PRODUCER, PACK_HOUSE, CERTIFIER, LAB]
+    enum:
+    - ADMIN
+    - PRODUCER
+    - PACK_HOUSE
+    - CERTIFIER
+    - LAB
+    description: User access role within the organization.
+    example: ADMIN
   associated_entity_id:
     type: string
+    description: The associated_entity_id attribute.
+    example: string
+description: RegisterUserRequest data schema.
+example:
+  username: admin
+  password: password
+  role: ADMIN
+  associated_entity_id: string

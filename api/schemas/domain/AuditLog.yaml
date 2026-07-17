@@ -2,21 +2,38 @@ title: AuditLog
 description: Admin/user operations audit trail log
 type: object
 required:
-  - id
-  - userId
-  - action
-  - timestamp
-  - payload
+- id
+- userId
+- action
+- timestamp
+- payload
 properties:
   id:
     type: string
     format: uuid
+    description: Unique identifier (UUID v4).
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
   userId:
     type: string
     format: uuid
+    description: The userId attribute.
+    example: string
   action:
     type: string
+    description: The action attribute.
+    example: string
   timestamp:
     type: string
+    description: The timestamp attribute.
+    example: string
   payload:
     type: object
+    description: Full structured JSON payload of the event.
+    example: &id001
+      user_id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+example:
+  id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  userId: string
+  action: string
+  timestamp: string
+  payload: *id001

@@ -1,13 +1,24 @@
 title: InvestigationActionResponse
 type: object
 required:
-  - success
-  - investigationId
-  - status
+- success
+- investigationId
+- status
 properties:
   success:
     type: boolean
+    description: Request success indicator.
+    example: true
   investigationId:
     type: string
+    description: The investigationId attribute.
+    example: string
   status:
     type: string
+    description: Current status of the entity.
+    example: ACTIVATED
+description: InvestigationActionResponse data schema.
+example:
+  success: true
+  investigationId: string
+  status: ACTIVATED

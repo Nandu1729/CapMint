@@ -1,9 +1,14 @@
 title: UserListResponse
 type: object
 required:
-  - users
+- users
 properties:
   users:
     type: array
     items:
-      $ref: '../domain/User.yaml'
+      $ref: ../domain/User.yaml
+    description: The users attribute.
+    example: []
+description: UserListResponse data schema.
+example:
+  users: []

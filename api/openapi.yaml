@@ -2,112 +2,133 @@ openapi: 3.0.3
 info:
   title: CapMint Core API Specifications
   version: 1.0.0
-  description: Canonical REST API contracts and validation schemas for the CapMint anti-counterfeiting platform.
+  description: Canonical REST API contracts and validation schemas for the CapMint
+    anti-counterfeiting platform.
 servers:
-  - url: http://localhost:8080
-    description: Dev Gateway (Local Proxy)
+- url: http://localhost:8080
+  description: Dev Gateway (Local Proxy)
 paths:
-  # 1. Auth Service
   /api/v1/auth/register-org:
     post:
       summary: Register an organization and its administrator
       tags:
-        - Authentication
+      - Authentication
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: './schemas/requests/RegisterUserRequest.yaml'
+              $ref: ./schemas/requests/RegisterUserRequest.yaml
       responses:
         '201':
-          $ref: './components/responses/RegisterUserResponse.yaml'
-
+          $ref: ./components/responses/RegisterUserResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '409':
+          $ref: ./components/responses/ConflictError.yaml
   /api/v1/auth/login:
     post:
       summary: Login user
       tags:
-        - Authentication
+      - Authentication
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: './schemas/requests/LoginRequest.yaml'
+              $ref: ./schemas/requests/LoginRequest.yaml
       responses:
         '200':
-          $ref: './components/responses/LoginResponse.yaml'
-
+          $ref: ./components/responses/LoginResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
   /api/v1/auth/users:
     get:
       summary: Get all registered users
       tags:
-        - Authentication
+      - Authentication
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       responses:
         '200':
-          $ref: './components/responses/UserListResponse.yaml'
-
+          $ref: ./components/responses/UserListResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
   /api/v1/auth/users/invite:
     post:
       summary: Invite a new user to the organization
       tags:
-        - Authentication
+      - Authentication
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: './schemas/requests/InviteUserRequest.yaml'
+              $ref: ./schemas/requests/InviteUserRequest.yaml
       responses:
         '201':
-          description: User invited successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-
+          $ref: ./components/responses/UserResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
   /api/v1/auth/organizations:
     get:
       summary: List all organizations (System Admin only)
       tags:
-        - Authentication
+      - Authentication
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       responses:
         '200':
-          description: List of all organizations
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-
+          $ref: ./components/responses/OrganizationListResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
   /api/v1/auth/organizations/{id}/status:
     post:
       summary: Update organization status (System Admin only)
       tags:
-        - Authentication
+      - Authentication
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
@@ -115,390 +136,549 @@ paths:
             schema:
               type: object
               required:
-                - status
+              - status
               properties:
                 status:
                   type: string
                   enum:
-                    - PENDING
-                    - ACTIVATED
-                    - SUSPENDED
+                  - PENDING
+                  - ACTIVATED
+                  - SUSPENDED
       responses:
         '200':
-          description: Organization status updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-
-  # 2. Quota & Budgets (CPQ)
+          $ref: ./components/responses/OrganizationResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
   /api/v1/budgets:
     post:
       summary: Propose a crop yield quota budget
       tags:
-        - Quota & Budgets (CPQ)
+      - Quota & Budgets (CPQ)
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: './schemas/requests/ProposeBudgetRequest.yaml'
+              $ref: ./schemas/requests/ProposeBudgetRequest.yaml
       responses:
         '201':
-          $ref: './components/responses/BudgetResponse.yaml'
+          $ref: ./components/responses/BudgetResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
     get:
       summary: Retrieve all quota budgets
       tags:
-        - Quota & Budgets (CPQ)
+      - Quota & Budgets (CPQ)
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       responses:
         '200':
-          $ref: './components/responses/BudgetListResponse.yaml'
-
+          $ref: ./components/responses/BudgetListResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
   /api/v1/budgets/{id}/activate:
     post:
       summary: Approve/Activate a proposed quota budget
       tags:
-        - Quota & Budgets (CPQ)
+      - Quota & Budgets (CPQ)
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       parameters:
-        - $ref: './components/parameters/BudgetId.yaml'
+      - $ref: ./components/parameters/BudgetId.yaml
       responses:
         '200':
-          $ref: './components/responses/BudgetApprovalResponse.yaml'
-
+          $ref: ./components/responses/BudgetApprovalResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
+        '409':
+          $ref: ./components/responses/ConflictError.yaml
   /api/v1/budgets/{id}/drawdown:
     post:
       summary: Draw down capacity from active quota
       tags:
-        - Quota & Budgets (CPQ)
+      - Quota & Budgets (CPQ)
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       parameters:
-        - $ref: './components/parameters/BudgetId.yaml'
+      - $ref: ./components/parameters/BudgetId.yaml
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: './schemas/requests/BudgetDrawdownRequest.yaml'
+              $ref: ./schemas/requests/BudgetDrawdownRequest.yaml
       responses:
         '200':
-          $ref: './components/responses/BudgetDrawdownResponse.yaml'
-
-  # 3. Mint Service
+          $ref: ./components/responses/BudgetDrawdownResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
   /api/v1/mint:
     post:
       summary: Mint unique serialized numbers for a lot run
       tags:
-        - Serialization & Minting
+      - Serialization & Minting
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: './schemas/requests/MintQRCodeRequest.yaml'
+              $ref: ./schemas/requests/MintQRCodeRequest.yaml
       responses:
         '201':
-          $ref: './components/responses/MintQRCodeResponse.yaml'
-
+          $ref: ./components/responses/MintQRCodeResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
+        '409':
+          $ref: ./components/responses/ConflictError.yaml
   /api/v1/gs1/validate:
     post:
       summary: Validate a GS1 GTIN key format
       tags:
-        - Serialization & Minting
+      - Serialization & Minting
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - gtin
-              properties:
-                gtin:
-                  type: string
+              $ref: ./schemas/requests/GS1ValidateRequest.yaml
       responses:
         '200':
-          description: GTIN format validation result
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  valid:
-                    type: boolean
-
-  # 4. Resolver Service
+          $ref: ./components/responses/GS1ValidateResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
   /01/{gtin}/21/{serial}:
     get:
       summary: Resolve canonical GS1 Digital Link redirection
       tags:
-        - Resolver Redirects
+      - Resolver Redirects
       parameters:
-        - $ref: './components/parameters/GTIN.yaml'
-        - $ref: './components/parameters/Serial.yaml'
+      - $ref: ./components/parameters/GTIN.yaml
+      - $ref: ./components/parameters/Serial.yaml
       responses:
         '302':
           description: Redirects to consumer provenance verification interface
-
-  # 5. Transparency Service
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
   /log/api/v1/log:
     post:
       summary: Append a block to the auditable transparency log
       tags:
-        - Transparency Log
+      - Transparency Log
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: './schemas/requests/AppendTransparencyLogRequest.yaml'
+              $ref: ./schemas/requests/AppendTransparencyLogRequest.yaml
       responses:
         '201':
-          $ref: './components/responses/TransparencyLedgerEntryResponse.yaml'
-
+          $ref: ./components/responses/TransparencyLedgerEntryResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
   /log/api/v1/log/entries:
     get:
       summary: Retrieve the full transparency log chain
       tags:
-        - Transparency Log
+      - Transparency Log
       responses:
         '200':
-          $ref: './components/responses/TransparencyLedgerChainResponse.yaml'
-
+          $ref: ./components/responses/TransparencyLedgerChainResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
   /log/api/v1/log/verify:
     get:
       summary: Verify the integrity of the transparency ledger
       tags:
-        - Transparency Log
+      - Transparency Log
       responses:
         '200':
-          $ref: './components/responses/TransparencyLedgerVerificationResponse.yaml'
-
-  # 6. Verification Service
+          $ref: ./components/responses/TransparencyLedgerVerificationResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
   /api/v1/verify/{gtin}/{serial}:
     post:
       summary: Verify product authenticity & scan coordinates
       tags:
-        - Verification & Clones
+      - Verification & Clones
       parameters:
-        - $ref: './components/parameters/GTIN.yaml'
-        - $ref: './components/parameters/Serial.yaml'
+      - $ref: ./components/parameters/GTIN.yaml
+      - $ref: ./components/parameters/Serial.yaml
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: './schemas/requests/VerifyCodeRequest.yaml'
+              $ref: ./schemas/requests/VerifyCodeRequest.yaml
       responses:
         '200':
-          $ref: './components/responses/VerificationResponse.yaml'
-
+          $ref: ./components/responses/VerificationResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
   /api/v1/verify/v/{public_identifier}:
     post:
       summary: Verify product scan using public identifier
       tags:
-        - Verification & Clones
+      - Verification & Clones
       parameters:
-        - name: public_identifier
-          in: path
-          required: true
-          schema:
-            type: string
+      - name: public_identifier
+        in: path
+        required: true
+        schema:
+          type: string
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: './schemas/requests/VerifyScanRequest.yaml'
+              $ref: ./schemas/requests/VerifyScanRequest.yaml
       responses:
         '200':
-          $ref: './components/responses/VerificationResponse.yaml'
-
+          $ref: ./components/responses/VerificationResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
   /api/v1/verify/register:
     post:
       summary: Register a serialized QR code and its product metadata (Producer only)
       tags:
-        - Verification & Clones
+      - Verification & Clones
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: './schemas/requests/VerifyRegisterRequest.yaml'
+              $ref: ./schemas/requests/VerifyRegisterRequest.yaml
       responses:
         '201':
-          description: Unit code registered successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  data:
-                    type: object
-
+          $ref: ./components/responses/VerificationRegisterResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
+        '409':
+          $ref: ./components/responses/ConflictError.yaml
   /api/v1/verify/revoke:
     post:
       summary: Revoke serialized codes under a batch lot
       tags:
-        - Verification & Clones
+      - Verification & Clones
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: './schemas/requests/RevokeLotRequest.yaml'
+              $ref: ./schemas/requests/RevokeLotRequest.yaml
       responses:
         '200':
-          $ref: './components/responses/RevocationResponse.yaml'
-
+          $ref: ./components/responses/RevocationResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
+        '409':
+          $ref: ./components/responses/ConflictError.yaml
   /api/v1/lots/{id}/revoke:
     post:
       summary: Revoke an entire batch lot run (Cascades to all codes)
       tags:
-        - Verification & Clones
+      - Verification & Clones
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       parameters:
-        - $ref: './components/parameters/LotId.yaml'
+      - $ref: ./components/parameters/LotId.yaml
       responses:
         '200':
-          $ref: './components/responses/RevocationResponse.yaml'
-
+          $ref: ./components/responses/RevocationResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
+        '409':
+          $ref: ./components/responses/ConflictError.yaml
   /api/v1/verify/unit-codes:
     get:
       summary: Get all registered unit serialization codes
       tags:
-        - Verification & Clones
+      - Verification & Clones
       responses:
         '200':
-          $ref: './components/responses/UnitCodeListResponse.yaml'
-
+          $ref: ./components/responses/UnitCodeListResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
   /api/v1/verify/lots:
     get:
       summary: Get all registered batch lots
       tags:
-        - Verification & Clones
+      - Verification & Clones
       responses:
         '200':
-          $ref: './components/responses/LotListResponse.yaml'
-
+          $ref: ./components/responses/LotListResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
   /api/v1/verify/lab-results:
     post:
       summary: Upload laboratory result reports and bind PDF hash (Certifier/Lab only)
       tags:
-        - Verification & Clones
+      - Verification & Clones
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: './schemas/requests/CreateLabResultRequest.yaml'
+              $ref: ./schemas/requests/CreateLabResultRequest.yaml
       responses:
         '200':
-          $ref: './components/responses/LabResultResponse.yaml'
-
+          $ref: ./components/responses/LabResultResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
   /api/v1/verify/investigations:
     get:
       summary: List all risk investigations (Certifier only)
       tags:
-        - Verification & Clones
+      - Verification & Clones
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       responses:
         '200':
-          $ref: './components/responses/InvestigationListResponse.yaml'
-
+          $ref: ./components/responses/InvestigationListResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
   /api/v1/verify/investigations/{id}:
     get:
       summary: Get details and evidence for a specific investigation (Certifier only)
       tags:
-        - Verification & Clones
+      - Verification & Clones
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       parameters:
-        - $ref: './components/parameters/InvestigationId.yaml'
+      - $ref: ./components/parameters/InvestigationId.yaml
       responses:
         '200':
-          $ref: './components/responses/InvestigationResponse.yaml'
-
+          $ref: ./components/responses/InvestigationResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
   /api/v1/verify/investigations/{id}/approve:
     post:
       summary: Approve product revocation for an investigation (Certifier only)
       tags:
-        - Verification & Clones
+      - Verification & Clones
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       parameters:
-        - $ref: './components/parameters/InvestigationId.yaml'
+      - $ref: ./components/parameters/InvestigationId.yaml
       responses:
         '200':
-          $ref: './components/responses/InvestigationActionResponse.yaml'
-
+          $ref: ./components/responses/InvestigationActionResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
   /api/v1/verify/investigations/{id}/dismiss:
     post:
       summary: Dismiss an investigation case (Certifier only)
       tags:
-        - Verification & Clones
+      - Verification & Clones
       security:
-        - BearerAuth: []
+      - BearerAuth: []
       parameters:
-        - $ref: './components/parameters/InvestigationId.yaml'
+      - $ref: ./components/parameters/InvestigationId.yaml
       responses:
         '200':
-          $ref: './components/responses/InvestigationActionResponse.yaml'
-
-  # 7. Integration Service
+          $ref: ./components/responses/InvestigationActionResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
   /api/v1/integrations/tracenet/certificates/{licenseId}:
     get:
       summary: Fetch NPOP organic farmer certification status by license ID
       tags:
-        - External Integrations
+      - External Integrations
       parameters:
-        - name: licenseId
-          in: path
-          required: true
-          schema:
-            type: string
-            description: The organic license reference number (e.g. NPOP-OTC-2026-8802)
+      - name: licenseId
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The organic license reference number (e.g. NPOP-OTC-2026-8802)
       responses:
         '200':
-          $ref: './components/responses/TraceNetReferenceResponse.yaml'
-
+          $ref: ./components/responses/TraceNetReferenceResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
   /api/v1/integrations/agristack/farmers/{id}:
     get:
       summary: Fetch AgriStack verified land coordinates bounds by farmer ID
       tags:
-        - External Integrations
+      - External Integrations
       parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            description: The AgriStack farmer ID
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          description: The AgriStack farmer ID
       responses:
         '200':
-          $ref: './components/responses/AgriStackPlotResponse.yaml'
-
+          $ref: ./components/responses/AgriStackPlotResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
 components:
   securitySchemes:
     BearerAuth:
-      $ref: './components/security/BearerAuth.yaml'
+      $ref: ./components/security/BearerAuth.yaml

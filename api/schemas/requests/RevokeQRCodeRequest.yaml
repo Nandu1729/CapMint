@@ -1,13 +1,24 @@
 title: RevokeQRCodeRequest
 type: object
 required:
-  - gtin
-  - serial
-  - reason
+- gtin
+- serial
+- reason
 properties:
   gtin:
     type: string
+    description: Global Trade Item Number (GS1 standard key).
+    example: 07612345678900
   serial:
     type: string
+    description: Unique serial number within the GTIN scope.
+    example: SN908123
   reason:
     type: string
+    description: The reason attribute.
+    example: string
+description: RevokeQRCodeRequest data schema.
+example:
+  gtin: 07612345678900
+  serial: SN908123
+  reason: string

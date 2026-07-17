@@ -2,22 +2,40 @@ title: LabResult
 description: Chemical NMR testing laboratory verification
 type: object
 required:
-  - id
-  - lotId
-  - labName
-  - resultSummary
-  - reportHash
+- id
+- lotId
+- labName
+- resultSummary
+- reportHash
 properties:
   id:
     type: string
     format: uuid
+    description: Unique identifier (UUID v4).
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
   lotId:
     type: string
     format: uuid
+    description: The lotId attribute.
+    example: string
   labName:
     type: string
+    description: The labName attribute.
+    example: string
   resultSummary:
     type: string
-    enum: [PASSED, FAILED]
+    enum:
+    - PASSED
+    - FAILED
+    description: The resultSummary attribute.
+    example: string
   reportHash:
     type: string
+    description: The reportHash attribute.
+    example: string
+example:
+  id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  lotId: string
+  labName: string
+  resultSummary: string
+  reportHash: string

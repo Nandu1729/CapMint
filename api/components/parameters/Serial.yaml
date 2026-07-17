@@ -4,3 +4,4 @@ required: true
 description: Unique serial number of the unit
 schema:
   type: string
+example: SN908123

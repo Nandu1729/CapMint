@@ -1,7 +1,12 @@
 title: OrganizationResponse
 type: object
 required:
-  - organization
+- organization
 properties:
   organization:
-    $ref: '../domain/Organization.yaml'
+    $ref: ../domain/Organization.yaml
+    description: The organization attribute.
+    example: null
+description: OrganizationResponse data schema.
+example:
+  organization: null
