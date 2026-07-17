@@ -30,6 +30,8 @@ paths:
           $ref: ./components/responses/InternalServerError.yaml
         '409':
           $ref: ./components/responses/ConflictError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/auth/login:
     post:
       summary: Login user
@@ -50,6 +52,8 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/auth/users:
     get:
       summary: Get all registered users
@@ -70,6 +74,8 @@ paths:
           $ref: ./components/responses/UnauthorizedError.yaml
         '403':
           $ref: ./components/responses/ForbiddenError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/auth/users/invite:
     post:
       summary: Invite a new user to the organization
@@ -96,6 +102,8 @@ paths:
           $ref: ./components/responses/UnauthorizedError.yaml
         '403':
           $ref: ./components/responses/ForbiddenError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/auth/organizations:
     get:
       summary: List all organizations (System Admin only)
@@ -116,6 +124,8 @@ paths:
           $ref: ./components/responses/UnauthorizedError.yaml
         '403':
           $ref: ./components/responses/ForbiddenError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/auth/organizations/{id}/status:
     post:
       summary: Update organization status (System Admin only)
@@ -157,6 +167,8 @@ paths:
           $ref: ./components/responses/UnauthorizedError.yaml
         '403':
           $ref: ./components/responses/ForbiddenError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/budgets:
     post:
       summary: Propose a crop yield quota budget
@@ -183,6 +195,8 @@ paths:
           $ref: ./components/responses/UnauthorizedError.yaml
         '403':
           $ref: ./components/responses/ForbiddenError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
     get:
       summary: Retrieve all quota budgets
       tags:
@@ -202,6 +216,8 @@ paths:
           $ref: ./components/responses/UnauthorizedError.yaml
         '403':
           $ref: ./components/responses/ForbiddenError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/budgets/{id}/activate:
     post:
       summary: Approve/Activate a proposed quota budget
@@ -226,6 +242,8 @@ paths:
           $ref: ./components/responses/ForbiddenError.yaml
         '409':
           $ref: ./components/responses/ConflictError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/budgets/{id}/drawdown:
     post:
       summary: Draw down capacity from active quota
@@ -254,6 +272,8 @@ paths:
           $ref: ./components/responses/UnauthorizedError.yaml
         '403':
           $ref: ./components/responses/ForbiddenError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/mint:
     post:
       summary: Mint unique serialized numbers for a lot run
@@ -282,6 +302,8 @@ paths:
           $ref: ./components/responses/ForbiddenError.yaml
         '409':
           $ref: ./components/responses/ConflictError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/gs1/validate:
     post:
       summary: Validate a GS1 GTIN key format
@@ -302,6 +324,8 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /01/{gtin}/21/{serial}:
     get:
       summary: Resolve canonical GS1 Digital Link redirection
@@ -319,6 +343,8 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /log/api/v1/log:
     post:
       summary: Append a block to the auditable transparency log
@@ -339,6 +365,8 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /log/api/v1/log/entries:
     get:
       summary: Retrieve the full transparency log chain
@@ -353,6 +381,8 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /log/api/v1/log/verify:
     get:
       summary: Verify the integrity of the transparency ledger
@@ -367,6 +397,8 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/verify/{gtin}/{serial}:
     post:
       summary: Verify product authenticity & scan coordinates
@@ -390,6 +422,8 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/verify/v/{public_identifier}:
     post:
       summary: Verify product scan using public identifier
@@ -416,6 +450,8 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/verify/register:
     post:
       summary: Register a serialized QR code and its product metadata (Producer only)
@@ -444,6 +480,8 @@ paths:
           $ref: ./components/responses/ForbiddenError.yaml
         '409':
           $ref: ./components/responses/ConflictError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/verify/revoke:
     post:
       summary: Revoke serialized codes under a batch lot
@@ -472,6 +510,8 @@ paths:
           $ref: ./components/responses/ForbiddenError.yaml
         '409':
           $ref: ./components/responses/ConflictError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/lots/{id}/revoke:
     post:
       summary: Revoke an entire batch lot run (Cascades to all codes)
@@ -496,6 +536,8 @@ paths:
           $ref: ./components/responses/ForbiddenError.yaml
         '409':
           $ref: ./components/responses/ConflictError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/verify/unit-codes:
     get:
       summary: Get all registered unit serialization codes
@@ -510,6 +552,8 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/verify/lots:
     get:
       summary: Get all registered batch lots
@@ -524,6 +568,8 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/verify/lab-results:
     post:
       summary: Upload laboratory result reports and bind PDF hash (Certifier/Lab only)
@@ -550,6 +596,8 @@ paths:
           $ref: ./components/responses/UnauthorizedError.yaml
         '403':
           $ref: ./components/responses/ForbiddenError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/verify/investigations:
     get:
       summary: List all risk investigations (Certifier only)
@@ -570,6 +618,8 @@ paths:
           $ref: ./components/responses/UnauthorizedError.yaml
         '403':
           $ref: ./components/responses/ForbiddenError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/verify/investigations/{id}:
     get:
       summary: Get details and evidence for a specific investigation (Certifier only)
@@ -592,6 +642,8 @@ paths:
           $ref: ./components/responses/UnauthorizedError.yaml
         '403':
           $ref: ./components/responses/ForbiddenError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/verify/investigations/{id}/approve:
     post:
       summary: Approve product revocation for an investigation (Certifier only)
@@ -614,6 +666,8 @@ paths:
           $ref: ./components/responses/UnauthorizedError.yaml
         '403':
           $ref: ./components/responses/ForbiddenError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/verify/investigations/{id}/dismiss:
     post:
       summary: Dismiss an investigation case (Certifier only)
@@ -636,6 +690,8 @@ paths:
           $ref: ./components/responses/UnauthorizedError.yaml
         '403':
           $ref: ./components/responses/ForbiddenError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/integrations/tracenet/certificates/{licenseId}:
     get:
       summary: Fetch NPOP organic farmer certification status by license ID
@@ -657,6 +713,8 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/integrations/agristack/farmers/{id}:
     get:
       summary: Fetch AgriStack verified land coordinates bounds by farmer ID
@@ -678,6 +736,8 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
 components:
   securitySchemes:
     BearerAuth:
