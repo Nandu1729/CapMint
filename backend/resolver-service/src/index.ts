@@ -100,7 +100,7 @@ server.get('/01/:gtin/21/:serial', async (request, reply) => {
     }
 
     // Otherwise, redirect user to the consumer verification frontend page
-    const verifyFrontendUrl = process.env.VERIFY_FRONTEND_URL || 'https://verify.capmint.io';
+    const verifyFrontendUrl = process.env.VERIFY_FRONTEND_URL || 'http://localhost:8080';
     const redirectUrl = `${verifyFrontendUrl}/verify?gtin=${gtin}&serial=${serial}`;
     
     return reply.redirect(302, redirectUrl);
