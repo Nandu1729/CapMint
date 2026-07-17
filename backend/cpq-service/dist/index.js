@@ -161,6 +161,17 @@ server.post('/api/v1/budgets/:id/activate', {
     preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
 }, async (request, reply) => {
     const { id } = request.params;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+        return reply.status(400).send({
+            success: false,
+            error: {
+                statusCode: 400,
+                code: 'VALIDATION_ERROR',
+                message: 'Invalid budget ID format. Must be a valid UUID.'
+            }
+        });
+    }
     // 1. Fetch budget first to get approved quantity
     const budgetFetch = await pgPool.query('SELECT approved_quantity FROM budgets WHERE id = $1', [id]);
     if (budgetFetch.rows.length === 0) {
@@ -201,6 +212,17 @@ server.post('/api/v1/budgets/:id/drawdown', {
 }, async (request, reply) => {
     const { id } = request.params;
     const { amount } = request.body;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(id)) {
+        return reply.status(400).send({
+            success: false,
+            error: {
+                statusCode: 400,
+                code: 'VALIDATION_ERROR',
+                message: 'Invalid budget ID format. Must be a valid UUID.'
+            }
+        });
+    }
     const drawdownAmount = parseFloat(amount);
     if (isNaN(drawdownAmount) || drawdownAmount <= 0) {
         return reply.status(400).send({
