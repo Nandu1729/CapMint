@@ -2,4 +2,13 @@ description: Semantic validation errors on input properties
 content:
   application/json:
     schema:
-      $ref: '../../schemas/common/ValidationErrorResponse.yaml'
+      $ref: ../../schemas/common/ValidationErrorResponse.yaml
+    example:
+      success: false
+      error:
+        statusCode: 400
+        code: VALIDATION_ERROR
+        message: Input validation failed
+        details:
+        - field: username
+          message: is a required field

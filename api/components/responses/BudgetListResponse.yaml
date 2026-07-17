@@ -2,4 +2,14 @@ description: List of quota budgets returned
 content:
   application/json:
     schema:
-      $ref: '../../schemas/responses/BudgetListResponse.yaml'
+      $ref: ../../schemas/responses/BudgetListResponse.yaml
+    example:
+      budgets:
+      - id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+        producer: string
+        allocated: 1.0
+        consumed: 1.0
+        status: ACTIVATED
+        crop: Organic White Honey
+        start: string
+        end: string

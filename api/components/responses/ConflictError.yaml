@@ -2,10 +2,10 @@ description: Request conflicts with existing resource state
 content:
   application/json:
     schema:
-      $ref: '../../schemas/common/ErrorResponse.yaml'
+      $ref: ../../schemas/common/ErrorResponse.yaml
     example:
       success: false
       error:
-        statusCode: 409
-        code: "CONFLICT"
-        message: "A resource conflict occurred."
+        statusCode: 400
+        code: BAD_REQUEST
+        message: The request payload was invalid

@@ -2,4 +2,6 @@ description: Quota budget details returned
 content:
   application/json:
     schema:
-      $ref: '../../schemas/responses/BudgetResponse.yaml'
+      $ref: ../../schemas/responses/BudgetResponse.yaml
+    example:
+      budget: null

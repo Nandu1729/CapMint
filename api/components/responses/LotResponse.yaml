@@ -2,4 +2,6 @@ description: Minted lot details returned
 content:
   application/json:
     schema:
-      $ref: '../../schemas/responses/LotResponse.yaml'
+      $ref: ../../schemas/responses/LotResponse.yaml
+    example:
+      lot: null

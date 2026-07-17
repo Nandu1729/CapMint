@@ -2,4 +2,7 @@ description: Cryptographic chain check results returned
 content:
   application/json:
     schema:
-      $ref: '../../schemas/responses/TransparencyLedgerVerificationResponse.yaml'
+      $ref: ../../schemas/responses/TransparencyLedgerVerificationResponse.yaml
+    example:
+      success: true
+      details: string

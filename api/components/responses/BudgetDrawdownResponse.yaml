@@ -2,4 +2,8 @@ description: Capacity locked and drawn down
 content:
   application/json:
     schema:
-      $ref: '../../schemas/responses/BudgetDrawdownResponse.yaml'
+      $ref: ../../schemas/responses/BudgetDrawdownResponse.yaml
+    example:
+      success: true
+      budgetId: 00000000-0000-0000-0000-000000000010
+      remainingKg: 1.0

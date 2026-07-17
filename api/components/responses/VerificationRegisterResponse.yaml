@@ -2,4 +2,25 @@ description: Serialized unit registered successfully
 content:
   application/json:
     schema:
-      $ref: '../../schemas/responses/VerificationRegisterResponse.yaml'
+      $ref: ../../schemas/responses/VerificationRegisterResponse.yaml
+    example:
+      success: true
+      data:
+        public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+        gtin: 07612345678900
+        serial: SN908123
+        verification_url: http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+        qr_code_data_uri: data:image/png;base64,iVBORw0KGgoAAAANS...
+        current_state: ACTIVE
+        product_metadata:
+          name: Organic White Honey
+          manufacturer: Premium Farms
+          country_of_origin: India
+          batch_id: lot-105
+          packaging_date: '2026-07-16'
+          expiry_date: '2027-07-16'
+          net_weight: 150 KG
+          organic_certificate_number: NPOP-OTC-2026-8802
+          certifying_authority: Organic Trade Council India
+          scan_count: '0'
+          mint_date: '2026-07-16'

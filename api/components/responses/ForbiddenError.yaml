@@ -2,10 +2,10 @@ description: Access denied due to insufficient permissions or inactive organizat
 content:
   application/json:
     schema:
-      $ref: '../../schemas/common/ErrorResponse.yaml'
+      $ref: ../../schemas/common/ErrorResponse.yaml
     example:
       success: false
       error:
-        statusCode: 403
-        code: "FORBIDDEN"
-        message: "Access denied. Insufficient permissions to access this resource."
+        statusCode: 400
+        code: BAD_REQUEST
+        message: The request payload was invalid

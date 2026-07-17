@@ -2,10 +2,10 @@ description: Invalid or missing Authorization Bearer token
 content:
   application/json:
     schema:
-      $ref: '../../schemas/common/ErrorResponse.yaml'
+      $ref: ../../schemas/common/ErrorResponse.yaml
     example:
       success: false
       error:
-        statusCode: 401
-        code: "UNAUTHORIZED"
-        message: "Invalid or missing Authorization token."
+        statusCode: 400
+        code: BAD_REQUEST
+        message: The request payload was invalid
