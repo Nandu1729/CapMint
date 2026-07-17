@@ -3,7 +3,3 @@ content:
   application/json:
     schema:
       $ref: ../../schemas/responses/InvestigationActionResponse.yaml
-    example:
-      success: true
-      investigationId: string
-      status: ACTIVATED

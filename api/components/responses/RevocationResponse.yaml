@@ -3,7 +3,3 @@ content:
   application/json:
     schema:
       $ref: ../../schemas/responses/RevocationResponse.yaml
-    example:
-      success: true
-      lotId: string
-      status: ACTIVATED

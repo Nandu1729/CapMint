@@ -3,14 +3,3 @@ content:
   application/json:
     schema:
       $ref: ../../schemas/responses/UnitCodeListResponse.yaml
-    example:
-      unitCodes:
-      - lotId: string
-        serial: SN908123
-        gtin: 07612345678900
-        public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
-        verification_url: http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2
-        qrCodeDataUri: string
-        state: string
-        clone_flag: false
-        productMetadata: {}

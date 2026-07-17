@@ -19,11 +19,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/requests/RegisterUserRequest.yaml
-            example:
-              username: admin
-              password: password
-              role: ADMIN
-              associated_entity_id: string
       responses:
         '201':
           $ref: ./components/responses/RegisterUserResponse.yaml
@@ -48,9 +43,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/requests/LoginRequest.yaml
-            example:
-              username: admin
-              password: password
       responses:
         '200':
           $ref: ./components/responses/LoginResponse.yaml
@@ -97,10 +89,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/requests/InviteUserRequest.yaml
-            example:
-              username: admin
-              password: password
-              role: ADMIN
       responses:
         '201':
           $ref: ./components/responses/UserResponse.yaml
@@ -194,17 +182,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/requests/ProposeBudgetRequest.yaml
-            example:
-              producer_id: 00000000-0000-0000-0000-000000000002
-              certifier_id: 00000000-0000-0000-0000-000000000001
-              source_unit_type: WEIGHT_KG
-              approved_quantity: 5000.0
-              yield_assumptions:
-                crop: Organic White Honey
-                land_area_hectares: 5.0
-              signature_bundle: sig_bundle_xyz123
-              effective_start_date: '2026-07-17T00:00:00Z'
-              effective_end_date: '2027-07-17T00:00:00Z'
       responses:
         '201':
           $ref: ./components/responses/BudgetResponse.yaml
@@ -282,8 +259,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/requests/BudgetDrawdownRequest.yaml
-            example:
-              amount: 1.0
       responses:
         '200':
           $ref: ./components/responses/BudgetDrawdownResponse.yaml
@@ -312,10 +287,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/requests/MintQRCodeRequest.yaml
-            example:
-              lot_id: 00000000-0000-0000-0000-000000000050
-              gtin: 07612345678900
-              quantity: 100
       responses:
         '201':
           $ref: ./components/responses/MintQRCodeResponse.yaml
@@ -344,8 +315,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/requests/GS1ValidateRequest.yaml
-            example:
-              gtin: 07612345678900
       responses:
         '200':
           $ref: ./components/responses/GS1ValidateResponse.yaml
@@ -387,12 +356,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/requests/AppendTransparencyLogRequest.yaml
-            example:
-              entity_type: USER
-              entity_id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
-              eventType: string
-              payload:
-                user_id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
       responses:
         '201':
           $ref: ./components/responses/TransparencyLedgerEntryResponse.yaml
@@ -450,12 +413,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/requests/VerifyCodeRequest.yaml
-            example:
-              lat: 12.9716
-              lon: 77.5946
-              device_metadata:
-                browser: Mozilla/5.0 Chrome/120.0
-                platform: macOS
       responses:
         '200':
           $ref: ./components/responses/VerificationResponse.yaml
@@ -484,12 +441,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/requests/VerifyScanRequest.yaml
-            example:
-              lat: 12.9716
-              lon: 77.5946
-              device_metadata:
-                browser: string
-                platform: string
       responses:
         '200':
           $ref: ./components/responses/VerificationResponse.yaml
@@ -514,24 +465,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/requests/VerifyRegisterRequest.yaml
-            example:
-              public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
-              gtin: 07612345678900
-              serial: SN908123
-              verification_url: http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2
-              qr_code_data_uri: data:image/png;base64,iVBORw0KGgoAAAANSUhEUg...
-              product_metadata:
-                name: Premium Farms Ltd
-                manufacturer: string
-                country_of_origin: string
-                batch_id: string
-                packaging_date: string
-                expiry_date: string
-                net_weight: string
-                organic_certificate_number: string
-                certifying_authority: string
-                scan_count: string
-                mint_date: string
       responses:
         '201':
           $ref: ./components/responses/VerificationRegisterResponse.yaml
@@ -562,9 +495,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/requests/RevokeLotRequest.yaml
-            example:
-              lotId: string
-              reason: string
       responses:
         '200':
           $ref: ./components/responses/RevocationResponse.yaml
@@ -653,13 +583,6 @@ paths:
           application/json:
             schema:
               $ref: ./schemas/requests/CreateLabResultRequest.yaml
-            example:
-              lot_id: 00000000-0000-0000-0000-000000000050
-              lab_name: string
-              test_type: string
-              result_summary: string
-              report_hash: string
-              report_reference: string
       responses:
         '200':
           $ref: ./components/responses/LabResultResponse.yaml

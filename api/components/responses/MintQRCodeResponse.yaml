@@ -3,7 +3,3 @@ content:
   application/json:
     schema:
       $ref: ../../schemas/responses/MintQRCodeResponse.yaml
-    example:
-      success: true
-      lotId: string
-      codes: []

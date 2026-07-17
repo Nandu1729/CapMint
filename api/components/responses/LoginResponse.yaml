@@ -3,6 +3,3 @@ content:
   application/json:
     schema:
       $ref: ../../schemas/responses/LoginResponse.yaml
-    example:
-      success: true
-      token: string

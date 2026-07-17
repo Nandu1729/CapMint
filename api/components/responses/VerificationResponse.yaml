@@ -3,9 +3,3 @@ content:
   application/json:
     schema:
       $ref: ../../schemas/responses/VerificationResponse.yaml
-    example:
-      success: true
-      verdict: VERIFIED
-      gtin: 07612345678900
-      serial: SN908123
-      lotDetails: null

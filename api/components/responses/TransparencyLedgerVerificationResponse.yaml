@@ -3,6 +3,3 @@ content:
   application/json:
     schema:
       $ref: ../../schemas/responses/TransparencyLedgerVerificationResponse.yaml
-    example:
-      success: true
-      details: string

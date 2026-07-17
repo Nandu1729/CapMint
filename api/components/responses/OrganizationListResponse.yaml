@@ -3,14 +3,3 @@ content:
   application/json:
     schema:
       $ref: ../../schemas/responses/OrganizationListResponse.yaml
-    example:
-      success: true
-      data:
-        organizations:
-        - id: 00000000-0000-0000-0000-000000000002
-          name: Premium Farms Ltd
-          type: PRODUCER
-          status: ACTIVATED
-          official_email: producer@capmint.org
-          created_at: '2026-07-17T10:00:00Z'
-          updated_at: '2026-07-17T10:05:00Z'

@@ -3,6 +3,3 @@ content:
   application/json:
     schema:
       $ref: ../../schemas/responses/GS1ValidateResponse.yaml
-    example:
-      success: true
-      valid: true

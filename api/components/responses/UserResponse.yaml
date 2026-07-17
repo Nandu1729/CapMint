@@ -3,6 +3,3 @@ content:
   application/json:
     schema:
       $ref: ../../schemas/responses/RegisterUserResponse.yaml
-    example:
-      success: true
-      username: admin

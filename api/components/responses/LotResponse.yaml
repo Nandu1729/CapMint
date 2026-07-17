@@ -3,5 +3,3 @@ content:
   application/json:
     schema:
       $ref: ../../schemas/responses/LotResponse.yaml
-    example:
-      lot: null

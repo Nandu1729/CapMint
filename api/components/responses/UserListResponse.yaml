@@ -3,5 +3,3 @@ content:
   application/json:
     schema:
       $ref: ../../schemas/responses/UserListResponse.yaml
-    example:
-      users: []

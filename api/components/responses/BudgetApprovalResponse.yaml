@@ -3,6 +3,3 @@ content:
   application/json:
     schema:
       $ref: ../../schemas/responses/BudgetApprovalResponse.yaml
-    example:
-      success: true
-      budgetId: 00000000-0000-0000-0000-000000000010
