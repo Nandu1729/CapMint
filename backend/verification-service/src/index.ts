@@ -35,8 +35,10 @@ server.register(jwt, {
 // Decorators: authenticate / authorize
 server.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
   try {
+    server.log.info({ authHeader: request.headers.authorization }, 'Received auth header');
     await request.jwtVerify();
   } catch (err) {
+    server.log.error(err);
     return reply.status(401).send({
       success: false,
       error: {
