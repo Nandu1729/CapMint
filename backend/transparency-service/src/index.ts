@@ -114,10 +114,16 @@ async function handleVerifyLog(request: any, reply: any) {
 
     let unbroken = true;
     let errorDetails = '';
-    let expectedPrevious = '0000000000000000000000000000000000000000000000000000000000000000';
+    let expectedPrevious = '00000000-0000-0000-0000-000000000000';
 
     for (let i = 0; i < logs.length; i++) {
       const entry = logs[i];
+
+      // Genesis anchor has a static hash and no parent link, skip verification
+      if (entry.event_type === 'GENESIS_BLOCK_ANCHOR') {
+        expectedPrevious = entry.current_hash;
+        continue;
+      }
 
       // Verify that previous_hash matches expected previous current_hash
       if (entry.previous_hash !== expectedPrevious) {

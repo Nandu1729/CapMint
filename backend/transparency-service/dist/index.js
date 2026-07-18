@@ -96,7 +96,7 @@ async function handleVerifyLog(request, reply) {
         const logs = logsRes.rows;
         let unbroken = true;
         let errorDetails = '';
-        let expectedPrevious = '0000000000000000000000000000000000000000000000000000000000000000';
+        let expectedPrevious = '00000000-0000-0000-0000-000000000000';
         for (let i = 0; i < logs.length; i++) {
             const entry = logs[i];
             // Verify that previous_hash matches expected previous current_hash
