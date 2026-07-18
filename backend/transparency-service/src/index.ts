@@ -113,7 +113,7 @@ async function handleVerifyLog(request: any, reply: any) {
     const logs = logsRes.rows;
 
     let unbroken = true;
-    let errorDetails = '';
+    const errors: string[] = [];
     let expectedPrevious = '00000000-0000-0000-0000-000000000000';
 
     for (let i = 0; i < logs.length; i++) {
@@ -128,8 +128,7 @@ async function handleVerifyLog(request: any, reply: any) {
       // Verify that previous_hash matches expected previous current_hash
       if (entry.previous_hash !== expectedPrevious) {
         unbroken = false;
-        errorDetails = `Chain link broken at entry index ${i} (ID: ${entry.id}). Expected previous hash ${expectedPrevious}, got ${entry.previous_hash}.`;
-        break;
+        errors.push(`Chain link broken at entry index ${i} (ID: ${entry.id}). Expected previous hash ${expectedPrevious}, got ${entry.previous_hash}.`);
       }
 
       // Recompute payload_hash and current_hash to confirm no tampering
@@ -139,8 +138,7 @@ async function handleVerifyLog(request: any, reply: any) {
 
       if (entry.current_hash !== calculatedCurrent) {
         unbroken = false;
-        errorDetails = `Hash mismatch at entry index ${i} (ID: ${entry.id}). Calculated current hash ${calculatedCurrent}, database has ${entry.current_hash}.`;
-        break;
+        errors.push(`Hash mismatch at entry index ${i} (ID: ${entry.id}). Calculated current hash ${calculatedCurrent}, database has ${entry.current_hash}.`);
       }
 
       expectedPrevious = entry.current_hash;
@@ -151,7 +149,8 @@ async function handleVerifyLog(request: any, reply: any) {
       data: {
         unbroken,
         logCount: logs.length,
-        error: errorDetails || null
+        error: errors.length > 0 ? errors.join('; ') : null,
+        errors: errors
       }
     };
   } catch (err) {

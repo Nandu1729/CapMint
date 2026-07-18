@@ -95,22 +95,25 @@ async function handleVerifyLog(request, reply) {
         const logsRes = await pgPool.query('SELECT * FROM log_entries ORDER BY created_at ASC, id ASC');
         const logs = logsRes.rows;
         let unbroken = true;
-        let errorDetails = '';
+        const errors = [];
         let expectedPrevious = '00000000-0000-0000-0000-000000000000';
         for (let i = 0; i < logs.length; i++) {
             const entry = logs[i];
+            // Genesis anchor has a static hash and no parent link, skip verification
+            if (entry.event_type === 'GENESIS_BLOCK_ANCHOR') {
+                expectedPrevious = entry.current_hash;
+                continue;
+            }
             // Verify that previous_hash matches expected previous current_hash
             if (entry.previous_hash !== expectedPrevious) {
                 unbroken = false;
-                errorDetails = `Chain link broken at entry index ${i} (ID: ${entry.id}). Expected previous hash ${expectedPrevious}, got ${entry.previous_hash}.`;
-                break;
+                errors.push(`Chain link broken at entry index ${i} (ID: ${entry.id}). Expected previous hash ${expectedPrevious}, got ${entry.previous_hash}.`);
             }
             // Recompute payload_hash and current_hash to confirm no tampering
             const calculatedCurrent = hashSHA256(entry.entity_type + entry.entity_id + entry.event_type + entry.payload_hash + entry.previous_hash);
             if (entry.current_hash !== calculatedCurrent) {
                 unbroken = false;
-                errorDetails = `Hash mismatch at entry index ${i} (ID: ${entry.id}). Calculated current hash ${calculatedCurrent}, database has ${entry.current_hash}.`;
-                break;
+                errors.push(`Hash mismatch at entry index ${i} (ID: ${entry.id}). Calculated current hash ${calculatedCurrent}, database has ${entry.current_hash}.`);
             }
             expectedPrevious = entry.current_hash;
         }
@@ -119,7 +122,8 @@ async function handleVerifyLog(request, reply) {
             data: {
                 unbroken,
                 logCount: logs.length,
-                error: errorDetails || null
+                error: errors.length > 0 ? errors.join('; ') : null,
+                errors: errors
             }
         };
     }
