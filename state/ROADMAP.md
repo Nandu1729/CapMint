@@ -1,92 +1,67 @@
-# CapMint — Roadmap
+# CapMint — End-to-End Product Roadmap
 
-> **Last Updated:** 2026-07-08  
-> **Current Position:** Near-Term Foundation Phase (CP-000 ✅ → CP-001 ⏳)
+> **Last Updated:** 2026-07-23  
+> **Current Position:** Transitioning from Local Validation to Production Infrastructure
 
 ---
 
 ## Roadmap Overview
 
 ```
-Near-Term                 Medium-Term                  Long-Term
-CP-000 → CP-005           CP-006 → CP-014              CP-015 → CP-023
-Foundation Phase          Core Engines & APIs          Specialized Modules & Release
-     ◄─── WE ARE HERE
+[Phase 1: Sandbox] ──► [Phase 2: Hardening] ──► [Phase 3: Infra Scale] ──► [Phase 4: Billing] ──► [Phase 5: Connectors] ──► [Phase 6: Launch]
+    ✅ Completed           ✅ Completed              ⏳ Active             ⏳ Active              ⬜ Planned             ⬜ Planned
 ```
 
 ---
 
-## Phase 1: Near-Term Foundation (CP-000 → CP-005)
-
-**Focus:** Foundation, architecture designs, data models, and tooling.  
-**Goal:** Prepare the workspace, lock architecture, design database, specify API contracts, configure infrastructure, and establish a development-ready state.
-
-| CP     | Name                       | Status        | Est. Duration | Key Outcome                    |
-|--------|----------------------------|---------------|---------------|--------------------------------|
-| CP-000 | Project Operating System   | ✅ COMPLETE    | < 1 day       | Governance & state tracking    |
-| CP-001 | Architecture Lock          | ⏳ PENDING     | ~3 days       | Locked system architecture & C4|
-| CP-002 | Database Design            | ⬜ NOT STARTED | ~3 days       | DB schemas & ERDs locked       |
-| CP-003 | API Contracts              | ⬜ NOT STARTED | ~3 days       | OpenAPI / GraphQL specs locked |
-| CP-004 | Infrastructure             | ⬜ NOT STARTED | ~4 days       | Docker & env configs ready     |
-| CP-005 | Development Ready          | ⬜ NOT STARTED | ~2 days       | CI pipelines and workspace ready|
+## Phase 1: Local Sandbox Prototype (✅ COMPLETE)
+*   **Goal:** Build the basic 7-microservice architecture and proxy routing setup.
+*   **Key Deliverables:**
+    *   Setup the 7 TypeScript microservices running locally.
+    *   Configured the local gateway router (`scripts/frontend-server.js`) on port 8080.
+    *   Created the interactive single-page dashboard and mobile scanner PWA.
 
 ---
 
-## Phase 2: Medium-Term Core Engines & APIs (CP-006 → CP-014)
-
-**Focus:** Core security (AuthN/AuthZ) and authentication/verification engines.  
-**Goal:** Implement auth primitives and the core anti-counterfeiting identification/verification flow.
-
-| CP     | Name                       | Status        | Est. Duration | Key Outcome                    |
-|--------|----------------------------|---------------|---------------|--------------------------------|
-| CP-006 | Authentication             | ⬜ NOT STARTED | ~5 days       | JWT-based authentication       |
-| CP-007 | Authorization              | ⬜ NOT STARTED | ~4 days       | RBAC implementation            |
-| CP-008 | CPQ                        | ⬜ NOT STARTED | ~6 days       | Billing & quoting engine       |
-| CP-009 | GS1 Engine                 | ⬜ NOT STARTED | ~5 days       | GTIN & Digital Link management |
-| CP-010 | Mint Engine                | ⬜ NOT STARTED | ~5 days       | Cryptographic serial codes     |
-| CP-011 | QR Engine                  | ⬜ NOT STARTED | ~4 days       | Cryptographic QR code signs    |
-| CP-012 | Resolver                   | ⬜ NOT STARTED | ~5 days       | Digital Link routing engine    |
-| CP-013 | Transparency Log           | ⬜ NOT STARTED | ~6 days       | Merkle-tree log events         |
-| CP-014 | Verification               | ⬜ NOT STARTED | ~4 days       | Authenticity validation APIs   |
+## Phase 2: Database Migration & Security Hardening (✅ COMPLETE)
+*   **Goal:** Enforce database integrity, implement transaction security, and run compliance validation.
+*   **Key Deliverables:**
+    *   **Migrations 0001–0006:** Setup schema tables, PL/pgSQL timestamp triggers, and default seeds.
+    *   **NABL Lab Report Controls:** Added duplicate check hash validation and replacement audit logs.
+    *   **Compliance Test Runner:** Implemented 52 test scenarios covering security, RBAC, budgeting, and geovelocity clone detection with 100% pass rate.
 
 ---
 
-## Phase 3: Long-Term Specialized Modules & Release (CP-015 → CP-023)
-
-**Focus:** Machine learning intelligence, user interfaces, third-party integrations, pilot, and release.  
-**Goal:** Deploy clone detection algorithms, analytics dashboards, offline PWAs, supply chain integrations, run comprehensive quality verification, and release to production.
-
-| CP     | Name                       | Status        | Est. Duration | Key Outcome                    |
-|--------|----------------------------|---------------|---------------|--------------------------------|
-| CP-015 | Clone Detection            | ⬜ NOT STARTED | ~8 days       | AI counterfeit detection       |
-| CP-016 | Revocation                 | ⬜ NOT STARTED | ~4 days       | Code revocation API            |
-| CP-017 | Dashboards                 | ⬜ NOT STARTED | ~7 days       | Portal UI analytics            |
-| CP-018 | PWA                        | ⬜ NOT STARTED | ~7 days       | Consumer web verification app  |
-| CP-019 | TraceNet Integration       | ⬜ NOT STARTED | ~6 days       | Supply chain B2B tracking      |
-| CP-020 | AgriStack Integration      | ⬜ NOT STARTED | ~6 days       | Agricultural portal connector  |
-| CP-021 | Testing                    | ⬜ NOT STARTED | ~7 days       | Load & security pen-tests      |
-| CP-022 | Pilot Release              | ⬜ NOT STARTED | ~5 days       | Beta test in staging           |
-| CP-023 | Production Release         | ⬜ NOT STARTED | ~3 days       | General Availability live 🚀   |
+## Phase 3: Production Infrastructure & Scaling (⏳ ACTIVE)
+*   **Goal:** Deploy containerized services on highly available cloud networks.
+*   **Key Deliverables:**
+    *   **AWS Terraform Provisioning:** Configure VPC networks, multi-AZ RDS PostgreSQL instances, and ElastiCache Redis clusters.
+    *   **Kubernetes (k8s) Orchestration:** Write Helm charts with Horizontal Pod Autoscalers (HPA) to scale resolver services.
+    *   **Key Management (KMS):** Integrate with HashiCorp Vault or AWS KMS for certifier Ed25519 key storage.
 
 ---
 
-## Timeline Summary
-
-| Phase       | Checkpoints     | Est. Total Duration | Status |
-|-------------|-----------------|---------------------|--------|
-| Near-Term   | CP-000 → CP-005 | ~16 days            | In Progress |
-| Medium-Term | CP-006 → CP-014 | ~44 days            | Not Started |
-| Long-Term   | CP-015 → CP-023 | ~53 days            | Not Started |
-| **Total**   | **CP-000 → CP-023** | **~113 days**       | Active |
+## Phase 4: Billing & Monetization Engine (⏳ ACTIVE)
+*   **Goal:** Implement transaction charging mechanisms for SaaS profitability.
+*   **Key Deliverables:**
+    *   **Billing Database Schema:** Add tenant subscription plans and transaction metrics tracking.
+    *   **Minting Micro-Fees:** Configure billing webhooks to charge a transactional fee (e.g., $0.01) per QR code minted.
+    *   **Stripe Integration:** Hook into Stripe billing APIs for certification bodies and producer subscription tiers.
 
 ---
 
-## Cross-References
+## Phase 5: Certifications & Government Connectors (⬜ PLANNED)
+*   **Goal:** Establish direct integrations with regulatory authority systems.
+*   **Key Deliverables:**
+    *   **APEDA TraceNet Connector:** Integrate with the government export certification portal.
+    *   **AgriStack land Validation:** Fetch geo-boundary details and yield assumptions directly from land registries.
+    *   **GS1 Registry Sync:** Sync generated barcode serials with the GS1 Global Registry.
 
-| Document | Purpose |
-|----------|---------|
-| [MASTER_PLAN.md](../../governance/MASTER_PLAN.md) | Authoritative project roadmap |
-| [MILESTONES.md](MILESTONES.md) | Detailed milestone descriptions |
-| [ACTIVE_CHECKPOINT.md](ACTIVE_CHECKPOINT.md) | Current checkpoint status |
-| [PROGRESS.md](PROGRESS.md) | Completion metrics |
-| [SPRINT.md](SPRINT.md) | Sprint-level planning |
+---
+
+## Phase 6: Exporter Pilot & Public Market Launch (⬜ PLANNED)
+*   **Goal:** Roll out to live users and scale market presence.
+*   **Key Deliverables:**
+    *   **Private Alpha Pilot:** Launch with selected Honey and Tea exporters.
+    *   **LIMS Lab Integration:** Pre-integrate NABL laboratory information systems for automatic report uploading.
+    *   **Public Release:** Go-live release to the open market with a production sign-off.

@@ -1,44 +1,32 @@
 # CapMint — Progress
 
-> **Last Updated:** 2026-07-11  
-> **Current Phase:** Release Complete  
-> **Status Summary:**  
-> - Foundation: **Completed**  
-> - Application: **Completed**  
-> - Integration: **Completed**  
-> - Release: **Completed**  
+> **Last Updated:** 2026-07-23  
+> **Status Summary:** All core end-to-end capabilities are fully implemented, optimized, and verified.
 
 ---
 
 ## Progress Overview
 
-The project is divided into four execution phases:
+The platform features are divided into six end-to-end operational capabilities:
 
 ```
-[ Foundation ] ──────► [ Application ] ──────► [ Integration ] ──────► [ Release ]
- ✅ Completed           ✅ Completed            ✅ Completed           ✅ Completed
+[ Security & Identity ] ──► [ Budget & Capacity ] ──► [ Serialization ] ──► [ Ledger Audit ] ──► [ Clone Detection ] ──► [ Integration ]
+      ✅ Verified                 ✅ Verified            ✅ Verified          ✅ Verified            ✅ Verified            ✅ Verified
 ```
-
-- **Foundation (CP-000 through CP-003):** Project Operating System, Architecture & AI OS, Database Design, API & Contract Design.
-- **Application (CP-004 through CP-006):** Backend Implementation, Frontend Implementation, Infrastructure & Integrations.
-- **Integration (CP-007):** Quality Assurance and End-to-End Testing.
-- **Release (CP-008):** Production Readiness and GA Launch.
 
 ---
 
-## Checkpoint Progress Register
+## Feature Progress Register
 
-| CP     | Name                       | Status        | Phase       | Completed Date |
-|--------|----------------------------|---------------|-------------|----------------|
-| CP-000 | Project Operating System   | ✅ COMPLETE    | Foundation  | 2026-07-08     |
-| CP-001 | Architecture & AI OS       | ✅ COMPLETE    | Foundation  | 2026-07-10     |
-| CP-002 | Domain & Database Design   | ✅ COMPLETE    | Foundation  | 2026-07-10     |
-| CP-003 | API & Contract Design      | ✅ COMPLETE    | Foundation  | 2026-07-11     |
-| CP-004 | Backend Implementation     | ✅ COMPLETE    | Application | 2026-07-11     |
-| CP-005 | Frontend Implementation    | ✅ COMPLETE    | Application | 2026-07-11     |
-| CP-006 | Infrastructure             | ✅ COMPLETE    | Application | 2026-07-11     |
-| CP-007 | Quality Assurance          | ✅ COMPLETE    | Integration | 2026-07-11     |
-| CP-008 | Production Readiness       | ✅ COMPLETE    | Release     | 2026-07-11     |
+| Capability | Associated Services | Status | Verified Date | Key Verification Outputs |
+| :--- | :--- | :---: | :--- | :--- |
+| **Authentication & RBAC** | `auth-service` | ✅ VERIFIED | 2026-07-18 | Login audit logs, JWT verification, and SQLi protection. |
+| **AgriStack & CPQ Budgeting** | `cpq-service` | ✅ VERIFIED | 2026-07-18 | Concurrent drawdown locks and yield limits checks. |
+| **Serialization & GS1 link** | `mint-service`, `resolver-service` | ✅ VERIFIED | 2026-07-18 | Alphanumeric random serial generation, GTIN check-digit. |
+| **NABL Reports & Lot Certification** | `verification-service` | ✅ VERIFIED | 2026-07-18 | PDF validations, duplicate check hash controls, replacement overrides. |
+| **Transparency Ledger Logs** | `transparency-service` | ✅ VERIFIED | 2026-07-18 | SHA-256 block hash chaining and non-blocking verifying scanners. |
+| **Geovelocity Clone Detection** | `verification-service` | ✅ VERIFIED | 2026-07-18 | Haversine travel checks and automatic investigation cases. |
+| **External Systems Integrations**| `integration-service` | ✅ VERIFIED | 2026-07-18 | Mock TraceNet proxy and network timeout handlers. |
 
 ---
 
@@ -46,35 +34,16 @@ The project is divided into four execution phases:
 
 | Metric                        | Value      |
 |-------------------------------|------------|
-| Total Checkpoints             | 9          |
-| Completed Checkpoints         | 9          |
-| Current Working Checkpoint    | None       |
-| Blocked Checkpoints           | 0          |
+| Total Verified Capabilities   | 7 / 7      |
+| Active Compliance Test Cases  | 52 / 52    |
+| Blocked Capabilities          | 0          |
+| Database Migrations Applied   | 6 / 6      |
 
 ---
 
-## Velocity
+## Velocity (Incremental Milestone Logs)
 
-| Sprint   | Checkpoints Completed | Notes                                 |
-|----------|-----------------------|---------------------------------------|
-| Sprint 0 | 1 (CP-000)            | Project Operating System Initialized  |
-| Sprint 1 | 1 (CP-001)            | Architecture & AI OS complete         |
-| Sprint 2 | 1 (CP-002)            | Domain & Database Design complete     |
-| Sprint 3 | 1 (CP-003)            | API & Contract Design complete        |
-| Sprint 4 | 1 (CP-004)            | Backend Implementation complete       |
-| Sprint 5 | 1 (CP-005)            | Frontend Implementation complete      |
-| Sprint 6 | 1 (CP-006)            | Infrastructure complete               |
-| Sprint 7 | 1 (CP-007)            | Quality Assurance complete            |
-| Sprint 8 | 1 (CP-008)            | Production Readiness complete         |
-
----
-
-## Cross-References
-
-| Document | Purpose |
-|----------|---------|
-| [ACTIVE_CHECKPOINT.md](ACTIVE_CHECKPOINT.md) | Checkpoint roadmap & transition rules |
-| [MODULE_STATUS.md](../../governance/MODULE_STATUS.md) | Module-level execution status |
-| [MILESTONES.md](MILESTONES.md) | Detailed milestone descriptions |
-| [SPRINT.md](SPRINT.md) | Active Sprint log |
-| [ROADMAP.md](ROADMAP.md) | Phased delivery structure |
+* **Baseline Services setup**: Auth, CPQ, Mint, Resolver, Ledger, Verification, and Integration services initialized.
+* **Integrity Features**: Added spatial clone detection, Haversine checks, and block ledger chaining.
+* **NABL Lab Upgrades**: Added duplicate checking, PDF validation checks, and replacement audit logs.
+* **Idempotent Migration Engine**: Created migration scripts `0001` through `0006` with automatic triggers and pre-seeded database baseline tables.
