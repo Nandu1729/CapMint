@@ -55,7 +55,7 @@ const server = http.createServer((req, res) => {
     return proxyApi(8084, req, res);
   } else if (urlPath.startsWith('/log')) {
     return proxyApi(8085, req, res);
-  } else if (urlPath.startsWith('/api/v1/verify') || urlPath.startsWith('/api/v1/revocation')) {
+  } else if (urlPath.startsWith('/api/v1/verify') || urlPath.startsWith('/api/v1/revocation') || urlPath.startsWith('/api/v1/lots')) {
     return proxyApi(8086, req, res);
   } else if (urlPath.startsWith('/api/v1/integrations')) {
     return proxyApi(8087, req, res);

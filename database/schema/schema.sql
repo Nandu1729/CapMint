@@ -52,7 +52,7 @@ CREATE TABLE certifiers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL UNIQUE,
     accreditation_details JSONB NOT NULL,
-    public_key VARCHAR(128) NOT NULL,
+    public_key TEXT NOT NULL,
     key_status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
     key_rotation_metadata JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -93,7 +93,7 @@ CREATE TABLE budgets (
     consumed_quantity NUMERIC(12, 2) NOT NULL DEFAULT 0.00 CONSTRAINT chk_budgets_consumed CHECK (consumed_quantity >= 0.00),
     remaining_quantity NUMERIC(12, 2) GENERATED ALWAYS AS (approved_quantity - consumed_quantity) STORED,
     yield_assumptions JSONB NOT NULL,
-    signature_bundle VARCHAR(256) NOT NULL,
+    signature_bundle TEXT NOT NULL,
     effective_start_date TIMESTAMPTZ NOT NULL,
     effective_end_date TIMESTAMPTZ NOT NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
@@ -114,10 +114,12 @@ CREATE TABLE lots (
     processing_dates JSONB NOT NULL,
     lab_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
     revocation_status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
+    certification_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_lots_lab_status CHECK (lab_status IN ('PENDING', 'PASSED', 'FAILED')),
-    CONSTRAINT chk_lots_revocation_status CHECK (revocation_status IN ('ACTIVE', 'REVOKED'))
+    CONSTRAINT chk_lots_revocation_status CHECK (revocation_status IN ('ACTIVE', 'REVOKED')),
+    CONSTRAINT chk_lots_certification_status CHECK (certification_status IN ('PENDING', 'CERTIFIED', 'REVOKED'))
 );
 
 -- 6. Table: unit_codes
@@ -148,6 +150,7 @@ CREATE TABLE lab_results (
     report_reference VARCHAR(500) NOT NULL,
     decision_impact JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_lab_results_summary CHECK (result_summary IN ('PASS', 'FAIL'))
 );
 
@@ -160,7 +163,7 @@ CREATE TABLE scan_events (
     device_metadata JSONB NOT NULL,
     verdict VARCHAR(32) NOT NULL,
     anomaly_flags JSONB,
-    CONSTRAINT chk_scan_events_verdict CHECK (verdict IN ('VERIFIED', 'REVOKED', 'EXHAUSTED', 'CLONE-SUSPECT', 'MISMATCH'))
+    CONSTRAINT chk_scan_events_verdict CHECK (verdict IN ('VERIFIED', 'REVOKED', 'EXHAUSTED', 'CLONE-SUSPECT', 'MISMATCH', 'EXPIRED'))
 );
 
 -- 9. Table: log_entries
@@ -174,6 +177,23 @@ CREATE TABLE log_entries (
     current_hash VARCHAR(64) NOT NULL UNIQUE,
     published_anchor_reference VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 10. Table: investigations
+CREATE TABLE investigations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    product_name VARCHAR(255) NOT NULL,
+    public_identifier UUID NOT NULL UNIQUE,
+    risk_level VARCHAR(32) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'OPEN',
+    detection_time TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    detection_reason TEXT NOT NULL,
+    manufacturer VARCHAR(255) NOT NULL,
+    current_product_status VARCHAR(32) NOT NULL,
+    evidence JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_investigations_status CHECK (status IN ('OPEN', 'UNDER_REVIEW', 'REVOKED', 'DISMISSED'))
 );
 
 -- =========================================================================
@@ -192,25 +212,88 @@ CREATE INDEX idx_plots_crop_type ON plots_or_hive_clusters(crop_type);
 
 -- Index to optimize capacity validation checks during minting drawdowns (Budget Service)
 CREATE INDEX idx_budgets_producer_status ON budgets(producer_id, status);
+CREATE INDEX idx_budgets_certifier_id ON budgets(certifier_id);
 
 -- Index to optimize budget lot associations and invalidations (Minting Service)
 CREATE INDEX idx_lots_budget ON lots(budget_id);
 CREATE INDEX idx_lots_revocation ON lots(revocation_status);
+CREATE INDEX idx_lots_producer_id ON lots(producer_id);
+CREATE INDEX idx_lots_certification_status ON lots(certification_status);
 
 -- CRITICAL INDEX: Compound index to guarantee low latency verification lookups (<300ms SLA)
 CREATE INDEX idx_unit_codes_gtin_serial ON unit_codes(gtin, serial);
 CREATE INDEX idx_unit_codes_lot ON unit_codes(lot_id);
+CREATE INDEX idx_unit_codes_current_state ON unit_codes(current_state);
 
 -- Index for lab evidence queries
 CREATE INDEX idx_lab_results_lot ON lab_results(lot_id);
 
 -- CRITICAL INDEX: Compound key with DESC sorting to optimize spatial-temporal geovelocity clone checks
 CREATE INDEX idx_scan_events_unit_code_timestamp ON scan_events(unit_code_id, timestamp DESC);
+CREATE INDEX idx_scan_events_verdict ON scan_events(verdict);
 
 -- Index to optimize chain validation scans on transparency log
 CREATE INDEX idx_log_entries_current_hash ON log_entries(current_hash);
 CREATE INDEX idx_log_entries_entity ON log_entries(entity_type, entity_id);
+CREATE INDEX idx_log_entries_created_at_desc ON log_entries(created_at DESC);
 
 -- Index to optimize authentication profile lookups
 CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_organization_id ON users(organization_id);
+
+-- Index to optimize clone investigations search
+CREATE INDEX idx_investigations_public_identifier ON investigations(public_identifier);
+CREATE INDEX idx_investigations_status ON investigations(status);
+
+-- =========================================================================
+-- DATABASE FUNCTIONS AND AUTO-UPDATE TRIGGERS
+-- =========================================================================
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER trigger_update_organizations_updated_at
+    BEFORE UPDATE ON organizations
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_update_users_updated_at
+    BEFORE UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_update_certifiers_updated_at
+    BEFORE UPDATE ON certifiers
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_update_producers_updated_at
+    BEFORE UPDATE ON producers
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_update_budgets_updated_at
+    BEFORE UPDATE ON budgets
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_update_lots_updated_at
+    BEFORE UPDATE ON lots
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_update_lab_results_updated_at
+    BEFORE UPDATE ON lab_results
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER trigger_update_investigations_updated_at
+    BEFORE UPDATE ON investigations
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
 

@@ -1,9 +1,11 @@
 import Fastify from 'fastify';
+import crypto from 'crypto';
 import jwt from '@fastify/jwt';
 import pg from 'pg';
 import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
 dotenv.config();
+const LEDGER_URL = process.env.TRANSPARENCY_SERVICE_URL || 'http://localhost:8085/api/v1/log';
 const server = Fastify({
     logger: true
 });
@@ -323,7 +325,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
             ]);
             // Append Investigation Created event to transparency ledger
             try {
-                await fetch('http://transparency-service:8085/api/v1/log', {
+                await fetch(LEDGER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -480,7 +482,7 @@ server.post('/api/v1/lots/:id/revoke', {
     try {
         await client.query('BEGIN');
         // 1. Check if Lot exists
-        const lotRes = await client.query('SELECT id FROM lots WHERE id = $1', [id]);
+        const lotRes = await client.query('SELECT id, revocation_status FROM lots WHERE id = $1', [id]);
         if (lotRes.rowCount === 0) {
             await client.query('ROLLBACK');
             return reply.status(404).send({
@@ -488,8 +490,20 @@ server.post('/api/v1/lots/:id/revoke', {
                 error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' }
             });
         }
+        // CERT-04: Revoke already revoked lot -> No duplicate action
+        if (lotRes.rows[0].revocation_status === 'REVOKED') {
+            await client.query('ROLLBACK');
+            return reply.status(400).send({
+                success: false,
+                error: {
+                    statusCode: 400,
+                    code: 'ALREADY_REVOKED',
+                    message: 'Lot has already been revoked. No duplicate action taken.'
+                }
+            });
+        }
         // 2. Cascade update lot status
-        await client.query(`UPDATE lots SET revocation_status = 'REVOKED', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
+        await client.query(`UPDATE lots SET revocation_status = 'REVOKED', certification_status = 'REVOKED', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
         // 3. Cascade update associated unit codes to REVOKED status
         await client.query(`UPDATE unit_codes
        SET current_state = 'REVOKED', revoked_at = CURRENT_TIMESTAMP
@@ -498,6 +512,99 @@ server.post('/api/v1/lots/:id/revoke', {
         return {
             success: true,
             message: 'Lot and all associated unit codes cascade revoked successfully.'
+        };
+    }
+    catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    }
+    finally {
+        client.release();
+    }
+});
+// Route: Certify Lot (Certification Body only)
+server.post('/api/v1/lots/:id/certify', {
+    preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+}, async (request, reply) => {
+    const { id } = request.params;
+    const client = await pgPool.connect();
+    try {
+        await client.query('BEGIN');
+        // 1. Check if Lot exists
+        const lotRes = await client.query('SELECT * FROM lots WHERE id = $1', [id]);
+        if (lotRes.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return reply.status(404).send({
+                success: false,
+                error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' }
+            });
+        }
+        const lot = lotRes.rows[0];
+        // CERT-02: Certify failed lot -> Rejected
+        if (lot.lab_status === 'FAILED' || lot.revocation_status === 'REVOKED') {
+            await client.query('ROLLBACK');
+            return reply.status(400).send({
+                success: false,
+                error: {
+                    statusCode: 400,
+                    code: 'INVALID_LOT_STATE',
+                    message: 'Cannot certify a lot that has failed laboratory testing or is revoked.'
+                }
+            });
+        }
+        // 2. Check if lab result report exists
+        const labCheck = await client.query('SELECT result_summary FROM lab_results WHERE lot_id = $1', [id]);
+        // CERT-01: Certify lot without lab report -> Rejected
+        if (labCheck.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return reply.status(400).send({
+                success: false,
+                error: {
+                    statusCode: 400,
+                    code: 'NO_LAB_REPORT',
+                    message: 'Lot cannot be certified without a registered NABL laboratory report.'
+                }
+            });
+        }
+        // CERT-03: Certify already certified lot -> Conflict
+        if (lot.product_metadata?.certification_status === 'CERTIFIED') {
+            await client.query('ROLLBACK');
+            return reply.status(409).send({
+                success: false,
+                error: {
+                    statusCode: 409,
+                    code: 'ALREADY_CERTIFIED',
+                    message: 'This lot has already been certified.'
+                }
+            });
+        }
+        // 3. Update lot metadata to mark it as certified
+        const updatedMetadata = {
+            ...lot.product_metadata,
+            certification_status: 'CERTIFIED',
+            certified_at: new Date().toISOString()
+        };
+        await client.query(`UPDATE lots SET product_metadata = $1, certification_status = 'CERTIFIED', updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [JSON.stringify(updatedMetadata), id]);
+        // 4. Append to Transparency Ledger
+        try {
+            await fetch(LEDGER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    entity_type: 'LOT',
+                    entity_id: id,
+                    event_type: 'LOT_CERTIFIED',
+                    payload: { lot_id: id, certified_by: request.user.orgId }
+                })
+            });
+        }
+        catch (logErr) {
+            server.log.error(logErr, 'Failed to append LOT_CERTIFIED event to ledger');
+        }
+        await client.query('COMMIT');
+        return {
+            success: true,
+            message: 'Lot successfully certified.'
         };
     }
     catch (err) {
@@ -544,7 +651,12 @@ server.get('/api/v1/verify/lots', async (request, reply) => {
                 budgetId: row.budget_id,
                 crop: row.product_metadata?.name || 'Organic White Honey',
                 weight: parseFloat(row.batch_size),
-                status: row.revocation_status === 'REVOKED' ? 'REVOKED' : 'ACTIVE'
+                status: row.revocation_status === 'REVOKED' ? 'REVOKED' : 'ACTIVE',
+                product_metadata: row.product_metadata,
+                lab_status: row.lab_status,
+                revocation_status: row.revocation_status,
+                certification_status: row.certification_status,
+                certificationStatus: row.certification_status
             }))
         }
     };
@@ -642,7 +754,7 @@ server.post('/api/v1/verify/investigations/:id/approve', {
         await client.query('COMMIT');
         // 7. Log to Transparency Ledger
         try {
-            await fetch('http://transparency-service:8085/api/v1/log', {
+            await fetch(LEDGER_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -657,7 +769,7 @@ server.post('/api/v1/verify/investigations/:id/approve', {
                     }
                 })
             });
-            await fetch('http://transparency-service:8085/api/v1/log', {
+            await fetch(LEDGER_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -711,7 +823,7 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
         await client.query('COMMIT');
         // 3. Log to Transparency Ledger
         try {
-            await fetch('http://transparency-service:8085/api/v1/log', {
+            await fetch(LEDGER_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -755,9 +867,20 @@ server.post('/api/v1/verify/lab-results', {
     }
     // Cryptographically validate and recompute PDF hash on the backend
     if (pdf_content) {
-        const crypto = require('crypto');
         try {
             const buffer = Buffer.from(pdf_content, 'base64');
+            // Validate PDF magic bytes (%PDF)
+            const isPdf = buffer.length >= 4 && buffer.toString('ascii', 0, 4) === '%PDF';
+            if (!isPdf) {
+                return reply.status(400).send({
+                    success: false,
+                    error: {
+                        statusCode: 400,
+                        code: 'INVALID_PDF',
+                        message: 'Uploaded file is not a valid PDF document.'
+                    }
+                });
+            }
             const calculatedHash = crypto.createHash('sha256').update(buffer).digest('hex');
             if (calculatedHash !== report_hash) {
                 return reply.status(400).send({
@@ -793,14 +916,67 @@ server.post('/api/v1/verify/lab-results', {
                 error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' }
             });
         }
-        // 2. Insert lab result
-        const insertRes = await client.query(`
-      INSERT INTO lab_results (id, lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
-      VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6)
-      RETURNING *
-    `, [lot_id, lab_name, test_type, result_summary, report_reference || '']);
+        // Check duplicate or replacement logic
+        const existingCheck = await client.query('SELECT id, report_hash FROM lab_results WHERE lot_id = $1', [lot_id]);
+        let isReplacement = false;
+        let insertRes;
+        const dbResultSummary = (result_summary === 'PASSED' || result_summary === 'PASS') ? 'PASS' : 'FAIL';
+        const lotLabStatus = (result_summary === 'PASSED' || result_summary === 'PASS') ? 'PASSED' : 'FAILED';
+        if (existingCheck.rows.length > 0) {
+            // LAB-03: Upload duplicate report -> Conflict
+            if (existingCheck.rows[0].report_hash === report_hash) {
+                await client.query('ROLLBACK');
+                return reply.status(409).send({
+                    success: false,
+                    error: {
+                        statusCode: 409,
+                        code: 'CONFLICT',
+                        message: 'A lab report with the same hash already exists for this lot.'
+                    }
+                });
+            }
+            // LAB-04: Replace existing report -> Audit entry created
+            isReplacement = true;
+            insertRes = await client.query(`
+        UPDATE lab_results 
+        SET lab_name = $2, test_type = $3, result_summary = $4, report_hash = $5, report_reference = $6
+        WHERE lot_id = $1
+        RETURNING *
+      `, [lot_id, lab_name, test_type, dbResultSummary, report_hash, report_reference || '']);
+        }
+        else {
+            // 2. Insert lab result
+            insertRes = await client.query(`
+        INSERT INTO lab_results (id, lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
+        VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6)
+        RETURNING *
+      `, [lot_id, lab_name, test_type, dbResultSummary, report_hash, report_reference || '']);
+        }
         // 3. Update the lot's lab status in PostgreSQL
-        await client.query(`UPDATE lots SET lab_status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [lot_id, result_summary === 'PASSED' ? 'PASSED' : 'FAILED']);
+        await client.query(`UPDATE lots SET lab_status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [lot_id, lotLabStatus]);
+        // If replacement, write replacement audit block to ledger
+        if (isReplacement) {
+            try {
+                await fetch(LEDGER_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        entity_type: 'LOT',
+                        entity_id: lot_id,
+                        event_type: 'LOT_LAB_TEST_REPLACED',
+                        payload: {
+                            lot_id,
+                            lab_name,
+                            test_type,
+                            report_hash
+                        }
+                    })
+                });
+            }
+            catch (logErr) {
+                server.log.error(logErr, 'Failed to append replacement lab test event to ledger');
+            }
+        }
         // 4. If result is FAILED, trigger dynamic revocation
         if (result_summary === 'FAILED') {
             // Cascade revocation
@@ -812,7 +988,7 @@ server.post('/api/v1/verify/lab-results', {
          WHERE id = $1`, [lot_id, test_type]);
             // Append log entry to Transparency Ledger
             try {
-                await fetch('http://transparency-service:8085/api/v1/log', {
+                await fetch(LEDGER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -835,7 +1011,7 @@ server.post('/api/v1/verify/lab-results', {
         else {
             // Append standard lab test passed log event
             try {
-                await fetch('http://transparency-service:8085/api/v1/log', {
+                await fetch(LEDGER_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -875,32 +1051,6 @@ server.post('/api/v1/verify/lab-results', {
 const start = async () => {
     try {
         const port = parseInt(process.env.PORT || '8086', 10);
-        // Create investigations table if not exists
-        const client = await pgPool.connect();
-        try {
-            await client.query(`
-        CREATE TABLE IF NOT EXISTS investigations (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-          product_name VARCHAR(255) NOT NULL,
-          public_identifier UUID NOT NULL UNIQUE,
-          risk_level VARCHAR(32) NOT NULL,
-          status VARCHAR(32) NOT NULL DEFAULT 'OPEN',
-          detection_time TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          detection_reason TEXT NOT NULL,
-          manufacturer VARCHAR(255) NOT NULL,
-          current_product_status VARCHAR(32) NOT NULL,
-          evidence JSONB NOT NULL,
-          created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-        }
-        catch (dbErr) {
-            server.log.error(dbErr, 'Failed to initialize investigations table');
-        }
-        finally {
-            client.release();
-        }
         await server.listen({ port, host: '0.0.0.0' });
         server.log.info(`Verification service listening on port ${port}`);
     }
