@@ -128,6 +128,27 @@ server.post('/api/v1/budgets', {
             }
         });
     }
+    // CPQ-09: Create duplicate budget for same season
+    const crop = yield_assumptions?.crop;
+    if (crop) {
+        const dupCheck = await pgPool.query(`SELECT id FROM budgets 
+       WHERE producer_id = $1 
+         AND yield_assumptions->>'crop' = $2 
+         AND status != 'REVOKED'
+         AND (
+           (effective_start_date, effective_end_date) OVERLAPS ($3::timestamp, $4::timestamp)
+         )`, [producer_id, crop, effective_start_date, effective_end_date]);
+        if (dupCheck.rows.length > 0) {
+            return reply.status(409).send({
+                success: false,
+                error: {
+                    statusCode: 409,
+                    code: 'DUPLICATE_BUDGET',
+                    message: `A budget already exists for crop "${crop}" within the specified season/timeframe.`
+                }
+            });
+        }
+    }
     const query = `
     INSERT INTO budgets (
       producer_id, certifier_id, source_unit_type, approved_quantity,

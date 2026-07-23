@@ -135,9 +135,61 @@ server.post('/api/v1/auth/register-org', async (request, reply) => {
             }
         });
     }
+    // AUTH-09: Register using invalid email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(official_email)) {
+        return reply.status(400).send({
+            success: false,
+            error: {
+                statusCode: 400,
+                code: 'VALIDATION_ERROR',
+                message: 'Invalid email format.'
+            }
+        });
+    }
+    // AUTH-10: Register with weak password
+    if (admin_password.length < 8) {
+        return reply.status(400).send({
+            success: false,
+            error: {
+                statusCode: 400,
+                code: 'VALIDATION_ERROR',
+                message: 'Password must be at least 8 characters long.'
+            }
+        });
+    }
     const client = await pgPool.connect();
     try {
         await client.query('BEGIN');
+        // AUTH-08: Register organization with duplicate GST/license
+        if (business_reg_details?.tax_id) {
+            const gstCheck = await client.query("SELECT id FROM organizations WHERE business_reg_details->>'tax_id' = $1", [business_reg_details.tax_id]);
+            if (gstCheck.rows.length > 0) {
+                await client.query('ROLLBACK');
+                return reply.status(409).send({
+                    success: false,
+                    error: {
+                        statusCode: 409,
+                        code: 'REGISTRATION_EXISTS',
+                        message: 'The GST/tax ID is already registered.'
+                    }
+                });
+            }
+        }
+        if (business_reg_details?.registration_number) {
+            const regCheck = await client.query("SELECT id FROM organizations WHERE business_reg_details->>'registration_number' = $1", [business_reg_details.registration_number]);
+            if (regCheck.rows.length > 0) {
+                await client.query('ROLLBACK');
+                return reply.status(409).send({
+                    success: false,
+                    error: {
+                        statusCode: 409,
+                        code: 'REGISTRATION_EXISTS',
+                        message: 'The registration number is already registered.'
+                    }
+                });
+            }
+        }
         // 1. Insert organization in PENDING status
         const orgQuery = `
       INSERT INTO organizations (name, type, business_reg_details, official_email, contact_info, status)
@@ -473,6 +525,19 @@ server.delete('/api/v1/auth/users/:id', {
         success: true,
         message: 'User removed successfully.'
     };
+});
+// RBAC-05: Certifier deletes organization (Dummy DELETE organization endpoint to enforce RBAC check)
+server.delete('/api/v1/auth/organizations/:id', {
+    preValidation: [server.authenticate]
+}, async (request, reply) => {
+    return reply.status(403).send({
+        success: false,
+        error: {
+            statusCode: 403,
+            code: 'FORBIDDEN',
+            message: 'Organization deletion is not permitted.'
+        }
+    });
 });
 // Route: User management - Assign internal role (Organization Administrator only)
 server.post('/api/v1/auth/users/:id/role', {

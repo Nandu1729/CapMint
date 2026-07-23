@@ -166,6 +166,17 @@ server.post('/api/v1/mint', {
             });
         }
         const lot = lotRes.rows[0];
+        if (lot.revocation_status === 'REVOKED') {
+            await client.query('ROLLBACK');
+            return reply.status(400).send({
+                success: false,
+                error: {
+                    statusCode: 400,
+                    code: 'REVOKED_LOT',
+                    message: 'Cannot mint codes for a revoked lot.'
+                }
+            });
+        }
         const budgetId = lot.budget_id;
         // Lock budget row to prevent double-mint race conditions
         const budgetRes = await client.query('SELECT * FROM budgets WHERE id = $1 FOR UPDATE', [budgetId]);
