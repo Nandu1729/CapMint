@@ -1,6 +1,6 @@
 # CapMint — Quick Reference (AI Agent State Card)
 
-> **Last Updated:** 2026-07-23  
+> **Last Updated:** 2026-07-24  
 > ⚡ This file is the **single entry point** for AI agents resuming work on CapMint.
 
 ---
@@ -9,11 +9,11 @@
 
 | Property            | Value                                      |
 |---------------------|--------------------------------------------|
-| **Target Phase**    | Production-Grade Deployment Readiness      |
-| **Branch**          | `main` (active)                            |
-| **Next Task**       | None (Platform is stable and GA Ready)      |
+| **Target Phase**    | Production Release & Security Hardening    |
+| **Branch**          | `feature/security-hardening` (code) / `feature/project-documentation` (docs) |
+| **Next Task**       | None (Platform is secure, hardened, and GA Ready) |
 | **Blockers**        | None                                        |
-| **Overall Progress**| 100% Verified / Release Ready 🚀            |
+| **Overall Progress**| 100% Security-Hardened & Release Ready 🚀  |
 
 ---
 

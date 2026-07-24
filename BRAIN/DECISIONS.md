@@ -46,3 +46,12 @@ This document records the key architectural decisions (ADRs) made during the des
 *   **Context:** Multiple concurrent packaging lots drawing from the same budget cap could lead to over-issuance (race conditions).
 *   **Decision:** Applied explicit database row locking (`SELECT ... FOR UPDATE`) during quota updates.
 *   **Consequences:** Guarantees absolute capacity compliance under heavy transactional load at the cost of serialization queue delays.
+
+---
+
+## D-006: Environment-based Secrets & Sliding-Window Rate Limiting
+
+*   **Status:** APPROVED
+*   **Context:** Hardcoded fallback values, hardcoded keys, and wildcard CORS headers create security leak surfaces in production. Also, public auth and scan lookup endpoints require defense against spambots.
+*   **Decision:** Enforced strict environment variable assertions on startup (`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `CORS_ORIGIN`, and `CERTIFIER_PRIVATE_KEY`) with no fallback defaults, and locked down CORS to the trusted origin. Implemented Redis-backed sliding-window rate limiters utilizing sorted sets (`ZADD`, `ZCARD`) on `/login` and `/verify` public endpoints, with configurable max limits in `.env` to support local testing.
+*   **Consequences:** Complete alignment with zero trust security guidelines and robust protection against brute-force attacks, while allowing custom testing tolerances.

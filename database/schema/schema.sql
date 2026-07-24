@@ -196,6 +196,21 @@ CREATE TABLE investigations (
     CONSTRAINT chk_investigations_status CHECK (status IN ('OPEN', 'UNDER_REVIEW', 'REVOKED', 'DISMISSED'))
 );
 
+-- 11. Table: producer_brandings
+CREATE TABLE producer_brandings (
+    producer_id UUID PRIMARY KEY REFERENCES producers(id) ON DELETE CASCADE,
+    logo_url VARCHAR(512),
+    primary_color VARCHAR(16) DEFAULT '#10B981',
+    accent_color VARCHAR(16) DEFAULT '#3B82F6',
+    brand_story TEXT,
+    custom_banner_url VARCHAR(512),
+    cta_text VARCHAR(100),
+    cta_link VARCHAR(512),
+    cta_enabled BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- =========================================================================
 -- INDEX DEFINITIONS TO OPTIMIZE SECURITY VERIFICATIONS AND SLA LOOKUPS
 -- =========================================================================

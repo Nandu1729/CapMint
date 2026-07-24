@@ -156,6 +156,7 @@ Before finishing any task, the AI agent must verify:
 - [ ] **No repository drift introduced**: Naming terms and folder bounds match directories index.
 - [ ] **Frozen documents not modified**: All frozen specifications remain intact.
 - [ ] **Security maintained**: Authentication and validation gates are fully active.
+- [ ] **Environment Security enforced**: Confirmed that all credentials, secrets, and private keys are strictly loaded from environment variables with no hardcoded fallbacks.
 - [ ] **Tests considered**: Unit or integration tests are generated and verify correctness.
 - [ ] **Repository conventions respected**: Directory guidelines are fully satisfied.
 

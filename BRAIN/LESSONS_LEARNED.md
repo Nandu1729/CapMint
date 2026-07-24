@@ -29,3 +29,10 @@ This document records the engineering lessons learned, optimization findings, an
 
 *   **Takeaway:** Rigid authentication barriers block developers and reviewers from testing dashboard states without going through login, organization onboarding, and verification wizard loops.
 *   **Result:** Injecting a simulated session bypass (`bypassLoginDev()`) coupled with a client-side Workspace Switcher `<select>` element in the user profile menu allowed immediate testing of all 5 tenant dashboard contexts without logging out or seeding dummy databases.
+
+---
+
+## 5. Strict Environment Injection & Telemetry Rate Limiting
+
+*   **Takeaway:** Permitting hardcoded secrets, connection string fallbacks, and wildcard CORS headers inside development repositories introduces high-risk production leak vectors. Additionally, public routes without limiters can easily be spammed by bots.
+*   **Result:** Hardened startup configurations by validating required variables (`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `CORS_ORIGIN`, and `CERTIFIER_PRIVATE_KEY`) immediately on server start, throwing fatal errors if missing. Implemented Redis-backed sliding-window rate limiters utilizing atomic transactions (`multi()`) on the public login and verify paths, using configurable limits in `.env` to support rapid local integration tests.

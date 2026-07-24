@@ -8,7 +8,7 @@ CapMint is an enterprise-grade agricultural supply-chain provenance platform des
 
 ## 🏗️ Project Architecture Overview
 
-CapMint runs 7 containerized TypeScript microservices orchestrated under a unified Nginx API Gateway with transactional PostgreSQL and Redis caches:
+CapMint runs 7 TypeScript microservices orchestrated under a reverse proxy API Gateway server with transactional PostgreSQL and Redis caches:
 
 ```mermaid
 graph TD
@@ -24,7 +24,7 @@ graph TD
 
 ### Active Port Mappings
 
-| Service / Container | Port | Endpoint URL / Path | Purpose |
+| Service / Process | Port | Endpoint URL / Path | Purpose |
 | :--- | :---: | :--- | :--- |
 | **`frontend-server`** (Gateway) | `8080` | `http://localhost:8080` | Local developer gateway serving static SPA + API routing |
 | **`auth-service`** | `8081` | `http://localhost:8081/health` | User auth, Bcrypt hashing, JWT issuance |
@@ -35,7 +35,7 @@ graph TD
 | **`verification-service`** | `8086` | `http://localhost:8086/health` | Haversine geovelocity clone detection, Lot certifications |
 | **`integration-service`** | `8087` | `http://localhost:8087/health` | External TraceNet & AgriStack registry proxy |
 | **`capmint-postgres`** | `5432` | `localhost:5432` | Primary database |
-| **`capmint-redis`** | `6379` | `localhost:6379` | Telemetry event caches |
+| **`capmint-redis`** | `6379` | `localhost:6379` | Telemetry event caches & rate limiters |
 
 ---
 
@@ -47,7 +47,9 @@ graph TD
 *   **NABL Lab Reports & Lot Certification**: PDF validations, duplicate check hash controls, and certification validations.
 *   **Transparency Ledger & Audits**: Cryptographic SHA-256 block hash chaining and non-blocking verification scanning.
 *   **Geovelocity Clone Detection**: Spatial-temporal scan checking and automatic clone case investigations.
-*   **Idempotent Migration Engine**: 6 database migrations (0001-0006) with database PL/pgSQL timestamp triggers.
+*   **Zero-Trust Hardening**: Strict environment assertions at boot, secured seed passwords, and CORS lockdown.
+*   **Sliding-Window Rate Limiting**: Redis-backed atomic rate limiters on public login and scan lookup routes.
+*   **Idempotent Migration Engine**: 7 database migrations (0001-0007) with database PL/pgSQL timestamp triggers.
 *   **Compliance Test Suite**: 52 compliance test cases running with 100% success rate (`node playground/test_runner.js`).
 
 ---
