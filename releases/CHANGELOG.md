@@ -4,6 +4,21 @@ All notable changes to the CapMint platform will be documented in this file. Thi
 
 ---
 
+## [v1.0.2] - "Workflow Gap Closures" (2026-07-24)
+Feature release addressing core product workflow gaps and final real-world operational flows.
+
+### Added
+- **Onboarding Review Evidence**: Support for registration document uploads, system admin review notes, and verification evidence logging.
+- **Certifier Budget Lifecycles**: Multi-state budget approval workflows (submit, review, revision-requested, reject) with complete status history tracking.
+- **Explicit Packaging Lots**: Manufacturers can explicitly create lot batches to draw down active budget capacities separate from code serialization.
+- **NABL Laboratory Verification Check**: Registry-based validation checking that laboratories are active/authorized before allowing test report uploads.
+- **Cryptographic PDF Lab Uploads**: Restrict lab uploads to valid PDF magic bytes and SHA-256 integrity hash verification.
+- **Print-ready QR Exports**: Downloadable CSV lists and print-ready PDF metadata layout spreadsheets.
+- **Caseworker Investigations Alert View**: Caseworker assignment, notes log, risk level escalation, verification evidence timeline, and resolution/closure triggers.
+- **Revocation Warnings**: Public warnings shown to consumer verification scans of revoked batch lots.
+
+---
+
 ## [v1.0.1] - "Zero Trust Hardening" (2026-07-24)
 Critical security hardening release implementing strict environment configurations and rate limit safeguards.
 

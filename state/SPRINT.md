@@ -1,8 +1,31 @@
 # CapMint — Sprint Tracking
 
 > **Last Updated:** 2026-07-24  
-> **Current Sprint:** Sprint 8 — Production Release & Hardening ✅ COMPLETE  
-> **Previous Sprint:** Sprint 7 — Quality Assurance ✅ COMPLETE  
+> **Current Sprint:** Sprint 9 — Workflow Gap Closures ✅ COMPLETE  
+> **Previous Sprint:** Sprint 8 — Production Release & Hardening ✅ COMPLETE  
+
+---
+
+## Sprint 9 — Workflow Gap Closures ✅ COMPLETE
+
+| Property          | Value                                     |
+|-------------------|-------------------------------------------|
+| **Sprint**        | Sprint 9                                  |
+| **Goal**          | Close core product workflow gaps (onboarding docs, certifier lifecycle, explicit lots, caseworker investigations) |
+| **Start Date**    | 2026-07-24                                |
+| **End Date**      | 2026-07-24                                |
+| **Branch**        | `feature/workflow-gaps`                    |
+| **Status**        | ✅ COMPLETE                                |
+
+### Sprint 9 Completed Tasks
+
+- [x] S9-01: Implement database schema migration `0008` to support document review fields, budget states history and caseworkers.
+- [x] S9-02: Enhance `auth-service` onboarding with admin review options, document lists, and approval notes.
+- [x] S9-03: Implement certifier co-signing lifecycle (review, request revisions, reject) on `cpq-service` budgets.
+- [x] S9-04: Support explicit packaging lot creation separate from unit code simulation.
+- [x] S9-05: Implement lab trust activation validation and cryptographically secured PDF uploads.
+- [x] S9-06: Add CSV and print-ready PDF QR metadata package sheet download endpoints.
+- [x] S9-07: Build caseworkers alerts management interface (assigned, notes, escalation, closure).
 
 ---
 

@@ -36,3 +36,10 @@ This document records the engineering lessons learned, optimization findings, an
 
 *   **Takeaway:** Permitting hardcoded secrets, connection string fallbacks, and wildcard CORS headers inside development repositories introduces high-risk production leak vectors. Additionally, public routes without limiters can easily be spammed by bots.
 *   **Result:** Hardened startup configurations by validating required variables (`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `CORS_ORIGIN`, and `CERTIFIER_PRIVATE_KEY`) immediately on server start, throwing fatal errors if missing. Implemented Redis-backed sliding-window rate limiters utilizing atomic transactions (`multi()`) on the public login and verify paths, using configurable limits in `.env` to support rapid local integration tests.
+
+---
+
+## 6. Workflow Gap Closures & Real-world Flow Finalization
+
+*   **Takeaway:** A system with complete security and basic features still needs realistic operational lifecycles (like pending document uploads, revision states, explicit lot boundaries, and caseworker details) to be viable for pilot users.
+*   **Result:** Extended database schemas to track status history and caseworker assignment. Decoupled code serialization from explicit lot creation to draw down capacity budgets correctly, and enabled download capabilities for print-ready GS1 packages. Integrated caseworker dashboards showing chronological timeline histories, notes, escalations, and warnings, resulting in a cohesive enterprise-grade workflow.

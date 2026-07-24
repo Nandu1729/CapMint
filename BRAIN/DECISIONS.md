@@ -55,3 +55,12 @@ This document records the key architectural decisions (ADRs) made during the des
 *   **Context:** Hardcoded fallback values, hardcoded keys, and wildcard CORS headers create security leak surfaces in production. Also, public auth and scan lookup endpoints require defense against spambots.
 *   **Decision:** Enforced strict environment variable assertions on startup (`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `CORS_ORIGIN`, and `CERTIFIER_PRIVATE_KEY`) with no fallback defaults, and locked down CORS to the trusted origin. Implemented Redis-backed sliding-window rate limiters utilizing sorted sets (`ZADD`, `ZCARD`) on `/login` and `/verify` public endpoints, with configurable max limits in `.env` to support local testing.
 *   **Consequences:** Complete alignment with zero trust security guidelines and robust protection against brute-force attacks, while allowing custom testing tolerances.
+
+---
+
+## D-007: Dynamic Workflow Approval and Explicit Lot Boundaries
+
+*   **Status:** APPROVED
+*   **Context:** The initial system lacked multi-state approval lifecycles (like pending document onboarding or certifier revision stages) and lacked a way to group barcodes into explicit packaging lots.
+*   **Decision:** Extended the schemas to track organization uploaded documents and approval notes, and certifier budget histories. Implemented explicit packaging lot creation APIs and database locks. Added print-ready exports (PDF/CSV) and caseworker management views (escalation, assignee, evidence timelines).
+*   **Consequences:** Successfully closed all 8 product workflow gaps, enabling complete real-world agricultural supply chain traceability.

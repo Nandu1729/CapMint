@@ -41,15 +41,15 @@ graph TD
 
 ## 🏁 End-to-End Verified Capabilities (GA Ready 🚀)
 
-*   **Identity & RBAC Authorization**: JWT authentication, bcrypt password hashing, and role checks across 3 organization classes.
-*   **AgriStack & Quota Budgeting**: Geo-boundary mapping, land registries, and concurrent budget drawdown locks.
-*   **Serialization & GS1 link**: Alphanumeric random code generator, GTIN check-digit, and resolver redirects.
-*   **NABL Lab Reports & Lot Certification**: PDF validations, duplicate check hash controls, and certification validations.
+*   **Identity & Onboarding Review**: JWT authentication, bcrypt password hashing, onboarding document uploads, and system admin review notes.
+*   **AgriStack & CPQ Budgets**: Geo-boundary mapping, land registries, and certifier approval workflows (submit, review, request revisions, reject).
+*   **Explicit Packaging Lots**: Separate lot creation drawdown step with downloadable PDF sheets and CSV exports.
+*   **Lab Validation & PDF Integrity**: Registry checks on authorized laboratories, PDF magic bytes verification, and SHA-256 hash checks.
 *   **Transparency Ledger & Audits**: Cryptographic SHA-256 block hash chaining and non-blocking verification scanning.
-*   **Geovelocity Clone Detection**: Spatial-temporal scan checking and automatic clone case investigations.
+*   **Geovelocity & Caseworker Dashboard**: Chronological timeline, risk escalation, caseworker assignment, and revocation flow alerts.
 *   **Zero-Trust Hardening**: Strict environment assertions at boot, secured seed passwords, and CORS lockdown.
 *   **Sliding-Window Rate Limiting**: Redis-backed atomic rate limiters on public login and scan lookup routes.
-*   **Idempotent Migration Engine**: 7 database migrations (0001-0007) with database PL/pgSQL timestamp triggers.
+*   **Idempotent Migration Engine**: 8 database migrations (0001-0008) with database PL/pgSQL timestamp triggers.
 *   **Compliance Test Suite**: 52 compliance test cases running with 100% success rate (`node playground/test_runner.js`).
 
 ---
