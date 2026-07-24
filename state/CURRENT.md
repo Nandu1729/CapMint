@@ -52,7 +52,7 @@ npm run dev
 # Run database migrations
 node playground/run_migrations.js
 
-# Execute 52-case compliance test suite
+# Execute 58-case compliance test suite
 node playground/test_runner.js
 ```
 

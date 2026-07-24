@@ -35,9 +35,9 @@ The platform features are divided into six end-to-end operational capabilities:
 | Metric                        | Value      |
 |-------------------------------|------------|
 | Total Verified Capabilities   | 7 / 7      |
-| Active Compliance Test Cases  | 52 / 52    |
+| Active Compliance Test Cases  | 58 / 58    |
 | Blocked Capabilities          | 0          |
-| Database Migrations Applied   | 6 / 6      |
+| Database Migrations Applied   | 7 / 7      |
 
 ---
 
@@ -46,4 +46,5 @@ The platform features are divided into six end-to-end operational capabilities:
 * **Baseline Services setup**: Auth, CPQ, Mint, Resolver, Ledger, Verification, and Integration services initialized.
 * **Integrity Features**: Added spatial clone detection, Haversine checks, and block ledger chaining.
 * **NABL Lab Upgrades**: Added duplicate checking, PDF validation checks, and replacement audit logs.
-* **Idempotent Migration Engine**: Created migration scripts `0001` through `0006` with automatic triggers and pre-seeded database baseline tables.
+* **Idempotent Migration Engine**: Created migration scripts `0001` through `0007` with automatic triggers and pre-seeded database baseline tables.
+* **Production Packaging**: Created Docker image automation, Helm deployment configurations, GitHub Actions pipelines, and Prometheus scraping targets.
