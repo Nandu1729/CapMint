@@ -133,12 +133,13 @@ AI agents must never make architectural decisions independently. If a task requi
 
 ## Checkpoint Discipline
 
-When completing any milestone task, the AI agent must:
+When completing any milestone task, or after making ANY commit to the repository (for both feature code and documentation), the AI agent must:
 1. Update [SESSION.md](SESSION.md) with active completion metrics.
 2. Update [CURRENT_STATE.md](CURRENT_STATE.md) (only if project knowledge has changed).
 3. Update [NEXT_TASK.md](NEXT_TASK.md) to map the next active phase.
 4. Update `LESSONS_LEARNED.md` if applicable.
-5. **Stop** and wait for user approval before moving to the next checkpoint. Never continue automatically.
+5. Update all project state tracking and brain files (`state/*`, `releases/CHANGELOG.md`, `README.md`, `database/schema/schema.sql`, `.env.example`, and `BRAIN/*` logs) to prevent repository drift.
+6. **Stop** and wait for user approval before moving to the next checkpoint. Never continue automatically.
 
 ---
 
