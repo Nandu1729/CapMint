@@ -4,3 +4,4 @@ docker_nginx_backup.tar.gz
 .env
 *.log
 .DS_Store
+git_branches/

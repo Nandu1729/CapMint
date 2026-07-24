@@ -216,6 +216,22 @@ server.post('/api/v1/budgets', {
 });
 
 // Route: Approve / Activate Budget
+// Helper to log budget status history transitions
+async function logBudgetStatus(client: pg.PoolClient | pg.Pool, budgetId: string, fromStatus: string, toStatus: string, actor: string, notes?: string) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    fromStatus,
+    toStatus,
+    actor,
+    notes: notes || ''
+  };
+  await client.query(`
+    UPDATE budgets 
+    SET status_history = COALESCE(status_history, '[]'::jsonb) || $2::jsonb 
+    WHERE id = $1
+  `, [budgetId, JSON.stringify([logEntry])]);
+}
+
 server.post('/api/v1/budgets/:id/activate', {
   preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
 }, async (request, reply) => {
@@ -233,8 +249,8 @@ server.post('/api/v1/budgets/:id/activate', {
     });
   }
 
-  // 1. Fetch budget first to get approved quantity
-  const budgetFetch = await pgPool.query('SELECT approved_quantity FROM budgets WHERE id = $1', [id]);
+  // 1. Fetch budget first to get approved quantity and current status
+  const budgetFetch = await pgPool.query('SELECT status, approved_quantity FROM budgets WHERE id = $1', [id]);
   if (budgetFetch.rows.length === 0) {
     return reply.status(404).send({
       success: false,
@@ -251,7 +267,7 @@ server.post('/api/v1/budgets/:id/activate', {
   const message = `budget_id:${id};approved_quantity:${approvedQuantity}`;
 
   // 2. Cryptographically co-sign using certifier Ed25519 private key
-  const certifierPrivateKey = `-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIMFcJmCXMysxsYYa3t1KRVsOezHmrI+SUDoV0F6BFoK0\n-----END PRIVATE KEY-----`;
+  const certifierPrivateKey = process.env.CERTIFIER_PRIVATE_KEY || `-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIMFcJmCXMysxsYYa3t1KRVsOezHmrI+SUDoV0F6BFoK0\n-----END PRIVATE KEY-----`;
   
   let signatureBundle = 'sig_failed';
   try {
@@ -265,6 +281,10 @@ server.post('/api/v1/budgets/:id/activate', {
     `UPDATE budgets SET status = 'ACTIVE', signature_bundle = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id, status, signature_bundle`,
     [id, signatureBundle]
   );
+
+  // Log status transition in history
+  const user = request.user as any;
+  await logBudgetStatus(pgPool, id, budget.status, 'ACTIVE', user ? user.username : 'CERTIFIER');
 
   return {
     success: true,
@@ -476,6 +496,99 @@ server.get('/api/v1/budgets', {
       }))
     }
   };
+});
+
+// Route: Submit Budget Proposal for Approval
+server.post('/api/v1/budgets/:id/submit', {
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
+}, async (request, reply) => {
+  const { id } = request.params as any;
+  const user = request.user as any;
+
+  const budgetFetch = await pgPool.query('SELECT status FROM budgets WHERE id = $1', [id]);
+  if (budgetFetch.rows.length === 0) {
+    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Budget not found.' } });
+  }
+  const currentStatus = budgetFetch.rows[0].status;
+
+  await pgPool.query(`UPDATE budgets SET status = 'PENDING_APPROVAL', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
+  await logBudgetStatus(pgPool, id, currentStatus, 'PENDING_APPROVAL', user.username, 'Farmer submitted budget for certifier approval');
+
+  return { success: true, data: { status: 'PENDING_APPROVAL' } };
+});
+
+// Route: Certifier Reviewing Budget
+server.post('/api/v1/budgets/:id/review', {
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+}, async (request, reply) => {
+  const { id } = request.params as any;
+  const { notes } = request.body as any;
+  const user = request.user as any;
+
+  const budgetFetch = await pgPool.query('SELECT status FROM budgets WHERE id = $1', [id]);
+  if (budgetFetch.rows.length === 0) {
+    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Budget not found.' } });
+  }
+  const currentStatus = budgetFetch.rows[0].status;
+
+  await pgPool.query(`UPDATE budgets SET status = 'REVIEWING', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
+  await logBudgetStatus(pgPool, id, currentStatus, 'REVIEWING', user.username, notes || 'Certifier started administrative review');
+
+  return { success: true, data: { status: 'REVIEWING' } };
+});
+
+// Route: Certifier Reject Budget
+server.post('/api/v1/budgets/:id/reject', {
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+}, async (request, reply) => {
+  const { id } = request.params as any;
+  const { rejection_reason } = request.body as any;
+  const user = request.user as any;
+
+  if (!rejection_reason) {
+    return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Rejection reason is required.' } });
+  }
+
+  const budgetFetch = await pgPool.query('SELECT status FROM budgets WHERE id = $1', [id]);
+  if (budgetFetch.rows.length === 0) {
+    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Budget not found.' } });
+  }
+  const currentStatus = budgetFetch.rows[0].status;
+
+  await pgPool.query(
+    `UPDATE budgets SET status = 'REJECTED', rejection_reason = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+    [id, rejection_reason]
+  );
+  await logBudgetStatus(pgPool, id, currentStatus, 'REJECTED', user.username, rejection_reason);
+
+  return { success: true, data: { status: 'REJECTED', rejection_reason } };
+});
+
+// Route: Certifier Request Revision
+server.post('/api/v1/budgets/:id/revision', {
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+}, async (request, reply) => {
+  const { id } = request.params as any;
+  const { notes } = request.body as any;
+  const user = request.user as any;
+
+  if (!notes) {
+    return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Revision notes are required.' } });
+  }
+
+  const budgetFetch = await pgPool.query('SELECT status FROM budgets WHERE id = $1', [id]);
+  if (budgetFetch.rows.length === 0) {
+    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Budget not found.' } });
+  }
+  const currentStatus = budgetFetch.rows[0].status;
+
+  await pgPool.query(
+    `UPDATE budgets SET status = 'REVISION_REQUESTED', rejection_reason = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+    [id, notes]
+  );
+  await logBudgetStatus(pgPool, id, currentStatus, 'REVISION_REQUESTED', user.username, notes);
+
+  return { success: true, data: { status: 'REVISION_REQUESTED', notes } };
 });
 
 // Start the server

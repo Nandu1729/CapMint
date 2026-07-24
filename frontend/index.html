@@ -917,6 +917,10 @@
                       <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">REGISTERED ADDRESS</label>
                       <input type="text" id="reg-address" class="form-control" placeholder="Full registered business address" style="height: 44px; border-radius: 8px;">
                     </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                      <label style="font-weight: 600; letter-spacing: 0.5px; font-size: 0.75rem; color: var(--text-muted);">UPLOAD DOCUMENTATION (PDF / IMAGES)</label>
+                      <input type="text" id="reg-documents" class="form-control" placeholder="e.g. organic_certificate_2026.pdf, business_license.pdf" style="height: 44px; border-radius: 8px;">
+                    </div>
                   </div>
 
                   <button class="btn btn-primary" style="width: 100%; font-weight: bold; margin-top: 1rem; padding: 0.95rem; border-radius: 8px; font-size: 0.95rem; height: 48px;" onclick="nextRegStep(1)">CONTINUE TO CREDENTIALS</button>
@@ -1193,9 +1197,64 @@
               </div>
             </div>
 
+            <!-- Caseworker assignment and severity escalation -->
+            <div style="border-top: 1px dashed var(--border-muted); padding-top: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div>
+                <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem; font-family: var(--font-outfit);">Caseworker Assignment</h3>
+                <div style="display: flex; gap: 0.25rem;">
+                  <select id="inv-assign-select" class="form-control" style="font-size: 0.8rem; padding: 0.25rem;">
+                    <option value="00000000-0000-0000-0000-000000000001">Inspector Sarah</option>
+                    <option value="00000000-0000-0000-0000-000000000002">Caseworker John</option>
+                  </select>
+                  <button class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="assignCaseworker()">ASSIGN</button>
+                </div>
+                <p style="font-size: 0.85rem; margin-top: 0.25rem;">Assigned to: <strong id="inv-modal-assignee">Unassigned</strong></p>
+              </div>
+              <div>
+                <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem; font-family: var(--font-outfit);">Severity Escalation</h3>
+                <div style="display: flex; gap: 0.25rem;">
+                  <select id="inv-escalate-select" class="form-control" style="font-size: 0.8rem; padding: 0.25rem;">
+                    <option value="HIGH">HIGH</option>
+                    <option value="CRITICAL">CRITICAL</option>
+                  </select>
+                  <button class="btn btn-primary" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="escalateInvestigation()">ESCALATE</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Caseworker Notes log and add note -->
+            <div style="border-top: 1px dashed var(--border-muted); padding-top: 1rem;">
+              <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem; font-family: var(--font-outfit);">Caseworker Notes</h3>
+              <div id="inv-modal-notes-log" style="display: flex; flex-direction: column; gap: 0.25rem; max-height: 100px; overflow-y: auto; background: rgba(0, 0, 0, 0.2); padding: 0.5rem; border-radius: 8px; margin-bottom: 0.5rem;"></div>
+              <div style="display: flex; gap: 0.25rem;">
+                <input type="text" id="inv-note-input" class="form-control" placeholder="Add custom notes..." style="font-size: 0.8rem; padding: 0.25rem;">
+                <button class="btn" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="addCaseNote()">ADD NOTE</button>
+              </div>
+            </div>
+
+            <!-- Chronological Timeline -->
+            <div style="border-top: 1px dashed var(--border-muted); padding-top: 1rem;">
+              <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem; font-family: var(--font-outfit);">Evidence Timeline</h3>
+              <div id="inv-modal-full-timeline" style="display: flex; flex-direction: column; gap: 0.25rem; max-height: 100px; overflow-y: auto; background: rgba(0, 0, 0, 0.2); padding: 0.5rem; border-radius: 8px;"></div>
+            </div>
+
+            <!-- Close Verdict and Notes -->
+            <div style="border-top: 1px dashed var(--border-muted); padding-top: 1rem;">
+              <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem; font-family: var(--font-outfit);">Close Case</h3>
+              <div style="display: flex; gap: 0.25rem; align-items: center;">
+                <select id="inv-close-verdict" class="form-control" style="font-size: 0.8rem; padding: 0.25rem; width: 120px;">
+                  <option value="CLOSED">RESOLVED (CLOSED)</option>
+                  <option value="DISMISSED">DISMISSED</option>
+                </select>
+                <input type="text" id="inv-close-notes" class="form-control" placeholder="Closure notes..." style="font-size: 0.8rem; padding: 0.25rem; flex: 1;">
+                <button class="btn" style="background: var(--color-success); color: #0a0a0a; font-weight: 700; padding: 0.25rem 0.5rem; font-size: 0.75rem;" onclick="closeInvestigationCase()">CLOSE CASE</button>
+              </div>
+            </div>
+
+            <!-- Modal Actions Footer -->
             <div style="border-top: 1px solid var(--border-muted); padding-top: 1rem; display: flex; justify-content: flex-end; gap: 1rem;">
               <button class="btn" style="background: rgba(255, 255, 255, 0.05); color: var(--text-main);" onclick="closeInvestigationModal()">CLOSE</button>
-              <button class="btn btn-primary" id="inv-approve-btn" onclick="approveInvestigation()">APPROVE REVOCATION</button>
+              <button class="btn btn-primary" id="inv-approve-btn" onclick="approveInvestigationRevocation()">APPROVE REVOCATION</button>
               <button class="btn" style="background: var(--color-warning); color: #0a0a0a; font-weight: 700;" id="inv-dismiss-btn" onclick="dismissInvestigation()">DISMISS CASE</button>
             </div>
           </div>
@@ -1389,17 +1448,56 @@
               </div>
             </div>
 
+            <!-- Explicit Lot Creation Panel -->
+            <div class="glass-card">
+              <h2 style="font-family: var(--font-outfit); margin-bottom: 1.5rem;">Create Explicit Packaging Lot</h2>
+              <div id="lot-create-error" style="display: none; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem;"></div>
+              <div id="lot-create-success" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); color: #10b981; padding: 0.75rem; border-radius: 8px; font-size: 0.85rem; margin-bottom: 1rem;"></div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label>Select Active Budget</label>
+                  <select id="create-lot-budget-select" class="form-control">
+                    <!-- Loaded dynamically -->
+                  </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label>Batch Size (KG / Units)</label>
+                  <input type="number" id="create-lot-size" class="form-control" value="500">
+                </div>
+              </div>
+              <button class="btn btn-primary" style="width: 100%; margin-top: 1.25rem;" onclick="createExplicitLot()">CREATE PACKAGING LOT</button>
+            </div>
+
+            <!-- Packaging Lots Management List -->
+            <div class="glass-card">
+              <h2 style="font-family: var(--font-outfit); margin-bottom: 1.5rem;">Packaging Lots Management</h2>
+              <div id="manufacturer-lots-list" style="display: flex; flex-direction: column; gap: 0.5rem; max-height: 250px; overflow-y: auto;">
+                <!-- Dynamically loaded lots -->
+              </div>
+            </div>
+
+            <!-- Mint Serialized Barcodes -->
             <div class="glass-card">
               <h2 style="font-family: var(--font-outfit); margin-bottom: 1.5rem;">Mint Serialized Barcodes</h2>
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+              <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label>Select Packaging Lot</label>
+                  <select id="mint-lot-select" class="form-control">
+                    <!-- Loaded dynamically -->
+                  </select>
+                </div>
                 <div class="form-group" style="margin-bottom: 0;">
                   <label>Global Trade Item Number</label>
                   <input type="text" id="mint-gtin" class="form-control" value="07612345678900" placeholder="Must be exactly 14 digits">
                 </div>
                 <div class="form-group" style="margin-bottom: 0;">
-                  <label>Packaging Lot Weight (KG)</label>
-                  <input type="number" id="mint-weight" class="form-control" value="150">
+                  <label>Custom Serial / SN (Optional)</label>
+                  <input type="text" id="mint-serial-custom" class="form-control" placeholder="e.g. SN-A981">
                 </div>
+              </div>
+              <div class="form-group" style="margin-top: 1rem; margin-bottom: 0;">
+                <label>Legacy Packaging Lot Weight (KG - Fallback flow)</label>
+                <input type="number" id="mint-weight" class="form-control" value="150">
               </div>
               <button class="btn btn-primary" style="width: 100%; margin-top: 1.25rem;" onclick="triggerMinting()">MINT & GENERATE QR CODES</button>
             </div>
@@ -1666,6 +1764,7 @@
               <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.85rem;">
                 <div id="row-prod-name" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Name</span><strong id="verify-prod-name" style="color: var(--text-main);"></strong></div>
                 <div id="row-prod-manufacturer" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Manufacturer</span><strong id="verify-prod-manufacturer" style="color: var(--text-main);"></strong></div>
+                <div id="row-prod-farm" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Source Farm</span><strong id="verify-prod-farm" style="color: var(--text-main);">Premium Harvest, Uttarakhand</strong></div>
                 <div id="row-prod-country" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Origin</span><span id="verify-prod-country" style="color: var(--text-main);"></span></div>
                 <div id="row-prod-organic" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Organic Certification</span><span id="verify-cert-status-badge" class="status-badge" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;"></span></div>
                 <div id="row-prod-lab" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Lab Purity Status</span><span id="verify-lab-status-badge" class="status-badge" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;"></span></div>
@@ -1688,6 +1787,9 @@
                 <div id="row-spec-weight" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Net Weight</span><span id="verify-prod-weight" style="color: var(--text-main);"></span></div>
                 <div id="row-spec-cert-auth" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Certifying Authority</span><strong id="verify-cert-auth" style="color: var(--text-main);"></strong></div>
                 <div id="row-spec-cert-num" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Certificate Number</span><span id="verify-cert-num" style="font-family: monospace; color: var(--text-main);"></span></div>
+                <div id="row-spec-lab-name" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Testing Laboratory</span><strong id="verify-lab-name" style="color: var(--text-main);">NABL Accredited Labs India</strong></div>
+                <div id="row-spec-lab-hash" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Lab Report Hash</span><span id="verify-lab-hash" style="font-family: monospace; color: var(--text-main); font-size: 0.75rem;"></span></div>
+                <div id="row-spec-cert-pk" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Certifier Signature PK</span><span id="verify-cert-pk" style="font-family: monospace; color: var(--text-main); font-size: 0.75rem;">ed25519_pk_9a123f81e</span></div>
               </div>
             </div>
 
@@ -1949,25 +2051,34 @@
             scansDiv.innerHTML = '<div style="color: var(--text-muted); text-align: center; padding: 0.5rem;">No prior scans recorded.</div>';
           }
 
-          // Timeline
-          const timelineDiv = document.getElementById('inv-modal-timeline');
-          if (inv.evidence && inv.evidence.verification_timeline) {
-            timelineDiv.innerHTML = inv.evidence.verification_timeline.map(t => {
-              return `<div style="display: flex; justify-content: space-between; padding: 0.15rem 0;">
-                <span>${t.name}</span>
-                <strong style="color: var(--color-success);">${t.status}</strong>
-              </div>`;
-            }).join('');
+          // Assigned caseworker
+          document.getElementById('inv-modal-assignee').innerText = inv.assigned_to || 'Unassigned';
+
+          // Case Notes Log
+          const notesDiv = document.getElementById('inv-modal-notes-log');
+          if (inv.case_notes && inv.case_notes.length > 0) {
+            notesDiv.innerHTML = inv.case_notes.map(n => `
+              <div style="padding: 0.35rem; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.8rem;">
+                <span style="color: var(--color-primary); font-weight: 600;">${n.author}</span>: ${n.note}
+                <br><small style="color: var(--text-muted); font-size: 0.7rem;">${new Date(n.timestamp).toLocaleString()}</small>
+              </div>
+            `).join('');
           } else {
-            timelineDiv.innerHTML = 'None';
+            notesDiv.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem; text-align: center;">No case notes recorded yet.</div>';
           }
 
-          // Action button visibility
-          const actionsDiv = document.getElementById('inv-modal-actions');
-          if (inv.status === 'OPEN' || inv.status === 'UNDER_REVIEW') {
-            actionsDiv.style.display = 'flex';
+          // Evidence Timeline
+          const fullTimelineDiv = document.getElementById('inv-modal-full-timeline');
+          const timelineData = inv.evidence_timeline || [];
+          if (timelineData.length > 0) {
+            fullTimelineDiv.innerHTML = timelineData.map(t => `
+              <div style="padding: 0.25rem 0; font-size: 0.8rem;">
+                <span style="color: var(--color-success); font-weight: bold;">[${t.event}]</span> ${t.details} 
+                <br><small style="color: var(--text-muted); font-size: 0.75rem;">By ${t.author} at ${new Date(t.timestamp).toLocaleString()}</small>
+              </div>
+            `).join('');
           } else {
-            actionsDiv.style.display = 'none';
+            fullTimelineDiv.innerHTML = '<div style="color: var(--text-muted); font-size: 0.8rem; text-align: center;">No actions logged in timeline.</div>';
           }
 
           document.getElementById('investigation-modal').style.display = 'flex';
@@ -2170,28 +2281,94 @@
     function renderRevocationSelect() {
       const select = document.getElementById('revoke-lot-select');
       const labSelect = document.getElementById('lab-lot-select');
-      select.innerHTML = '';
-      if (labSelect) labSelect.innerHTML = '';
-      
-      const activeLots = DB.lots.filter(l => l.status === 'ACTIVE');
-      if (activeLots.length === 0) {
-        select.innerHTML = '<option value="">No active lots available</option>';
-        if (labSelect) labSelect.innerHTML = '<option value="">No active lots available</option>';
-        return;
-      }
-      activeLots.forEach(l => {
-        const opt = document.createElement('option');
-        opt.value = l.id;
-        opt.textContent = `Batch Lot #${l.id} (${l.weight} KG - ${l.crop})`;
-        select.appendChild(opt);
+      const budgetSelect = document.getElementById('create-lot-budget-select');
+      const mintLotSelect = document.getElementById('mint-lot-select');
+      const manufacturerLotsList = document.getElementById('manufacturer-lots-list');
 
-        if (labSelect) {
-          const labOpt = document.createElement('option');
-          labOpt.value = l.id;
-          labOpt.textContent = `Batch Lot #${l.id} (${l.weight} KG - ${l.crop})`;
-          labSelect.appendChild(labOpt);
+      if (select) select.innerHTML = '';
+      if (labSelect) labSelect.innerHTML = '';
+      if (budgetSelect) budgetSelect.innerHTML = '';
+      if (mintLotSelect) mintLotSelect.innerHTML = '';
+      if (manufacturerLotsList) manufacturerLotsList.innerHTML = '';
+
+      // Populate active budgets for lot creation dropdown
+      const activeBudgets = DB.budgets.filter(b => b.status === 'ACTIVE');
+      if (budgetSelect) {
+        if (activeBudgets.length === 0) {
+          budgetSelect.innerHTML = '<option value="">No active budgets</option>';
+        } else {
+          activeBudgets.forEach(b => {
+            const opt = document.createElement('option');
+            opt.value = b.id;
+            opt.textContent = `${b.crop} (${b.allocated - b.consumed} KG remaining)`;
+            budgetSelect.appendChild(opt);
+          });
         }
-      });
+      }
+
+      // Populate lots selectors and lots management list
+      if (DB.lots && DB.lots.length > 0) {
+        DB.lots.forEach(l => {
+          // Add to revocation select
+          if (select) {
+            const opt = document.createElement('option');
+            opt.value = l.id;
+            opt.textContent = `Lot #${l.id.substring(0,8)} (${l.batch_size || l.weight} KG)`;
+            select.appendChild(opt);
+          }
+
+          // Add to lab select
+          if (labSelect) {
+            const labOpt = document.createElement('option');
+            labOpt.value = l.id;
+            labOpt.textContent = `Lot #${l.id.substring(0,8)} (${l.batch_size || l.weight} KG)`;
+            labSelect.appendChild(labOpt);
+          }
+
+          // Add to mint select
+          if (mintLotSelect) {
+            const mintOpt = document.createElement('option');
+            mintOpt.value = l.id;
+            mintOpt.textContent = `Lot #${l.id.substring(0,8)} (${l.batch_size || l.weight} KG)`;
+            mintLotSelect.appendChild(mintOpt);
+          }
+
+          // Render in manufacturer lots list with PDF / CSV exports
+          if (manufacturerLotsList) {
+            const row = document.createElement('div');
+            row.className = 'list-item';
+            row.style.background = 'rgba(255, 255, 255, 0.02)';
+            row.style.padding = '1rem';
+            row.style.borderRadius = '12px';
+            row.style.display = 'flex';
+            row.style.justifyContent = 'space-between';
+            row.style.alignItems = 'center';
+            row.style.border = '1px solid var(--border-muted)';
+            row.style.marginBottom = '0.5rem';
+
+            row.innerHTML = `
+              <div>
+                <strong>Lot #${l.id.substring(0,8)}</strong>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
+                  Size: ${l.batch_size || l.weight} KG | Lab: <span class="status-badge ${l.lab_status === 'PASSED' ? 'status-success' : (l.lab_status === 'FAILED' ? 'status-danger' : 'status-pending')}" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;">${l.lab_status}</span> | Cert: <span class="status-badge ${l.certification_status === 'CERTIFIED' ? 'status-success' : 'status-pending'}" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;">${l.certification_status}</span>
+                </div>
+              </div>
+              <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-outline" style="padding: 0.35rem 0.6rem; font-size: 0.75rem;" onclick="exportLotCSV('${l.id}')">CSV Export</button>
+                <button class="btn btn-outline" style="padding: 0.35rem 0.6rem; font-size: 0.75rem;" onclick="exportLotPDF('${l.id}')">PDF Sheet</button>
+              </div>
+            `;
+            manufacturerLotsList.appendChild(row);
+          }
+        });
+      } else {
+        if (select) select.innerHTML = '<option value="">No lots available</option>';
+        if (labSelect) labSelect.innerHTML = '<option value="">No lots available</option>';
+        if (mintLotSelect) mintLotSelect.innerHTML = '<option value="">No lots available</option>';
+        if (manufacturerLotsList) {
+          manufacturerLotsList.innerHTML = '<p style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 1rem;">No packaging lots created yet.</p>';
+        }
+      }
     }
 
     function renderManufacturerStats() {
@@ -2269,6 +2446,57 @@
     // -------------------------------------------------------------------------
     // Business Logic Actions
     // -------------------------------------------------------------------------
+    function reviewBudget(id) {
+      executePost('Review Budget', `${API_BASE_URL}/api/v1/budgets/${id}/review`, {}, true)
+      .then(res => {
+        if (res.offline) return;
+        if (res.success) {
+          alert('Budget set to REVIEWING status.');
+          loadBudgets();
+        } else {
+          alert('Action failed: ' + (res.error?.message || 'Unknown error'));
+        }
+      });
+    }
+
+    function requestRevision(id) {
+      const notesEl = document.getElementById(`budget-notes-${id}`);
+      const notes = notesEl ? notesEl.value.trim() : '';
+      if (!notes) {
+        alert('Please enter revision request notes.');
+        return;
+      }
+      executePost('Request Revision', `${API_BASE_URL}/api/v1/budgets/${id}/revision`, { notes }, true)
+      .then(res => {
+        if (res.offline) return;
+        if (res.success) {
+          alert('Revision requested successfully!');
+          loadBudgets();
+        } else {
+          alert('Action failed: ' + (res.error?.message || 'Unknown error'));
+        }
+      });
+    }
+
+    function rejectBudget(id) {
+      const notesEl = document.getElementById(`budget-notes-${id}`);
+      const notes = notesEl ? notesEl.value.trim() : '';
+      if (!notes) {
+        alert('Please enter a rejection reason.');
+        return;
+      }
+      executePost('Reject Budget', `${API_BASE_URL}/api/v1/budgets/${id}/reject`, { rejection_reason: notes }, true)
+      .then(res => {
+        if (res.offline) return;
+        if (res.success) {
+          alert('Budget allocation proposal rejected.');
+          loadBudgets();
+        } else {
+          alert('Action failed: ' + (res.error?.message || 'Unknown error'));
+        }
+      });
+    }
+
     function approveBudget(id) {
       executePost('Approve Budget', `${API_BASE_URL}/api/v1/budgets/${id}/activate`, {}, true)
       .then(res => {
@@ -2283,50 +2511,83 @@
       });
     }
 
-    function triggerMinting() {
-      const activeBudget = DB.budgets.find(b => b.status === 'ACTIVE');
-      if (!activeBudget) {
-        alert('Error: There is no active approved budget. Approve budget first in Certifier tab!');
+    async function createExplicitLot() {
+      const budget_id = document.getElementById('create-lot-budget-select').value;
+      const batch_size = parseFloat(document.getElementById('create-lot-size').value);
+      const errEl = document.getElementById('lot-create-error');
+      const succEl = document.getElementById('lot-create-success');
+
+      errEl.style.display = 'none';
+      succEl.style.display = 'none';
+
+      if (!budget_id || isNaN(batch_size) || batch_size <= 0) {
+        errEl.innerText = 'Please select a budget and enter a positive batch size.';
+        errEl.style.display = 'block';
         return;
       }
 
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/lots`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + AUTH_TOKEN
+          },
+          body: JSON.stringify({ budget_id, batch_size, product_metadata: { name: 'Organic White Honey', manufacturer: 'Premium Farms', farm_name: 'Premium Harvest, Uttarakhand' } })
+        });
+        const res = await response.json();
+        if (res.success) {
+          succEl.innerText = 'Packaging lot created explicitly and capacity drawn down.';
+          succEl.style.display = 'block';
+          await loadAllData();
+        } else {
+          errEl.innerText = res.error?.message || 'Creation failed.';
+          errEl.style.display = 'block';
+        }
+      } catch (err) {
+        console.error(err);
+        errEl.innerText = 'Connection error.';
+        errEl.style.display = 'block';
+      }
+    }
+
+    function exportLotCSV(lotId) {
+      window.open(`${API_BASE_URL}/api/v1/lots/${lotId}/export/csv`, '_blank');
+    }
+
+    async function exportLotPDF(lotId) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/lots/${lotId}/export/pdf`, {
+          headers: { 'Authorization': 'Bearer ' + AUTH_TOKEN }
+        });
+        const res = await response.json();
+        if (res.success && res.data) {
+          alert(`Print-Ready Sheet Export:\n\nFormat: ${res.data.sheet_format}\nTotal Codes: ${res.data.total_codes}\nFirst item: ${res.data.print_ready_codes[0]?.label || 'None'}`);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function triggerMinting() {
       const gtin = document.getElementById('mint-gtin').value.trim();
-      const weight = parseFloat(document.getElementById('mint-weight').value);
+      const customSerial = document.getElementById('mint-serial-custom') ? document.getElementById('mint-serial-custom').value.trim() : '';
 
       if (!/^\d{14}$/.test(gtin)) {
         alert('Error: GTIN-14 must be exactly 14 numeric digits.');
         return;
       }
 
-      if (isNaN(weight) || weight <= 0) {
-        alert('Error: Please input a positive package weight.');
-        return;
-      }
+      const lotSelect = document.getElementById('mint-lot-select');
+      const selectedLotId = lotSelect ? lotSelect.value : '';
 
-      const remaining = activeBudget.allocated - activeBudget.consumed;
-      if (remaining < weight) {
-        alert(`Error: Insufficient budget capacity. Remaining capacity is ${remaining} KG.`);
-        return;
-      }
-
-      // 1. Draw down budget capacity in backend database
-      fetch(`${API_BASE_URL}/api/v1/budgets/${activeBudget.id}/drawdown`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + AUTH_TOKEN
-        },
-        body: JSON.stringify({ amount: weight })
-      })
-      .then(r => r.json())
-      .then(drawdownRes => {
-        if (!drawdownRes.success) {
-          alert(`Drawdown failed: ${drawdownRes.error?.message || 'Unknown error'}`);
+      if (selectedLotId) {
+        const lot = DB.lots.find(l => l.id === selectedLotId);
+        if (!lot) {
+          alert('Error: Selected lot not found.');
           return;
         }
 
-        // 2. Generate identifiers
-        const lotId = 'lot-' + Math.floor(100 + Math.random() * 900);
         const publicIdentifier = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
           const r = Math.random() * 16 | 0;
           const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -2334,33 +2595,33 @@
         });
         const verificationUrl = `${VITE_VERIFY_BASE_URL}/verify/${publicIdentifier}`;
         
-        // Dynamic QR code generation using QRious
         const qrObj = new QRious({
           value: verificationUrl,
           size: 200
         });
         const qrCodeDataUri = qrObj.toDataURL();
-        const serial = 'SN' + Math.floor(100000 + Math.random() * 900000);
+        const serial = customSerial || ('SN' + Math.floor(100000 + Math.random() * 900000));
 
         const productMetadata = {
-          name: activeBudget.crop,
-          manufacturer: 'Premium Farms',
+          name: lot.product_metadata?.name || 'Organic White Honey',
+          manufacturer: lot.product_metadata?.manufacturer || 'Premium Farms',
+          farm_name: lot.product_metadata?.farm_name || 'Premium Harvest, Uttarakhand',
           country_of_origin: 'India',
-          batch_id: lotId,
+          batch_id: lot.id,
           packaging_date: new Date().toISOString().split('T')[0],
           expiry_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
-          net_weight: `${weight} KG`,
+          net_weight: `${lot.batch_size} KG`,
           organic_certificate_number: 'NPOP-OTC-2026-8802',
           certifying_authority: 'Organic Trade Council India',
           scan_count: '0',
           mint_date: new Date().toISOString().split('T')[0]
         };
 
-        // 3. Persist verification lot and unit code record to backend
         fetch(`${API_BASE_URL}/api/v1/verify/register`, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + AUTH_TOKEN
           },
           body: JSON.stringify({
             public_identifier: publicIdentifier,
@@ -2368,28 +2629,206 @@
             serial: serial,
             verification_url: verificationUrl,
             qr_code_data_uri: qrCodeDataUri,
-            product_metadata: productMetadata
+            product_metadata: productMetadata,
+            lot_id: selectedLotId
           })
         })
         .then(r => r.json())
         .then(res => {
           if (res.success) {
-            appendToLedger('LOT', lotId, 'LOT_MINTED_AND_SERIALIZED', { lotId, gtin, weight, serial, verificationUrl });
-            alert(`Mint complete! Code serial ${serial} generated under Batch Lot #${lotId}.`);
-            loadBudgets();
-            loadUnitCodes();
+            appendToLedger('LOT', selectedLotId, 'LOT_MINTED_AND_SERIALIZED', { lotId: selectedLotId, gtin, serial, verificationUrl });
+            alert(`Mint complete! Code serial ${serial} generated under Batch Lot #${selectedLotId.substring(0,8)}.`);
+            loadAllData();
           } else {
-            console.error('Database persistence failed:', res.error);
+            alert(`Mint failed: ${res.error?.message || 'Unknown error'}`);
           }
         })
         .catch(err => {
           console.error('Network error during database persistence:', err);
         });
-      })
-      .catch(err => {
-        console.error('Drawdown network error:', err);
-        alert('Drawdown failed due to network error.');
-      });
+
+      } else {
+        const activeBudget = DB.budgets.find(b => b.status === 'ACTIVE');
+        if (!activeBudget) {
+          alert('Error: There is no active approved budget. Approve budget first in Certifier tab!');
+          return;
+        }
+
+        const weight = parseFloat(document.getElementById('mint-weight')?.value || '150');
+        if (isNaN(weight) || weight <= 0) {
+          alert('Error: Please input a positive package weight.');
+          return;
+        }
+
+        const remaining = activeBudget.allocated - activeBudget.consumed;
+        if (remaining < weight) {
+          alert(`Error: Insufficient budget capacity. Remaining capacity is ${remaining} KG.`);
+          return;
+        }
+
+        fetch(`${API_BASE_URL}/api/v1/budgets/${activeBudget.id}/drawdown`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + AUTH_TOKEN
+          },
+          body: JSON.stringify({ amount: weight })
+        })
+        .then(r => r.json())
+        .then(drawdownRes => {
+          if (!drawdownRes.success) {
+            alert(`Drawdown failed: ${drawdownRes.error?.message || 'Unknown error'}`);
+            return;
+          }
+
+          const lotId = 'lot-' + Math.floor(100 + Math.random() * 900);
+          const publicIdentifier = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+          });
+          const verificationUrl = `${VITE_VERIFY_BASE_URL}/verify/${publicIdentifier}`;
+          
+          const qrObj = new QRious({
+            value: verificationUrl,
+            size: 200
+          });
+          const qrCodeDataUri = qrObj.toDataURL();
+          const serial = customSerial || ('SN' + Math.floor(100000 + Math.random() * 900000));
+
+          const productMetadata = {
+            name: activeBudget.crop,
+            manufacturer: 'Premium Farms',
+            farm_name: 'Premium Harvest, Uttarakhand',
+            country_of_origin: 'India',
+            batch_id: lotId,
+            packaging_date: new Date().toISOString().split('T')[0],
+            expiry_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
+            net_weight: `${weight} KG`,
+            organic_certificate_number: 'NPOP-OTC-2026-8802',
+            certifying_authority: 'Organic Trade Council India',
+            scan_count: '0',
+            mint_date: new Date().toISOString().split('T')[0]
+          };
+
+          fetch(`${API_BASE_URL}/api/v1/verify/register`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer ' + AUTH_TOKEN
+            },
+            body: JSON.stringify({
+              public_identifier: publicIdentifier,
+              gtin: gtin,
+              serial: serial,
+              verification_url: verificationUrl,
+              qr_code_data_uri: qrCodeDataUri,
+              product_metadata: productMetadata
+            })
+          })
+          .then(r => r.json())
+          .then(res => {
+            if (res.success) {
+              appendToLedger('LOT', lotId, 'LOT_MINTED_AND_SERIALIZED', { lotId, gtin, weight, serial, verificationUrl });
+              alert(`Mint complete! Code serial ${serial} generated under Batch Lot #${lotId}.`);
+              loadAllData();
+            } else {
+              console.error('Database persistence failed:', res.error);
+            }
+          })
+          .catch(err => {
+            console.error('Network error during database persistence:', err);
+          });
+        })
+        .catch(err => {
+          console.error('Drawdown network error:', err);
+          alert('Drawdown failed due to network error.');
+        });
+      }
+    }
+
+    async function assignCaseworker() {
+      if (!currentActiveInvestigation) return;
+      const val = document.getElementById('inv-assign-select').value;
+      if (!val) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/verify/investigations/${currentActiveInvestigation.id}/assign`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
+          body: JSON.stringify({ assigned_to: val })
+        });
+        const res = await response.json();
+        if (res.success) {
+          alert('Caseworker assigned.');
+          viewInvestigation(currentActiveInvestigation.id);
+          await loadAllData();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function addCaseNote() {
+      if (!currentActiveInvestigation) return;
+      const note_text = document.getElementById('inv-note-input').value.trim();
+      if (!note_text) return;
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/verify/investigations/${currentActiveInvestigation.id}/notes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
+          body: JSON.stringify({ note_text })
+        });
+        const res = await response.json();
+        if (res.success) {
+          alert('Case note added.');
+          document.getElementById('inv-note-input').value = '';
+          viewInvestigation(currentActiveInvestigation.id);
+          await loadAllData();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function escalateInvestigation() {
+      if (!currentActiveInvestigation) return;
+      const level = document.getElementById('inv-escalate-select').value;
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/verify/investigations/${currentActiveInvestigation.id}/escalate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
+          body: JSON.stringify({ risk_level: level })
+        });
+        const res = await response.json();
+        if (res.success) {
+          alert('Severity escalated.');
+          viewInvestigation(currentActiveInvestigation.id);
+          await loadAllData();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function closeInvestigationCase() {
+      if (!currentActiveInvestigation) return;
+      const verdict = document.getElementById('inv-close-verdict').value;
+      const notes = document.getElementById('inv-close-notes').value.trim();
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/verify/investigations/${currentActiveInvestigation.id}/close`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH_TOKEN },
+          body: JSON.stringify({ closure_status: verdict, notes })
+        });
+        const res = await response.json();
+        if (res.success) {
+          alert('Case closed.');
+          closeInvestigationModal();
+          await loadAllData();
+        }
+      } catch (err) {
+        console.error(err);
+      }
     }
 
     function triggerCascadeRevocation() {
@@ -3055,6 +3494,7 @@
           // LEVEL 1: Core Product Identity details (hide if empty)
           updateFieldRow('row-prod-name', 'verify-prod-name', metadata.name);
           updateFieldRow('row-prod-manufacturer', 'verify-prod-manufacturer', metadata.manufacturer);
+          updateFieldRow('row-prod-farm', 'verify-prod-farm', metadata.farm_name || 'Premium Harvest, Uttarakhand');
           updateFieldRow('row-prod-country', 'verify-prod-country', metadata.country_of_origin);
           updateBadgeRow('row-prod-organic', 'verify-cert-status-badge', metadata.organic_certificate_status || 'ACTIVE', 'cert');
           updateBadgeRow('row-prod-lab', 'verify-lab-status-badge', labResult.status || 'PASSED', 'lab');
@@ -3068,6 +3508,9 @@
           updateFieldRow('row-spec-weight', 'verify-prod-weight', metadata.net_weight);
           updateFieldRow('row-spec-cert-auth', 'verify-cert-auth', metadata.certifying_authority);
           updateFieldRow('row-spec-cert-num', 'verify-cert-num', metadata.organic_certificate_number);
+          updateFieldRow('row-spec-lab-name', 'verify-lab-name', labResult.labName || 'NABL Accredited Labs India');
+          updateFieldRow('row-spec-lab-hash', 'verify-lab-hash', labResult.reportHash || 'hash_lab_default');
+          updateFieldRow('row-spec-cert-pk', 'verify-cert-pk', metadata.certifier_public_key || 'ed25519_pk_9a123f81e');
         }
 
         // LEVEL 3: Transparency Summary & Journey Timeline (always visible, user-friendly)
@@ -3499,6 +3942,9 @@
         return;
       }
 
+      const docsText = document.getElementById('reg-documents') ? document.getElementById('reg-documents').value.trim() : '';
+      const docs = docsText ? [{ name: docsText, type: 'BUSINESS_PROOF', uploaded_at: new Date().toISOString() }] : [];
+
       try {
         const response = await fetch(`${API_BASE_URL}/api/v1/auth/register-org`, {
           method: 'POST',
@@ -3510,7 +3956,8 @@
             business_registration_details: details,
             contact_information: contactInfo,
             admin_username: username,
-            admin_password: password
+            admin_password: password,
+            uploaded_documents: docs
           })
         });
 

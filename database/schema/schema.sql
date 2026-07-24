@@ -26,6 +26,9 @@ CREATE TABLE organizations (
     official_email VARCHAR(255) NOT NULL UNIQUE,
     contact_info JSONB NOT NULL DEFAULT '{}',
     status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    approval_notes TEXT,
+    verification_evidence JSONB DEFAULT '{}'::jsonb,
+    uploaded_documents JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT chk_organizations_type CHECK (type IN ('PRODUCER', 'NABL_LABORATORY', 'CERTIFICATION_BODY', 'EXPORTER', 'SYSTEM_ADMINISTRATOR')),
@@ -97,9 +100,11 @@ CREATE TABLE budgets (
     effective_start_date TIMESTAMPTZ NOT NULL,
     effective_end_date TIMESTAMPTZ NOT NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',
+    rejection_reason TEXT,
+    status_history JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_budgets_status CHECK (status IN ('DRAFT', 'PENDING_APPROVAL', 'ACTIVE', 'EXHAUSTED', 'REVOKED')),
+    CONSTRAINT chk_budgets_status CHECK (status IN ('DRAFT', 'PENDING_APPROVAL', 'REVIEWING', 'APPROVED', 'ACTIVE', 'EXHAUSTED', 'REVOKED', 'REJECTED', 'REVISION_REQUESTED')),
     CONSTRAINT chk_budgets_remaining CHECK (consumed_quantity <= approved_quantity),
     CONSTRAINT chk_budgets_source_unit_type CHECK (source_unit_type IN ('WEIGHT_KG', 'VOLUME_L', 'UNIT_COUNT'))
 );
@@ -191,9 +196,12 @@ CREATE TABLE investigations (
     manufacturer VARCHAR(255) NOT NULL,
     current_product_status VARCHAR(32) NOT NULL,
     evidence JSONB NOT NULL,
+    assigned_to UUID,
+    case_notes JSONB DEFAULT '[]'::jsonb,
+    evidence_timeline JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT chk_investigations_status CHECK (status IN ('OPEN', 'UNDER_REVIEW', 'REVOKED', 'DISMISSED'))
+    CONSTRAINT chk_investigations_status CHECK (status IN ('OPEN', 'UNDER_REVIEW', 'ESCALATED', 'RESOLVED', 'REVOKED', 'DISMISSED', 'CLOSED'))
 );
 
 -- 11. Table: producer_brandings

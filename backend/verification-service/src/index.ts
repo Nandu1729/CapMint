@@ -439,7 +439,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
 server.post('/api/v1/verify/register', {
   preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
 }, async (request, reply) => {
-  const { public_identifier, gtin, serial, verification_url, qr_code_data_uri, product_metadata } = request.body as any;
+  const { public_identifier, gtin, serial, verification_url, qr_code_data_uri, product_metadata, lot_id } = request.body as any;
 
   if (!public_identifier || !gtin || !serial || !verification_url) {
     return reply.status(400).send({
@@ -472,16 +472,28 @@ server.post('/api/v1/verify/register', {
     }
     const budgetId = budgetRes.rows[0].id;
 
-    // 2. Insert dynamic Lot
-    const lotInsert = await client.query(`
-      INSERT INTO lots (id, producer_id, budget_id, product_metadata, batch_size, processing_dates, lab_status)
-      VALUES (uuid_generate_v4(), $1, $2, $3, 10000, '{}', 'PASSED')
-      RETURNING id
-    `, [user.orgId, budgetId, JSON.stringify(product_metadata || { name: 'Organic White Honey', manufacturer: 'Premium Farms' })]);
-    
-    const lotUuid = lotInsert.rows[0].id;
+    let lotUuid;
+    if (lot_id) {
+      const lotCheck = await client.query('SELECT id FROM lots WHERE id = $1 AND producer_id = $2', [lot_id, user.orgId]);
+      if (lotCheck.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return reply.status(404).send({
+          success: false,
+          error: { statusCode: 404, code: 'NOT_FOUND', message: 'Explicit lot not found or unauthorized.' }
+        });
+      }
+      lotUuid = lot_id;
+    } else {
+      // 2. Insert dynamic Lot
+      const lotInsert = await client.query(`
+        INSERT INTO lots (id, producer_id, budget_id, product_metadata, batch_size, processing_dates, lab_status)
+        VALUES (uuid_generate_v4(), $1, $2, $3, 10000, '{}', 'PASSED')
+        RETURNING id
+      `, [user.orgId, budgetId, JSON.stringify(product_metadata || { name: 'Organic White Honey', manufacturer: 'Premium Farms' })]);
+      lotUuid = lotInsert.rows[0].id;
+    }
 
-    // 3. Insert Lab Result for the dynamic Lot if not exists
+    // 3. Insert Lab Result for the Lot if not exists
     await client.query(`
       INSERT INTO lab_results (lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
       VALUES ($1, 'Intertek India Labs', 'Purity Certification Test', 'PASS', 'hash_lab_default', 'NABL-INTK-2026-10492')
@@ -504,6 +516,327 @@ server.post('/api/v1/verify/register', {
   } finally {
     client.release();
   }
+});
+
+// Route: Explicit Lot Creation for Manufacturers
+server.post('/api/v1/lots', {
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
+}, async (request, reply) => {
+  const { budget_id, product_metadata, batch_size, processing_dates } = request.body as any;
+  const user = request.user as any;
+
+  if (!budget_id || !batch_size) {
+    return reply.status(400).send({
+      success: false,
+      error: { statusCode: 400, message: 'Missing budget_id or batch_size.' }
+    });
+  }
+
+  const quantity = parseFloat(batch_size);
+  if (isNaN(quantity) || quantity <= 0) {
+    return reply.status(400).send({
+      success: false,
+      error: { statusCode: 400, message: 'Batch size must be a positive numeric value.' }
+    });
+  }
+
+  const client = await pgPool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Lock budget row to avoid concurrent drawdowns
+    const budgetRes = await client.query(
+      `SELECT status, approved_quantity, consumed_quantity 
+       FROM budgets 
+       WHERE id = $1 AND producer_id = $2 FOR UPDATE`,
+      [budget_id, user.orgId]
+    );
+
+    if (budgetRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({
+        success: false,
+        error: { statusCode: 404, message: 'Budget not found or unauthorized.' }
+      });
+    }
+
+    const budget = budgetRes.rows[0];
+    if (budget.status !== 'ACTIVE') {
+      await client.query('ROLLBACK');
+      return reply.status(400).send({
+        success: false,
+        error: { statusCode: 400, message: 'Budget is not active.' }
+      });
+    }
+
+    const remaining = parseFloat(budget.approved_quantity) - parseFloat(budget.consumed_quantity);
+    if (quantity > remaining) {
+      await client.query('ROLLBACK');
+      return reply.status(400).send({
+        success: false,
+        error: { statusCode: 400, code: 'BUDGET_EXHAUSTED', message: 'Insufficient capacity remaining in budget.' }
+      });
+    }
+
+    // 2. Draw down budget capacity
+    await client.query(
+      `UPDATE budgets SET consumed_quantity = consumed_quantity + $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [budget_id, quantity]
+    );
+
+    // 3. Create Lot
+    const lotRes = await client.query(
+      `INSERT INTO lots (id, producer_id, budget_id, product_metadata, batch_size, processing_dates, lab_status)
+       VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, 'PENDING')
+       RETURNING *`,
+      [user.orgId, budget_id, JSON.stringify(product_metadata || {}), quantity, JSON.stringify(processing_dates || {})]
+    );
+
+    const lotUuid = lotRes.rows[0].id;
+
+    // 4. Log to transparency ledger
+    try {
+      await fetch(LEDGER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          entity_type: 'LOT',
+          entity_id: lotUuid,
+          event_type: 'LOT_CREATED',
+          payload: {
+            lot_id: lotUuid,
+            budget_id,
+            batch_size: quantity,
+            product_metadata
+          }
+        })
+      });
+    } catch (ledgerErr) {
+      server.log.error(ledgerErr as any, 'Failed to log lot creation to transparency ledger');
+    }
+
+    await client.query('COMMIT');
+    return {
+      success: true,
+      data: { lot: lotRes.rows[0] }
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
+
+// Route: Export Lot Unit Codes as CSV
+server.get('/api/v1/lots/:id/export/csv', {
+  preValidation: [server.authenticate]
+}, async (request, reply) => {
+  const { id } = request.params as any;
+
+  const lotCheck = await pgPool.query('SELECT id FROM lots WHERE id = $1', [id]);
+  if (lotCheck.rowCount === 0) {
+    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Lot not found.' } });
+  }
+
+  const result = await pgPool.query(
+    'SELECT public_identifier, gtin, serial, digital_link_uri, verification_url FROM unit_codes WHERE lot_id = $1',
+    [id]
+  );
+
+  let csvContent = 'public_identifier,gtin,serial,digital_link_uri,verification_url\n';
+  result.rows.forEach(row => {
+    csvContent += `"${row.public_identifier}","${row.gtin}","${row.serial}","${row.digital_link_uri}","${row.verification_url}"\n`;
+  });
+
+  reply
+    .header('Content-Type', 'text/csv')
+    .header('Content-Disposition', `attachment; filename=lot_export_${id}.csv`)
+    .send(csvContent);
+});
+
+// Route: Export Lot Unit Codes as print-ready PDF data sheet
+server.get('/api/v1/lots/:id/export/pdf', {
+  preValidation: [server.authenticate]
+}, async (request, reply) => {
+  const { id } = request.params as any;
+
+  const lotCheck = await pgPool.query('SELECT product_metadata FROM lots WHERE id = $1', [id]);
+  if (lotCheck.rowCount === 0) {
+    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Lot not found.' } });
+  }
+
+  const result = await pgPool.query(
+    'SELECT public_identifier, gtin, serial, digital_link_uri, verification_url FROM unit_codes WHERE lot_id = $1',
+    [id]
+  );
+
+  // Return a structured JSON listing to represent the print-sheet layout
+  return {
+    success: true,
+    data: {
+      lot_id: id,
+      product_name: lotCheck.rows[0].product_metadata?.name || 'Organic White Honey',
+      sheet_format: 'A4 Grid (3x8 stickers)',
+      total_codes: result.rows.length,
+      print_ready_codes: result.rows.map(row => ({
+        public_id: row.public_identifier,
+        gtin: row.gtin,
+        serial: row.serial,
+        digital_link: row.digital_link_uri,
+        qr_border_color: '#000000',
+        label: `GTIN: ${row.gtin} SN: ${row.serial}`
+      }))
+    }
+  };
+});
+
+// Route: Assign Caseworker to Investigation
+server.post('/api/v1/verify/investigations/:id/assign', {
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }, { orgType: 'SYSTEM_ADMINISTRATOR' }])]
+}, async (request, reply) => {
+  const { id } = request.params as any;
+  const { assigned_to } = request.body as any;
+  const user = request.user as any;
+
+  if (!assigned_to) {
+    return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Missing assigned_to UUID.' } });
+  }
+
+  const timelineEntry = {
+    timestamp: new Date().toISOString(),
+    event: 'CASE_ASSIGNED',
+    author: user.username,
+    details: `Investigation assigned to caseworker ID: ${assigned_to}`
+  };
+
+  const result = await pgPool.query(
+    `UPDATE investigations 
+     SET assigned_to = $2, 
+         evidence_timeline = COALESCE(evidence_timeline, '[]'::jsonb) || $3::jsonb,
+         updated_at = CURRENT_TIMESTAMP 
+     WHERE id = $1 
+     RETURNING *`,
+    [id, assigned_to, JSON.stringify([timelineEntry])]
+  );
+
+  if (result.rowCount === 0) {
+    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Investigation not found.' } });
+  }
+
+  return { success: true, data: { investigation: result.rows[0] } };
+});
+
+// Route: Add Case Notes to Investigation
+server.post('/api/v1/verify/investigations/:id/notes', {
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }, { orgType: 'SYSTEM_ADMINISTRATOR' }])]
+}, async (request, reply) => {
+  const { id } = request.params as any;
+  const { note_text } = request.body as any;
+  const user = request.user as any;
+
+  if (!note_text) {
+    return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Missing note_text.' } });
+  }
+
+  const noteEntry = {
+    timestamp: new Date().toISOString(),
+    author: user.username,
+    note: note_text
+  };
+
+  const timelineEntry = {
+    timestamp: new Date().toISOString(),
+    event: 'NOTE_ADDED',
+    author: user.username,
+    details: `Caseworker added a case note`
+  };
+
+  const result = await pgPool.query(
+    `UPDATE investigations 
+     SET case_notes = COALESCE(case_notes, '[]'::jsonb) || $2::jsonb, 
+         evidence_timeline = COALESCE(evidence_timeline, '[]'::jsonb) || $3::jsonb,
+         updated_at = CURRENT_TIMESTAMP 
+     WHERE id = $1 
+     RETURNING *`,
+    [id, JSON.stringify([noteEntry]), JSON.stringify([timelineEntry])]
+  );
+
+  if (result.rowCount === 0) {
+    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Investigation not found.' } });
+  }
+
+  return { success: true, data: { investigation: result.rows[0] } };
+});
+
+// Route: Escalate Investigation Severity
+server.post('/api/v1/verify/investigations/:id/escalate', {
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }, { orgType: 'SYSTEM_ADMINISTRATOR' }])]
+}, async (request, reply) => {
+  const { id } = request.params as any;
+  const { risk_level } = request.body as any;
+  const user = request.user as any;
+
+  if (!risk_level) {
+    return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Missing risk_level.' } });
+  }
+
+  const timelineEntry = {
+    timestamp: new Date().toISOString(),
+    event: 'CASE_ESCALATED',
+    author: user.username,
+    details: `Threat level escalated to ${risk_level}`
+  };
+
+  const result = await pgPool.query(
+    `UPDATE investigations 
+     SET risk_level = $2, 
+         status = 'ESCALATED',
+         evidence_timeline = COALESCE(evidence_timeline, '[]'::jsonb) || $3::jsonb,
+         updated_at = CURRENT_TIMESTAMP 
+     WHERE id = $1 
+     RETURNING *`,
+    [id, risk_level, JSON.stringify([timelineEntry])]
+  );
+
+  if (result.rowCount === 0) {
+    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Investigation not found.' } });
+  }
+
+  return { success: true, data: { investigation: result.rows[0] } };
+});
+
+// Route: Close/Resolve Investigation
+server.post('/api/v1/verify/investigations/:id/close', {
+  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }, { orgType: 'SYSTEM_ADMINISTRATOR' }])]
+}, async (request, reply) => {
+  const { id } = request.params as any;
+  const { closure_status, notes } = request.body as any;
+  const user = request.user as any;
+
+  const finalStatus = closure_status || 'CLOSED';
+  const timelineEntry = {
+    timestamp: new Date().toISOString(),
+    event: 'CASE_CLOSED',
+    author: user.username,
+    details: `Investigation closed as ${finalStatus}. Notes: ${notes || ''}`
+  };
+
+  const result = await pgPool.query(
+    `UPDATE investigations 
+     SET status = $2, 
+         evidence_timeline = COALESCE(evidence_timeline, '[]'::jsonb) || $3::jsonb,
+         updated_at = CURRENT_TIMESTAMP 
+     WHERE id = $1 
+     RETURNING *`,
+    [id, finalStatus, JSON.stringify([timelineEntry])]
+  );
+
+  if (result.rowCount === 0) {
+    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Investigation not found.' } });
+  }
+
+  return { success: true, data: { investigation: result.rows[0] } };
 });
 
 // Route: Public simulation revocation for Manufacturer Console
@@ -1008,6 +1341,21 @@ server.post('/api/v1/verify/lab-results', {
       success: false,
       error: { statusCode: 400, code: 'BAD_REQUEST', message: 'Missing required lab result fields.' }
     });
+  }
+
+  const user = request.user as any;
+  const authClient = await pgPool.connect();
+  try {
+    // Validate lab identity and certifier trust chain status
+    const labOrg = await authClient.query('SELECT status FROM organizations WHERE id = $1 AND type = \'NABL_LABORATORY\'', [user.orgId]);
+    if (labOrg.rows.length === 0 || labOrg.rows[0].status !== 'ACTIVATED') {
+      return reply.status(403).send({
+        success: false,
+        error: { statusCode: 403, code: 'FORBIDDEN', message: 'Laboratory is not activated in the trust registry.' }
+      });
+    }
+  } finally {
+    authClient.release();
   }
 
   // Cryptographically validate and recompute PDF hash on the backend
