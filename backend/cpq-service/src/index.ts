@@ -25,7 +25,8 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 server.register(jwt, {
-  secret: JWT_SECRET
+  secret: JWT_SECRET,
+  verify: { algorithms: ['HS256'] }
 });
 
 // Global error handler complying with RFC 7807 Problem Details

@@ -15,6 +15,7 @@ Critical security remediation of the code-serialization capacity bypass, plus ga
 
 - **Authenticated Ledger & Integration Endpoints (High)**: The transparency-ledger append (`POST /log`) and the AgriStack/TraceNet integration lookups now require a valid JWT; ledger reads (`/entries`, `/verify`) stay public for independent verification. Internal service-to-service ledger appends use a service token signed with the shared secret. Closes the previously world-writable ledger (SEC-02/API-03).
 - **Fail-Closed DB/Redis Config (Medium)**: Removed the in-source `DATABASE_URL`/`REDIS_URL` password fallbacks across all services; each now refuses to start (outside `NODE_ENV=test`) unless the connection strings are supplied via the environment.
+- **JWT Algorithm Pinning (High)**: All services now pin JWT verification to `HS256`, rejecting tokens signed with any other algorithm (mitigates algorithm-confusion/downgrade attacks). Operator tokens retain their 8h expiry; token revocation (denylist) remains a follow-up.
 
 ### Fixed
 - Operator UI no longer issues a redundant `/drawdown` call when minting (prevents double-counting after the register-path fix).

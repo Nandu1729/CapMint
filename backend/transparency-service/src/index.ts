@@ -23,7 +23,7 @@ if (!JWT_SECRET) {
   console.error('FATAL: JWT_SECRET is not set. Refusing to start with an insecure default.');
   process.exit(1);
 }
-server.register(jwt, { secret: JWT_SECRET });
+server.register(jwt, { secret: JWT_SECRET, verify: { algorithms: ['HS256'] } });
 
 // Authentication guard for ledger-mutating routes (append). Reads stay public (transparency).
 server.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {

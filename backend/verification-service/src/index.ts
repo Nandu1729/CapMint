@@ -37,7 +37,8 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 server.register(jwt, {
-  secret: JWT_SECRET
+  secret: JWT_SECRET,
+  verify: { algorithms: ['HS256'] }
 });
 
 // Service-to-service token for authenticating internal ledger appends (signed with the shared JWT secret).

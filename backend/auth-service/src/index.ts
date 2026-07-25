@@ -55,7 +55,8 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 server.register(jwt, {
-  secret: JWT_SECRET
+  secret: JWT_SECRET,
+  verify: { algorithms: ['HS256'] }
 });
 
 // Configure Bcrypt plugin
