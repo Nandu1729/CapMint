@@ -73,6 +73,14 @@ jobs:
           C1_TEST_RUN_ID: ci_${{ github.run_id }}
         run: npm test --workspace=backend/e2e-tests -- migration-reconciliation.test.ts
 
+      - name: Verify Secure Administrator Bootstrap and Development Seed
+        env:
+          DATABASE_URL: postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_test
+          REDIS_URL: redis://localhost:6379/0
+          RUN_F2_INTEGRATION: '1'
+          F2_TEST_RUN_ID: ci_${{ github.run_id }}_${{ github.run_attempt }}
+        run: npm test --workspace=backend/e2e-tests -- bootstrap-seed.test.ts
+
       - name: Run Tenant-Scoped Compliance Suite
         env:
           DATABASE_URL: postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_test
