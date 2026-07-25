@@ -1,0 +1,530 @@
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { spawn, spawnSync, type ChildProcessWithoutNullStreams } from 'node:child_process';
+import crypto from 'node:crypto';
+import fs from 'node:fs/promises';
+import net from 'node:net';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
+import pg from 'pg';
+
+const require = createRequire(import.meta.url);
+const bcrypt = require('bcryptjs') as {
+  compareSync(value: string, hash: string): boolean;
+};
+
+const RUN_INTEGRATION = process.env.RUN_F2_INTEGRATION === '1';
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+const RUN_ID = process.env.F2_TEST_RUN_ID || 'local';
+const PREFIX = `capmint_f2_test_${RUN_ID}`;
+const migrationRunner = path.join(ROOT, 'playground/run_migrations.js');
+const bootstrapAdminScript = path.join(ROOT, 'scripts/bootstrap-admin.js');
+const developmentSeedScript = path.join(ROOT, 'database/seed/development.js');
+const legacySeedPath = path.join(
+  ROOT,
+  'database/migrations/0006_seed_initial_system_admin_and_certifiers.sql'
+);
+const tsxPath = path.join(ROOT, 'node_modules/.bin/tsx');
+
+dotenv.config({ path: path.join(ROOT, '.env') });
+
+let adminPool: pg.Pool;
+let sourceUrl: URL;
+const createdDatabases = new Set<string>();
+const children = new Set<ChildProcessWithoutNullStreams>();
+
+function quoteIdentifier(value: string): string {
+  if (!/^capmint_f2_test_[a-z0-9_]+$/.test(value)) {
+    throw new Error(`Refusing unsafe disposable database name: ${value}`);
+  }
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+function databaseName(scenario: string): string {
+  return `${PREFIX}_${scenario}`;
+}
+
+function databaseUrl(name: string): string {
+  const url = new URL(sourceUrl);
+  url.pathname = `/${name}`;
+  return url.toString();
+}
+
+async function createDatabase(name: string): Promise<void> {
+  quoteIdentifier(name);
+  const existing = await adminPool.query('SELECT 1 FROM pg_database WHERE datname = $1', [name]);
+  if (existing.rowCount !== 0) {
+    throw new Error(`Disposable database ${name} already exists; refusing to overwrite it.`);
+  }
+  await adminPool.query(`CREATE DATABASE ${quoteIdentifier(name)} TEMPLATE template0`);
+  createdDatabases.add(name);
+  await withPool(name, async pool => {
+    const identity = await pool.query('SELECT current_database() AS name');
+    expect(identity.rows[0].name).toBe(name);
+  });
+}
+
+async function dropDatabase(name: string): Promise<void> {
+  if (!createdDatabases.has(name)) return;
+  await adminPool.query(`DROP DATABASE ${quoteIdentifier(name)} WITH (FORCE)`);
+  createdDatabases.delete(name);
+}
+
+async function withPool<T>(name: string, action: (pool: pg.Pool) => Promise<T>): Promise<T> {
+  const pool = new pg.Pool({ connectionString: databaseUrl(name) });
+  try {
+    return await action(pool);
+  } finally {
+    await pool.end();
+  }
+}
+
+function runNode(script: string, environment: Record<string, string>) {
+  return spawnSync(process.execPath, [script], {
+    cwd: ROOT,
+    env: { ...process.env, ...environment },
+    encoding: 'utf8',
+    timeout: 60_000
+  });
+}
+
+function runMigration(name: string, args: string[]) {
+  return spawnSync(process.execPath, [migrationRunner, ...args], {
+    cwd: ROOT,
+    env: { ...process.env, DATABASE_URL: databaseUrl(name) },
+    encoding: 'utf8',
+    timeout: 60_000
+  });
+}
+
+async function bootstrapDatabase(name: string): Promise<void> {
+  await createDatabase(name);
+  const result = runMigration(name, ['--bootstrap', '--json']);
+  expect(result.status, result.stderr).toBe(0);
+}
+
+function generateKeyPair() {
+  return crypto.generateKeyPairSync('ed25519', {
+    privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+    publicKeyEncoding: { type: 'spki', format: 'pem' }
+  });
+}
+
+function strongPassword(): string {
+  return `Q7!${crypto.randomBytes(18).toString('base64url')}`;
+}
+
+function adminEnvironment(name: string, password = strongPassword()) {
+  return {
+    DATABASE_URL: databaseUrl(name),
+    CAPMINT_BOOTSTRAP_ADMIN_USERNAME: 'initial-admin',
+    CAPMINT_BOOTSTRAP_ADMIN_ORG_NAME: 'CapMint Initial Administration',
+    CAPMINT_BOOTSTRAP_ADMIN_EMAIL: 'initial-operator@capmint.example',
+    CAPMINT_BOOTSTRAP_ADMIN_PASSWORD: password
+  };
+}
+
+function developmentEnvironment(
+  name: string,
+  keyPair = generateKeyPair(),
+  password = strongPassword()
+) {
+  return {
+    DATABASE_URL: databaseUrl(name),
+    NODE_ENV: 'integration',
+    CAPMINT_ALLOW_DEVELOPMENT_SEED: '1',
+    CAPMINT_DEVELOPMENT_SEED_PASSWORD: password,
+    CAPMINT_DEVELOPMENT_CERTIFIER_PRIVATE_KEY: keyPair.privateKey,
+    CAPMINT_DEVELOPMENT_CERTIFIER_PUBLIC_KEY: keyPair.publicKey
+  };
+}
+
+async function rowCounts(name: string) {
+  return withPool(name, async pool => (await pool.query(`
+    SELECT
+      (SELECT count(*)::int FROM organizations) AS organizations,
+      (SELECT count(*)::int FROM users) AS users,
+      (SELECT count(*)::int FROM certifiers) AS certifiers,
+      (SELECT count(*)::int FROM producers) AS producers,
+      (SELECT count(*)::int FROM budgets) AS budgets,
+      (SELECT count(*)::int FROM log_entries) AS log_entries
+  `)).rows[0]);
+}
+
+async function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (!address || typeof address === 'string') {
+        server.close();
+        reject(new Error('Could not allocate a loopback port.'));
+        return;
+      }
+      const { port } = address;
+      server.close(error => error ? reject(error) : resolve(port));
+    });
+  });
+}
+
+async function startService(
+  sourcePath: string,
+  port: number,
+  environment: Record<string, string>
+): Promise<ChildProcessWithoutNullStreams> {
+  const child = spawn(tsxPath, [sourcePath], {
+    cwd: ROOT,
+    env: { ...process.env, ...environment, PORT: String(port) },
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+  children.add(child);
+  let output = '';
+  child.stdout.on('data', chunk => { output += chunk.toString(); });
+  child.stderr.on('data', chunk => { output += chunk.toString(); });
+
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) {
+      throw new Error(`Service exited before becoming healthy: ${output}`);
+    }
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/health`);
+      if (response.ok) return child;
+    } catch {
+      // Service is still starting.
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  throw new Error(`Service did not become healthy: ${output}`);
+}
+
+async function stopService(child: ChildProcessWithoutNullStreams): Promise<void> {
+  if (child.exitCode === null) child.kill('SIGTERM');
+  await new Promise<void>(resolve => {
+    if (child.exitCode !== null) {
+      resolve();
+      return;
+    }
+    const timeout = setTimeout(() => {
+      if (child.exitCode === null) child.kill('SIGKILL');
+      resolve();
+    }, 5_000);
+    child.once('exit', () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+  });
+  children.delete(child);
+}
+
+const suite = RUN_INTEGRATION ? describe : describe.skip;
+
+suite('F2 secure bootstrap and development seed', () => {
+  beforeAll(async () => {
+    if (!/^[a-z0-9_]+$/.test(RUN_ID)) {
+      throw new Error('F2_TEST_RUN_ID must contain lowercase letters, digits, or underscores.');
+    }
+    if (!process.env.DATABASE_URL || !process.env.REDIS_URL) {
+      throw new Error('DATABASE_URL and REDIS_URL are required without exposing their values.');
+    }
+    sourceUrl = new URL(process.env.DATABASE_URL);
+    if (!['127.0.0.1', 'localhost'].includes(sourceUrl.hostname)) {
+      throw new Error('F2 integration tests require a local disposable PostgreSQL server.');
+    }
+    const adminUrl = new URL(sourceUrl);
+    adminUrl.pathname = '/postgres';
+    adminPool = new pg.Pool({ connectionString: adminUrl.toString() });
+  });
+
+  afterAll(async () => {
+    for (const child of [...children]) await stopService(child);
+    for (const name of [...createdDatabases]) await dropDatabase(name);
+    if (adminPool) await adminPool.end();
+  }, 60_000);
+
+  it('creates one audited first admin and refuses an exact rerun without mutation', async () => {
+    const name = databaseName('admin_once');
+    await bootstrapDatabase(name);
+    try {
+      const password = strongPassword();
+      const environment = adminEnvironment(name, password);
+      const first = runNode(bootstrapAdminScript, environment);
+      expect(first.status, first.stderr).toBe(0);
+      expect(JSON.parse(first.stdout)).toMatchObject({
+        success: true,
+        code: 'ADMIN_BOOTSTRAPPED'
+      });
+
+      const before = await rowCounts(name);
+      const second = runNode(bootstrapAdminScript, environment);
+      expect(second.status).toBe(1);
+      expect(JSON.parse(second.stderr)).toMatchObject({
+        success: false,
+        code: 'ADMIN_ALREADY_EXISTS'
+      });
+      expect(await rowCounts(name)).toEqual(before);
+
+      await withPool(name, async pool => {
+        const user = (await pool.query(
+          `SELECT u.password_hash, u.role, u.status, o.type, o.status AS organization_status
+           FROM users u JOIN organizations o ON o.id = u.organization_id`
+        )).rows[0];
+        expect(user).toMatchObject({
+          role: 'ADMIN',
+          status: 'ACTIVE',
+          type: 'SYSTEM_ADMINISTRATOR',
+          organization_status: 'ACTIVATED'
+        });
+        expect(user.password_hash).not.toContain(password);
+        expect(bcrypt.compareSync(password, user.password_hash)).toBe(true);
+
+        const logs = (await pool.query(
+          `SELECT entity_type, entity_id, event_type, payload_hash,
+                  previous_hash, current_hash
+           FROM log_entries ORDER BY created_at, id`
+        )).rows;
+        expect(logs.map(row => row.event_type)).toEqual([
+          'GENESIS_BLOCK_ANCHOR',
+          'SYSTEM_ADMIN_BOOTSTRAPPED'
+        ]);
+        const audit = logs[1];
+        expect(audit.previous_hash).toBe(logs[0].current_hash);
+        expect(audit.current_hash).toBe(crypto.createHash('sha256').update(
+          audit.entity_type
+          + audit.entity_id
+          + audit.event_type
+          + audit.payload_hash
+          + audit.previous_hash
+        ).digest('hex'));
+      });
+    } finally {
+      await dropDatabase(name);
+    }
+  }, 60_000);
+
+  it('rejects missing and weak bootstrap secrets before any database write', async () => {
+    const name = databaseName('weak_secret');
+    await bootstrapDatabase(name);
+    try {
+      const missing = adminEnvironment(name);
+      delete (missing as Partial<typeof missing>).CAPMINT_BOOTSTRAP_ADMIN_PASSWORD;
+      const missingResult = runNode(bootstrapAdminScript, missing as Record<string, string>);
+      expect(missingResult.status).toBe(1);
+      expect(JSON.parse(missingResult.stderr).code).toBe('INVALID_CONFIGURATION');
+
+      const weakResult = runNode(bootstrapAdminScript, adminEnvironment(name, 'Password123!'));
+      expect(weakResult.status).toBe(1);
+      expect(JSON.parse(weakResult.stderr).code).toBe('WEAK_PASSWORD');
+      expect(await rowCounts(name)).toMatchObject({
+        organizations: 0,
+        users: 0,
+        log_entries: 0
+      });
+    } finally {
+      await dropDatabase(name);
+    }
+  }, 60_000);
+
+  it('refuses legacy-0006, existing-admin, and partial-admin states without mutation', async () => {
+    for (const scenario of ['legacy', 'existing', 'partial']) {
+      const name = databaseName(`admin_${scenario}`);
+      await bootstrapDatabase(name);
+      try {
+        if (scenario === 'legacy') {
+          const sql = await fs.readFile(legacySeedPath, 'utf8');
+          await withPool(name, pool => pool.query(sql).then(() => undefined));
+        } else {
+          await withPool(name, async pool => {
+            await pool.query(
+              `INSERT INTO organizations
+                 (name, type, official_email, status)
+               VALUES ($1, 'SYSTEM_ADMINISTRATOR', $2, 'ACTIVATED')`,
+              [`${scenario} administration`, `${scenario}@f2.example`]
+            );
+            if (scenario === 'existing') {
+              await pool.query(
+                `INSERT INTO users
+                   (organization_id, username, password_hash, role, status)
+                 SELECT id, 'existing-admin', 'not-a-login-fixture', 'ADMIN', 'ACTIVE'
+                 FROM organizations WHERE official_email = $1`,
+                [`${scenario}@f2.example`]
+              );
+            }
+          });
+        }
+
+        const before = await rowCounts(name);
+        const result = runNode(bootstrapAdminScript, adminEnvironment(name));
+        expect(result.status).toBe(1);
+        expect(JSON.parse(result.stderr).code).toBe(
+          scenario === 'partial' ? 'AMBIGUOUS_BOOTSTRAP_STATE' : 'ADMIN_ALREADY_EXISTS'
+        );
+        expect(await rowCounts(name)).toEqual(before);
+      } finally {
+        await dropDatabase(name);
+      }
+    }
+  }, 120_000);
+
+  it('gates development fixtures, validates keys, signs the budget, and is idempotent', async () => {
+    const name = databaseName('development');
+    await bootstrapDatabase(name);
+    try {
+      const keyPair = generateKeyPair();
+      const password = strongPassword();
+      const environment = developmentEnvironment(name, keyPair, password);
+      for (const nodeEnvironment of ['', 'production', 'staging']) {
+        const result = runNode(developmentSeedScript, {
+          ...environment,
+          NODE_ENV: nodeEnvironment
+        });
+        expect(result.status).toBe(1);
+        expect(JSON.parse(result.stderr).code).toBe('DEVELOPMENT_SEED_FORBIDDEN');
+      }
+      const flagMissing = { ...environment };
+      delete (flagMissing as Partial<typeof flagMissing>).CAPMINT_ALLOW_DEVELOPMENT_SEED;
+      const flagResult = runNode(developmentSeedScript, flagMissing as Record<string, string>);
+      expect(flagResult.status).toBe(1);
+      expect(JSON.parse(flagResult.stderr).code).toBe('DEVELOPMENT_SEED_FORBIDDEN');
+      expect(await rowCounts(name)).toMatchObject({ organizations: 0, users: 0, budgets: 0 });
+
+      const first = runNode(developmentSeedScript, environment);
+      expect(first.status, first.stderr).toBe(0);
+      expect(JSON.parse(first.stdout).code).toBe('DEVELOPMENT_FIXTURES_SEEDED');
+      const before = await rowCounts(name);
+      const second = runNode(developmentSeedScript, environment);
+      expect(second.status, second.stderr).toBe(0);
+      expect(JSON.parse(second.stdout).code).toBe('DEVELOPMENT_FIXTURES_ALREADY_PRESENT');
+      expect(await rowCounts(name)).toEqual(before);
+
+      await withPool(name, async pool => {
+        const budget = (await pool.query(
+          'SELECT id, approved_quantity, signature_bundle FROM budgets'
+        )).rows[0];
+        expect(crypto.verify(
+          null,
+          Buffer.from(`budget_id:${budget.id};approved_quantity:${budget.approved_quantity}`),
+          keyPair.publicKey,
+          Buffer.from(budget.signature_bundle, 'hex')
+        )).toBe(true);
+        const auditCount = Number((await pool.query(
+          `SELECT count(*)::int AS count FROM log_entries
+           WHERE event_type = 'DEVELOPMENT_FIXTURES_SEEDED'`
+        )).rows[0].count);
+        expect(auditCount).toBe(1);
+      });
+    } finally {
+      await dropDatabase(name);
+    }
+  }, 120_000);
+
+  it('rejects mismatched and compromised development keys before database writes', async () => {
+    const name = databaseName('key_rejection');
+    await bootstrapDatabase(name);
+    try {
+      const firstPair = generateKeyPair();
+      const secondPair = generateKeyPair();
+      const mismatch = runNode(developmentSeedScript, developmentEnvironment(name, {
+        privateKey: firstPair.privateKey,
+        publicKey: secondPair.publicKey
+      }));
+      expect(mismatch.status).toBe(1);
+      expect(JSON.parse(mismatch.stderr).code).toBe('INVALID_DEVELOPMENT_KEYPAIR');
+
+      const legacySource = await fs.readFile(legacySeedPath, 'utf8');
+      const encodedKey = legacySource.match(/MCowBQYDK2VwAyEA[A-Za-z0-9+/=]+/)?.[0];
+      expect(encodedKey).toBeTruthy();
+      const compromisedPublicKey =
+        `-----BEGIN PUBLIC KEY-----\n${encodedKey}\n-----END PUBLIC KEY-----`;
+      const compromised = runNode(developmentSeedScript, developmentEnvironment(name, {
+        privateKey: firstPair.privateKey,
+        publicKey: compromisedPublicKey
+      }));
+      expect(compromised.status).toBe(1);
+      expect(JSON.parse(compromised.stderr).code).toBe('COMPROMISED_DEVELOPMENT_KEY');
+      expect(await rowCounts(name)).toMatchObject({
+        organizations: 0,
+        users: 0,
+        certifiers: 0,
+        budgets: 0,
+        log_entries: 0
+      });
+    } finally {
+      await dropDatabase(name);
+    }
+  }, 60_000);
+
+  it('fails closed on partial development fixture state', async () => {
+    const name = databaseName('partial_development');
+    await bootstrapDatabase(name);
+    try {
+      await withPool(name, pool => pool.query(
+        `INSERT INTO organizations (id, name, type, status, official_email)
+         VALUES ('00000000-0000-0000-0000-000000000001',
+                 'Conflicting Identity',
+                 'SYSTEM_ADMINISTRATOR',
+                 'ACTIVATED',
+                 'conflict@f2.example')`
+      ).then(() => undefined));
+      const before = await rowCounts(name);
+      const result = runNode(developmentSeedScript, developmentEnvironment(name));
+      expect(result.status).toBe(1);
+      expect(JSON.parse(result.stderr).code).toBe('DEVELOPMENT_SEED_STATE_MISMATCH');
+      expect(await rowCounts(name)).toEqual(before);
+    } finally {
+      await dropDatabase(name);
+    }
+  }, 60_000);
+
+  it('starts auth and CPQ in production without seed DML', async () => {
+    const name = databaseName('production_start');
+    await bootstrapDatabase(name);
+    const authPort = await freePort();
+    const cpqPort = await freePort();
+    const commonEnvironment = {
+      NODE_ENV: 'production',
+      CAPMINT_ALLOW_DEVELOPMENT_SEED: '1',
+      DATABASE_URL: databaseUrl(name),
+      REDIS_URL: process.env.REDIS_URL!,
+      JWT_SECRET: crypto.randomBytes(48).toString('base64url')
+    };
+    let auth: ChildProcessWithoutNullStreams | undefined;
+    let cpq: ChildProcessWithoutNullStreams | undefined;
+    try {
+      auth = await startService('backend/auth-service/src/index.ts', authPort, commonEnvironment);
+      cpq = await startService('backend/cpq-service/src/index.ts', cpqPort, commonEnvironment);
+      expect(await rowCounts(name)).toMatchObject({
+        organizations: 0,
+        users: 0,
+        certifiers: 0,
+        producers: 0,
+        budgets: 0,
+        log_entries: 0
+      });
+    } finally {
+      if (cpq) await stopService(cpq);
+      if (auth) await stopService(auth);
+      await dropDatabase(name);
+    }
+  }, 60_000);
+
+  it('contains no known credential or compromised key in new-environment paths', async () => {
+    const files = [
+      'scripts/bootstrap-admin.js',
+      'database/seed/development.js',
+      'backend/auth-service/src/index.ts',
+      'backend/cpq-service/src/index.ts',
+      'backend/e2e-tests/test/compliance-suite.test.ts',
+      'playground/test_runner.js'
+    ];
+    const sources = await Promise.all(files.map(file => fs.readFile(path.join(ROOT, file), 'utf8')));
+    const combined = sources.join('\n');
+    expect(combined).not.toContain('MCowBQYDK2VwAyEAuivJCz');
+    expect(combined).not.toContain('$2b$10$e8N8');
+    expect(combined).not.toMatch(/bcrypt\.hash\(\s*['"]password['"]/);
+    expect(combined).not.toContain('BEGIN PRIVATE KEY');
+    await expect(fs.access(path.join(ROOT, 'database/seed/seed.sql'))).rejects.toThrow();
+  });
+});

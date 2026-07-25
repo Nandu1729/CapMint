@@ -3,10 +3,13 @@ const crypto = require('crypto');
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
 const JWT_SECRET = process.env.JWT_SECRET;
 const CERTIFIER_PUBLIC_KEY = process.env.CERTIFIER_PUBLIC_KEY;
+const DEVELOPMENT_ADMIN_PASSWORD = process.env.CAPMINT_DEVELOPMENT_SEED_PASSWORD;
 const EXPECTED_DATABASE_PREFIX = process.env.CAPMINT_EXPECTED_DATABASE_PREFIX || 'capmint_suite_';
 
-if (!JWT_SECRET || !CERTIFIER_PUBLIC_KEY || !process.env.DATABASE_URL) {
-  throw new Error('JWT_SECRET, CERTIFIER_PUBLIC_KEY, and DATABASE_URL are required for the compliance suite.');
+if (!JWT_SECRET || !CERTIFIER_PUBLIC_KEY || !DEVELOPMENT_ADMIN_PASSWORD || !process.env.DATABASE_URL) {
+  throw new Error(
+    'JWT_SECRET, CERTIFIER_PUBLIC_KEY, CAPMINT_DEVELOPMENT_SEED_PASSWORD, and DATABASE_URL are required for the compliance suite.'
+  );
 }
 
 // Helper to generate UUID v4
@@ -112,7 +115,7 @@ async function runTests() {
     const adminLogin = await fetch(`${BASE_URL}/api/v1/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: 'admin', password: 'password' })
+      body: JSON.stringify({ username: 'admin', password: DEVELOPMENT_ADMIN_PASSWORD })
     });
     const adminLoginData = await adminLogin.json();
     const adminToken = adminLoginData.data.token;

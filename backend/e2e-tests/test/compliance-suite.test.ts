@@ -228,6 +228,7 @@ async function runIteration(iteration: number): Promise<void> {
 
     const { privateKey, publicKey } = generateKeyPair();
     const jwtSecret = crypto.randomBytes(48).toString('base64url');
+    const developmentPassword = `Q7!${crypto.randomBytes(18).toString('base64url')}`;
     verifyKeyPair(privateKey, publicKey);
 
     const commonEnv = {
@@ -238,10 +239,33 @@ async function runIteration(iteration: number): Promise<void> {
       JWT_SECRET: jwtSecret,
       CERTIFIER_PRIVATE_KEY: privateKey,
       CERTIFIER_PUBLIC_KEY: publicKey,
+      CAPMINT_DEVELOPMENT_SEED_PASSWORD: developmentPassword,
       TRANSPARENCY_SERVICE_URL: `http://127.0.0.1:${PORTS.transparency}/api/v1/log`,
       VERIFY_FRONTEND_URL: `http://127.0.0.1:${PORTS.gateway}`,
       CORS_ORIGIN: `http://127.0.0.1:${PORTS.gateway}`
     };
+    const developmentSeed = spawnSync(
+      process.execPath,
+      [path.join(ROOT, 'database/seed/development.js')],
+      {
+        cwd: ROOT,
+        env: {
+          ...commonEnv,
+          CAPMINT_ALLOW_DEVELOPMENT_SEED: '1',
+          CAPMINT_DEVELOPMENT_CERTIFIER_PRIVATE_KEY: privateKey,
+          CAPMINT_DEVELOPMENT_CERTIFIER_PUBLIC_KEY: publicKey
+        },
+        encoding: 'utf8',
+        timeout: 60_000
+      }
+    );
+    if (developmentSeed.status !== 0) {
+      throw new Error(
+        `Explicit development seed failed (${developmentSeed.status}): `
+        + `${developmentSeed.stderr || developmentSeed.stdout}`
+      );
+    }
+
     const tsxPath = path.join(ROOT, 'node_modules/.bin/tsx');
     const services: Array<[keyof typeof PORTS, string]> = [
       ['auth', 'backend/auth-service/src/index.ts'],
