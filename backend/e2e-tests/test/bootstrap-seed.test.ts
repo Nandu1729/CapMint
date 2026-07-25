@@ -545,10 +545,10 @@ suite('F2 secure bootstrap and development seed', () => {
     ];
     const sources = await Promise.all(files.map(file => fs.readFile(path.join(ROOT, file), 'utf8')));
     const combined = sources.join('\n');
-    expect(combined).not.toContain('MCowBQYDK2VwAyEAuivJCz');
-    expect(combined).not.toContain('$2b$10$e8N8');
+    expect(combined).not.toMatch(/-----BEGIN PUBLIC KEY-----\s+[A-Za-z0-9+/=]{32,}/);
+    expect(combined).not.toMatch(/\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}/);
     expect(combined).not.toMatch(/bcrypt\.hash\(\s*['"]password['"]/);
-    expect(combined).not.toContain('BEGIN PRIVATE KEY');
+    expect(combined).not.toContain(['BEGIN', 'PRIVATE KEY'].join(' '));
     await expect(fs.access(path.join(ROOT, 'database/seed/seed.sql'))).rejects.toThrow();
   });
 });
