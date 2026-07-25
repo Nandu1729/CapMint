@@ -62,3 +62,13 @@ jobs:
           DATABASE_URL: postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_test
           REDIS_URL: redis://localhost:6379/0
         run: npm run test --if-present
+
+      - name: Verify Migration Runner Unit Tests
+        run: npm test --workspace=backend/e2e-tests -- migration-runner.unit.test.ts
+
+      - name: Verify PostgreSQL Bootstrap and Reconciliation
+        env:
+          DATABASE_URL: postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_test
+          RUN_C1_INTEGRATION: '1'
+          C1_TEST_RUN_ID: ci_${{ github.run_id }}
+        run: npm test --workspace=backend/e2e-tests -- migration-reconciliation.test.ts
