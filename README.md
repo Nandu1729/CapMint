@@ -49,7 +49,7 @@ graph TD
 *   **Geovelocity & Caseworker Dashboard**: Chronological timeline, risk escalation, caseworker assignment, and revocation flow alerts.
 *   **Zero-Trust Hardening**: Strict environment assertions at boot, secured seed passwords, and CORS lockdown.
 *   **Sliding-Window Rate Limiting**: Redis-backed atomic rate limiters on public login and scan lookup routes.
-*   **Idempotent Migration Engine**: 8 database migrations (0001-0008) with database PL/pgSQL timestamp triggers.
+*   **State-Aware Migration Engine**: 10 forward migrations, immutable empty-database baseline, checksums, explicit adoption records, and PostgreSQL advisory locking.
 *   **Compliance Test Suite**: 52 compliance test cases running with 100% success rate (`node playground/test_runner.js`).
 
 ---
@@ -65,8 +65,14 @@ npm run dev
 ### 2. Apply Database Migrations
 To run the schema migrations runner script:
 ```bash
-node playground/run_migrations.js
+node playground/run_migrations.js --check
+node playground/run_migrations.js --plan
+node playground/run_migrations.js --apply
 ```
+
+Use `--bootstrap` only for a genuinely empty database. Adoption of effects that
+exist without migration history requires explicit filenames and an approved
+state review. See [`database/README.md`](database/README.md).
 
 ### 3. Open UI Interfaces
 *   **Interactive Web Portal (Dashboards / Scanner)**: Open **[http://localhost:8080](http://localhost:8080)**
@@ -90,7 +96,7 @@ CapMint/
 ├── .github/workflows/         # Native GitHub Actions CI/CD pipeline workflows
 ├── api/                       # OpenAPI specs and contract schemas
 ├── backend/                   # The 7 TypeScript backend microservices
-├── database/                  # Schema, migrations (0001-0006), seed data, and PL/pgSQL triggers
+├── database/                  # Baseline, snapshot, migrations (0001-0010), seeds, and triggers
 ├── deployment/                # Dockerfiles, Nginx configurations, and Kubernetes manifests
 ├── docs/                      # Technical manuals (api, architecture, operations, user-guide)
 ├── frontend/                  # Dashboard and PWA client web pages

@@ -24,6 +24,7 @@ Critical security remediation of the code-serialization capacity bypass, plus ga
 - Operator UI no longer issues a redundant `/drawdown` call when minting (prevents double-counting after the register-path fix).
 - Operator operational lists, lot exports, certification, and revocation requests now include the authenticated bearer token; CSV export uses an authenticated fetch rather than unauthenticated navigation.
 - **Schema/Migration Drift (High)**: Added migration `0007` (creates `producer_brandings` + its `updated_at` trigger) and `0009` (widens the `investigations` status CHECK to include ESCALATED/RESOLVED/CLOSED). Migration-built databases no longer diverge from `schema.sql`, so the escalate/close investigation flows and branding queries work on migration-provisioned environments.
+- **State-Aware Migration Reconciliation**: Added explicit check, plan, apply, adopt, and empty-database bootstrap modes; truthful `LEGACY`/`EXECUTED`/`ADOPTED`/`BASELINE` provenance; immutable checksummed baseline bootstrap; advisory locking; forward reconciliation migration `0010`; and disposable PostgreSQL schema-drift verification. The development migration log remains unchanged pending separate adoption approval.
 
 ### Known Gaps (carried forward, not yet fixed)
 - Follow-ups: explicit producer/certifier organization ownership, trusted laboratory assignment, JWT token revocation (denylist), the unexpiring internal ledger service token, and repository hygiene are tracked separately.
