@@ -17,13 +17,16 @@ Critical security remediation of the code-serialization capacity bypass, plus ga
 - **Fail-Closed DB/Redis Config (Medium)**: Removed the in-source `DATABASE_URL`/`REDIS_URL` password fallbacks across all services; each now refuses to start (outside `NODE_ENV=test`) unless the connection strings are supplied via the environment.
 - **JWT Algorithm Pinning (High)**: All services now pin JWT verification to `HS256`, rejecting tokens signed with any other algorithm (mitigates algorithm-confusion/downgrade attacks). Operator tokens retain their 8h expiry; token revocation (denylist) remains a follow-up.
 - **Redis Sliding-Window Rate Limiting (High)**: Implemented the previously-claimed limiter — a Redis sorted-set sliding window on `/auth/login` and the public verify-scan endpoints, keyed by client IP with `RATE_LIMIT_LOGIN_MAX`/`RATE_LIMIT_VERIFY_MAX` (default 100) over a 60s window; over-limit requests receive `429`. (Behind the local gateway all clients share one IP bucket; production should forward the client IP.)
+- **Tenant Authorization Containment (Critical)**: Private budget, mint, registration, lot, export, certification, revocation, investigation, and operational-list routes now authenticate explicit actor roles and constrain SQL ownership to the caller's organization. Cross-tenant private identifiers return non-disclosing 404 responses, and denied mutations leave database and ledger state unchanged.
+- **Laboratory Mutation Containment (Critical)**: Laboratory-result writes now fail closed with `403 LAB_ASSIGNMENT_REQUIRED` after active-laboratory validation and before PDF processing, storage, lot/code mutation, investigation updates, or ledger appends. Writes remain disabled until a trusted lot-to-laboratory assignment is introduced.
 
 ### Fixed
 - Operator UI no longer issues a redundant `/drawdown` call when minting (prevents double-counting after the register-path fix).
+- Operator operational lists, lot exports, certification, and revocation requests now include the authenticated bearer token; CSV export uses an authenticated fetch rather than unauthenticated navigation.
 - **Schema/Migration Drift (High)**: Added migration `0007` (creates `producer_brandings` + its `updated_at` trigger) and `0009` (widens the `investigations` status CHECK to include ESCALATED/RESOLVED/CLOSED). Migration-built databases no longer diverge from `schema.sql`, so the escalate/close investigation flows and branding queries work on migration-provisioned environments.
 
 ### Known Gaps (carried forward, not yet fixed)
-- Follow-ups: JWT token revocation (denylist), the unexpiring internal ledger service token, and the multi-tenant data-model / repo-hygiene items tracked separately.
+- Follow-ups: explicit producer/certifier organization ownership, trusted laboratory assignment, JWT token revocation (denylist), the unexpiring internal ledger service token, and repository hygiene are tracked separately.
 
 ---
 
