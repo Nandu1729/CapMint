@@ -663,20 +663,22 @@ async function adopt(client, filenames) {
     verified.set(filename, state);
   }
 
-  await ensureMetadata(client);
-  for (const filename of uniqueFiles) {
-    if (!verified.has(filename)) continue;
-    const migration = migrationMap.get(filename);
-    const state = verified.get(filename);
+  if (verified.size > 0) {
     await client.query('BEGIN');
     try {
-      await recordMigration(client, migration, 'ADOPTED', state.fingerprint);
+      await ensureMetadata(client);
+      for (const filename of uniqueFiles) {
+        if (!verified.has(filename)) continue;
+        const migration = migrationMap.get(filename);
+        const state = verified.get(filename);
+        await recordMigration(client, migration, 'ADOPTED', state.fingerprint);
+        adopted.push({ filename, checksum: migration.checksum, evidence_fingerprint: state.fingerprint, summary: state.summary });
+      }
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
     }
-    adopted.push({ filename, checksum: migration.checksum, evidence_fingerprint: state.fingerprint, summary: state.summary });
   }
   return { adopted, no_ops: noOps, report: await inspect(client) };
 }
