@@ -761,56 +761,6 @@ const start = async () => {
     await server.ready();
     const port = parseInt(process.env.PORT || '8081', 10);
 
-    // Seed default users if users table is empty
-    const client = await pgPool.connect();
-    try {
-      const orgCheck = await client.query('SELECT COUNT(*) FROM users');
-      if (parseInt(orgCheck.rows[0].count, 10) === 0) {
-        // Seed default organizations
-        await client.query(`
-          INSERT INTO organizations (id, name, type, status, official_email)
-          VALUES 
-            ('00000000-0000-0000-0000-000000000001', 'Organic Trade Council India', 'CERTIFICATION_BODY', 'ACTIVATED', 'certifier@capmint.org'),
-            ('00000000-0000-0000-0000-000000000002', 'Premium Farms', 'PRODUCER', 'ACTIVATED', 'producer@capmint.org'),
-            ('00000000-0000-0000-0000-000000000004', 'NABL Accredited Labs India', 'NABL_LABORATORY', 'ACTIVATED', 'lab@capmint.org'),
-            ('00000000-0000-0000-0000-000000000005', 'Apex Export Corp', 'EXPORTER', 'ACTIVATED', 'exporter@capmint.org'),
-            ('00000000-0000-0000-0000-000000000006', 'CapMint System Admin', 'SYSTEM_ADMINISTRATOR', 'ACTIVATED', 'admin@capmint.org')
-          ON CONFLICT (id) DO NOTHING
-        `);
-
-        // Seed domain specific entities to maintain referential integration
-        await client.query(`
-          INSERT INTO certifiers (id, name, accreditation_details, public_key, key_status)
-          VALUES ('00000000-0000-0000-0000-000000000001', 'Organic Trade Council India', '{}', '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAuivJCz//jZz3K7oRzWslrZ8f02pSYSU/9LqPUFgBBHA=\n-----END PUBLIC KEY-----', 'ACTIVE')
-          ON CONFLICT (id) DO NOTHING
-        `);
-
-        await client.query(`
-          INSERT INTO producers (id, name, type, registry_references)
-          VALUES ('00000000-0000-0000-0000-000000000002', 'Premium Farms', 'FARMER', '{}')
-          ON CONFLICT (id) DO NOTHING
-        `);
-
-        // Seed Admin Users for each organization
-        const defaultPasswordHash = await server.bcrypt.hash('password');
-
-        await client.query(`
-          INSERT INTO users (organization_id, username, password_hash, role, status)
-          VALUES 
-            ('00000000-0000-0000-0000-000000000001', 'certifier', $1, 'ADMIN', 'ACTIVE'),
-            ('00000000-0000-0000-0000-000000000002', 'producer', $1, 'ADMIN', 'ACTIVE'),
-            ('00000000-0000-0000-0000-000000000004', 'lab', $1, 'ADMIN', 'ACTIVE'),
-            ('00000000-0000-0000-0000-000000000005', 'exporter', $1, 'ADMIN', 'ACTIVE'),
-            ('00000000-0000-0000-0000-000000000006', 'admin', $1, 'ADMIN', 'ACTIVE')
-          ON CONFLICT (username) DO NOTHING
-        `, [defaultPasswordHash]);
-      }
-    } catch (seedErr) {
-      server.log.error(seedErr as any, 'Seeding default users failed');
-    } finally {
-      client.release();
-    }
-
     await server.listen({ port, host: '0.0.0.0' });
     server.log.info(`Auth service listening on port ${port}`);
   } catch (err) {

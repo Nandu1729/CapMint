@@ -751,32 +751,6 @@ const start = async () => {
   try {
     const port = parseInt(process.env.PORT || '8082', 10);
     
-    // Seed default entities
-    const client = await pgPool.connect();
-    try {
-      await client.query(`
-        INSERT INTO certifiers (id, name, accreditation_details, public_key, key_status)
-        VALUES ('00000000-0000-0000-0000-000000000001', 'Organic Trade Council India', '{}', '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAuivJCz//jZz3K7oRzWslrZ8f02pSYSU/9LqPUFgBBHA=\n-----END PUBLIC KEY-----', 'ACTIVE')
-        ON CONFLICT (id) DO NOTHING
-      `);
-
-      await client.query(`
-        INSERT INTO producers (id, name, type, registry_references)
-        VALUES ('00000000-0000-0000-0000-000000000002', 'Premium Farms', 'FARMER', '{}')
-        ON CONFLICT (id) DO NOTHING
-      `);
-
-      await client.query(`
-        INSERT INTO budgets (id, producer_id, certifier_id, source_unit_type, approved_quantity, consumed_quantity, signature_bundle, effective_start_date, effective_end_date, status, yield_assumptions)
-        VALUES ('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', 'UNIT_COUNT', 10000.00, 0.00, 'sig_default', '2026-07-11T00:00:00Z', '2027-07-11T00:00:00Z', 'PENDING_APPROVAL', '{"crop": "Organic White Honey"}')
-        ON CONFLICT (id) DO NOTHING
-      `);
-    } catch (dbErr) {
-      server.log.error(dbErr as any, 'Seeding database failed');
-    } finally {
-      client.release();
-    }
-
     await server.listen({ port, host: '0.0.0.0' });
     server.log.info(`CPQ service listening on port ${port}`);
   } catch (err) {
