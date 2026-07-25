@@ -11,12 +11,13 @@ Critical security remediation of the code-serialization capacity bypass, plus ga
 - **Capacity-Bound Serialization (Critical)**: `POST /api/v1/verify/register` now enforces budget capacity atomically — explicit lots are bounded by `batch_size`, and the quick path draws down one unit under a row lock. Closes an over-issuance bypass on the primary UI serialization path. Verified with a direct over-issuance test and the full compliance suite (52/52).
 - **Gateway Path-Traversal Guard (Critical)**: The static file handler in `scripts/frontend-server.js` now rejects paths outside an allowlist of roots; requests like `/api/../.env` return 403 instead of leaking secrets.
 - **Fail-Closed Secrets (Critical)**: Removed the hardcoded `JWT_SECRET` and `CERTIFIER_PRIVATE_KEY` in-source fallbacks; services refuse to start without them. Scrubbed the real Ed25519 key from `.env.example`.
+- **Fail-Closed Signature Verification (High)**: `cpq-service` budget drawdown now rejects any budget whose Ed25519 certifier signature does not verify — removing the `sig_default` bypass and the silent skip when the certifier record is missing. Verified: an ACTIVE budget bearing a placeholder signature is rejected with `400 INVALID_SIGNATURE` instead of drawing down.
 
 ### Fixed
 - Operator UI no longer issues a redundant `/drawdown` call when minting (prevents double-counting after the register-path fix).
 
 ### Known Gaps (carried forward, not yet fixed)
-- The signature-verification `sig_default` bypass, the `DATABASE_URL`/`REDIS_URL` in-source password fallbacks, and Redis rate limiting (described in v1.0.1 but not present in code) remain open.
+- The `DATABASE_URL`/`REDIS_URL` in-source password fallbacks and Redis rate limiting (described in v1.0.1 but not present in code) remain open.
 
 ---
 

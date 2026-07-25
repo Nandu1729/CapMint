@@ -374,30 +374,42 @@ server.post('/api/v1/budgets/:id/drawdown', {
       });
     }
 
-    // 2.5 Query certifier public key to verify Ed25519 signature
+    // 2.5 Verify the certifier's Ed25519 signature over the budget authorization. Fail closed:
+    // a missing certifier, an unverifiable signature, or the placeholder 'sig_default'/'sig_failed'
+    // values must all block the drawdown (no bypass).
     const certifierRes = await client.query('SELECT public_key FROM certifiers WHERE id = $1', [budget.certifier_id]);
-    if (certifierRes.rows.length > 0) {
-      const pubKeyPem = certifierRes.rows[0].public_key;
-      const message = `budget_id:${id};approved_quantity:${budget.approved_quantity}`;
-      
-      let isVerified = false;
-      try {
-        isVerified = crypto.verify(null, Buffer.from(message), pubKeyPem, Buffer.from(budget.signature_bundle, 'hex'));
-      } catch (err) {
-        // Log verification failure
-      }
+    if (certifierRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(400).send({
+        success: false,
+        error: {
+          statusCode: 400,
+          code: 'INVALID_SIGNATURE',
+          message: 'Certifier not found; budget supply authority cannot be verified.'
+        }
+      });
+    }
 
-      if (!isVerified && budget.signature_bundle !== 'sig_default') {
-        await client.query('ROLLBACK');
-        return reply.status(400).send({
-          success: false,
-          error: {
-            statusCode: 400,
-            code: 'INVALID_SIGNATURE',
-            message: 'Cryptographic budget signature validation failed. Supply authority unverified.'
-          }
-        });
-      }
+    const pubKeyPem = certifierRes.rows[0].public_key;
+    const message = `budget_id:${id};approved_quantity:${budget.approved_quantity}`;
+
+    let isVerified = false;
+    try {
+      isVerified = crypto.verify(null, Buffer.from(message), pubKeyPem, Buffer.from(budget.signature_bundle, 'hex'));
+    } catch (err) {
+      server.log.error(err as any, 'Ed25519 budget signature verification error');
+    }
+
+    if (!isVerified) {
+      await client.query('ROLLBACK');
+      return reply.status(400).send({
+        success: false,
+        error: {
+          statusCode: 400,
+          code: 'INVALID_SIGNATURE',
+          message: 'Cryptographic budget signature validation failed. Supply authority unverified.'
+        }
+      });
     }
 
     // 3. Verify Budget Status
