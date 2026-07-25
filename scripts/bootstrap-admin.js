@@ -200,6 +200,30 @@ async function inspectAdministratorState(client, input) {
     );
   }
 
+  const legacyIdentityState = await client.query(
+    `SELECT
+       EXISTS (
+         SELECT 1 FROM organizations
+         WHERE id = '00000000-0000-0000-0000-000000000001'
+           AND type <> 'SYSTEM_ADMINISTRATOR'
+       ) AS conflicting_legacy_organization,
+       EXISTS (
+         SELECT 1
+         FROM users u
+         JOIN organizations o ON o.id = u.organization_id
+         WHERE (u.id = '00000000-0000-0000-0000-000000000002'
+                OR u.username = 'sysadmin')
+           AND o.type <> 'SYSTEM_ADMINISTRATOR'
+       ) AS conflicting_legacy_user`
+  );
+  if (legacyIdentityState.rows[0].conflicting_legacy_organization
+    || legacyIdentityState.rows[0].conflicting_legacy_user) {
+    throw new BootstrapError(
+      'AMBIGUOUS_BOOTSTRAP_STATE',
+      'Legacy bootstrap identifiers conflict with non-administrator identities; manual review is required.'
+    );
+  }
+
   const conflicts = await client.query(
     `SELECT
        EXISTS (SELECT 1 FROM organizations WHERE name = $1 OR official_email = $2) AS organization_conflict,

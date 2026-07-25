@@ -328,13 +328,35 @@ suite('F2 secure bootstrap and development seed', () => {
   }, 60_000);
 
   it('refuses legacy-0006, existing-admin, and partial-admin states without mutation', async () => {
-    for (const scenario of ['legacy', 'existing', 'partial']) {
+    for (const scenario of ['legacy', 'existing', 'partial', 'mixed']) {
       const name = databaseName(`admin_${scenario}`);
       await bootstrapDatabase(name);
       try {
         if (scenario === 'legacy') {
           const sql = await fs.readFile(legacySeedPath, 'utf8');
           await withPool(name, pool => pool.query(sql).then(() => undefined));
+        } else if (scenario === 'mixed') {
+          await withPool(name, async pool => {
+            await pool.query(
+              `INSERT INTO organizations
+                 (id, name, type, official_email, status)
+               VALUES ('00000000-0000-0000-0000-000000000001',
+                       'Conflicting Legacy Certifier',
+                       'CERTIFICATION_BODY',
+                       'legacy-conflict@f2.example',
+                       'ACTIVATED')`
+            );
+            await pool.query(
+              `INSERT INTO users
+                 (id, organization_id, username, password_hash, role, status)
+               VALUES ('00000000-0000-0000-0000-000000000002',
+                       '00000000-0000-0000-0000-000000000001',
+                       'sysadmin',
+                       'not-a-login-fixture',
+                       'ADMIN',
+                       'ACTIVE')`
+            );
+          });
         } else {
           await withPool(name, async pool => {
             await pool.query(
@@ -359,7 +381,9 @@ suite('F2 secure bootstrap and development seed', () => {
         const result = runNode(bootstrapAdminScript, adminEnvironment(name));
         expect(result.status).toBe(1);
         expect(JSON.parse(result.stderr).code).toBe(
-          scenario === 'partial' ? 'AMBIGUOUS_BOOTSTRAP_STATE' : 'ADMIN_ALREADY_EXISTS'
+          ['partial', 'mixed'].includes(scenario)
+            ? 'AMBIGUOUS_BOOTSTRAP_STATE'
+            : 'ADMIN_ALREADY_EXISTS'
         );
         expect(await rowCounts(name)).toEqual(before);
       } finally {
