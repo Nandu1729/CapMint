@@ -530,6 +530,43 @@ suite('C0 tenant authorization containment', () => {
     expect(await mutationSnapshot()).toEqual(before);
   });
 
+  it('rejects lot capacity reservation when budget authority is unverifiable', async () => {
+    await testPool.query(
+      "UPDATE budgets SET signature_bundle = 'sig_default' WHERE id = $1",
+      [ids.budgetA]
+    );
+    const before = await mutationSnapshot();
+    const result = await requestJson(BASE.verification, '/api/v1/lots', {
+      method: 'POST',
+      token: tokens.producerA,
+      body: {
+        budget_id: ids.budgetA,
+        batch_size: 1,
+        product_metadata: { name: 'Rejected unsigned lot' }
+      }
+    });
+    expect(result.status).toBe(400);
+    expect(result.data).toEqual({
+      success: false,
+      error: {
+        statusCode: 400,
+        code: 'INVALID_SIGNATURE',
+        message: 'Budget supply authority could not be cryptographically verified.'
+      }
+    });
+    expect(await mutationSnapshot()).toEqual(before);
+
+    const restoredSignature = crypto.sign(
+      null,
+      Buffer.from(`budget_id:${ids.budgetA};approved_quantity:100.00`),
+      certifierPrivateKey
+    ).toString('hex');
+    await testPool.query(
+      'UPDATE budgets SET signature_bundle = $1 WHERE id = $2',
+      [restoredSignature, ids.budgetA]
+    );
+  });
+
   it('preserves valid same-tenant and intentional public workflows', async () => {
     expect((await requestJson(BASE.cpq, `/api/v1/budgets/${ids.budgetActivateA}/activate`, {
       method: 'POST', token: tokens.certifierA, body: {}

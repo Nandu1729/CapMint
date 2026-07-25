@@ -757,7 +757,7 @@ server.post('/api/v1/lots', {
 
     // 1. Lock budget row to avoid concurrent drawdowns
     const budgetRes = await client.query(
-      `SELECT status, approved_quantity, consumed_quantity 
+      `SELECT status, approved_quantity, consumed_quantity, certifier_id, signature_bundle
        FROM budgets 
        WHERE id = $1 AND producer_id = $2 FOR UPDATE`,
       [budget_id, user.orgId]
@@ -777,6 +777,24 @@ server.post('/api/v1/lots', {
       return reply.status(400).send({
         success: false,
         error: { statusCode: 400, message: 'Budget is not active.' }
+      });
+    }
+
+    if (!(await verifyBudgetAuthority(
+      client,
+      budget_id,
+      budget.certifier_id,
+      budget.approved_quantity,
+      budget.signature_bundle
+    ))) {
+      await client.query('ROLLBACK');
+      return reply.status(400).send({
+        success: false,
+        error: {
+          statusCode: 400,
+          code: 'INVALID_SIGNATURE',
+          message: 'Budget supply authority could not be cryptographically verified.'
+        }
       });
     }
 
