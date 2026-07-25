@@ -100,12 +100,22 @@ server.decorate('authorize', (allowedSpecs: any[]) => {
 });
 
 // Initialize PostgreSQL Client Pool
+const DATABASE_URL = process.env.DATABASE_URL || (process.env.NODE_ENV === 'test' ? 'postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_dev' : '');
+if (!DATABASE_URL) {
+  console.error('FATAL: DATABASE_URL is not set. Refusing to start with an insecure default.');
+  process.exit(1);
+}
 const pgPool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL || 'postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_dev'
+  connectionString: DATABASE_URL
 });
 
 // Initialize Redis Client
-const redisClient = new Redis(process.env.REDIS_URL || 'redis://:capmint_redis_secure_password@localhost:6379/0');
+const REDIS_URL = process.env.REDIS_URL || (process.env.NODE_ENV === 'test' ? 'redis://:capmint_redis_secure_password@localhost:6379/0' : '');
+if (!REDIS_URL) {
+  console.error('FATAL: REDIS_URL is not set. Refusing to start with an insecure default.');
+  process.exit(1);
+}
+const redisClient = new Redis(REDIS_URL);
 
 // Standard health check route
 server.get('/health', async () => {

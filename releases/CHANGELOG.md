@@ -14,12 +14,13 @@ Critical security remediation of the code-serialization capacity bypass, plus ga
 - **Fail-Closed Signature Verification (High)**: Every capacity-consuming path — `cpq` budget drawdown, `mint-service` `/mint`, and `verification-service` `/verify/register` (explicit-lot and quick paths) — now rejects any budget whose Ed25519 certifier signature does not verify, removing the `sig_default` bypass and the silent skip when the certifier record is missing. Verified: an ACTIVE budget bearing a placeholder signature is rejected with `400 INVALID_SIGNATURE` at all paths instead of drawing down.
 
 - **Authenticated Ledger & Integration Endpoints (High)**: The transparency-ledger append (`POST /log`) and the AgriStack/TraceNet integration lookups now require a valid JWT; ledger reads (`/entries`, `/verify`) stay public for independent verification. Internal service-to-service ledger appends use a service token signed with the shared secret. Closes the previously world-writable ledger (SEC-02/API-03).
+- **Fail-Closed DB/Redis Config (Medium)**: Removed the in-source `DATABASE_URL`/`REDIS_URL` password fallbacks across all services; each now refuses to start (outside `NODE_ENV=test`) unless the connection strings are supplied via the environment.
 
 ### Fixed
 - Operator UI no longer issues a redundant `/drawdown` call when minting (prevents double-counting after the register-path fix).
 
 ### Known Gaps (carried forward, not yet fixed)
-- The `DATABASE_URL`/`REDIS_URL` in-source password fallbacks and Redis rate limiting (described in v1.0.1 but not present in code) remain open.
+- Redis rate limiting (described in v1.0.1 but not present in code) remains open.
 
 ---
 
