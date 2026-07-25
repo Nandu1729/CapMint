@@ -72,3 +72,12 @@ jobs:
           RUN_C1_INTEGRATION: '1'
           C1_TEST_RUN_ID: ci_${{ github.run_id }}
         run: npm test --workspace=backend/e2e-tests -- migration-reconciliation.test.ts
+
+      - name: Run Tenant-Scoped Compliance Suite
+        env:
+          DATABASE_URL: postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_test
+          REDIS_URL: redis://localhost:6379/0
+          RUN_F1_COMPLIANCE: '1'
+          F1_SUITE_RUN_ID: ci_${{ github.run_id }}_${{ github.run_attempt }}
+          F1_SUITE_ITERATIONS: '1'
+        run: npm test --workspace=backend/e2e-tests -- compliance-suite.test.ts
