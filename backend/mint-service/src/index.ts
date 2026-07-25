@@ -85,6 +85,11 @@ server.decorate('authorize', (allowedSpecs: any[]) => {
   };
 });
 
+const PRODUCER_OPERATION_SPECS = [
+  { orgType: 'PRODUCER', role: 'ADMIN' },
+  { orgType: 'PRODUCER', role: 'MEMBER' }
+];
+
 // Initialize PostgreSQL Client Pool
 const DATABASE_URL = process.env.DATABASE_URL || (process.env.NODE_ENV === 'test' ? 'postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_dev' : '');
 if (!DATABASE_URL) {
@@ -164,9 +169,10 @@ async function verifyBudgetAuthority(client: pg.PoolClient, budgetId: string, ce
 
 // Route: Mint Serial Numbers (Minting Engine)
 server.post('/api/v1/mint', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
+  preValidation: [server.authenticate, server.authorize(PRODUCER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { lot_id, gtin, quantity } = request.body as any;
+  const user = request.user as any;
 
   if (!lot_id || !gtin || !quantity) {
     return reply.status(400).send({
@@ -208,8 +214,18 @@ server.post('/api/v1/mint', {
     // Start Database Transaction to handle capacity checks and generation atomically
     await client.query('BEGIN');
 
-    // 2. Fetch lot details and lock budget row to enforce limits
-    const lotRes = await client.query('SELECT * FROM lots WHERE id = $1', [lot_id]);
+    // C0 temporary containment: producer profile IDs currently equal organization
+    // IDs. Replace these predicates with explicit profile ownership joins in C3.
+    const lotRes = await client.query(
+      `SELECT l.*
+       FROM lots l
+       JOIN budgets b ON b.id = l.budget_id
+       WHERE l.id = $1
+         AND l.producer_id = $2
+         AND b.producer_id = $2
+       FOR UPDATE OF l`,
+      [lot_id, user.orgId]
+    );
     if (lotRes.rowCount === 0) {
       await client.query('ROLLBACK');
       return reply.status(404).send({
@@ -233,7 +249,10 @@ server.post('/api/v1/mint', {
     const budgetId = lot.budget_id;
 
     // Lock budget row to prevent double-mint race conditions
-    const budgetRes = await client.query('SELECT * FROM budgets WHERE id = $1 FOR UPDATE', [budgetId]);
+    const budgetRes = await client.query(
+      'SELECT * FROM budgets WHERE id = $1 AND producer_id = $2 FOR UPDATE',
+      [budgetId, user.orgId]
+    );
     if (budgetRes.rowCount === 0) {
       await client.query('ROLLBACK');
       return reply.status(404).send({

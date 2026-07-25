@@ -100,6 +100,20 @@ server.decorate('authorize', (allowedSpecs: any[]) => {
   };
 });
 
+const PRODUCER_OPERATION_SPECS = [
+  { orgType: 'PRODUCER', role: 'ADMIN' },
+  { orgType: 'PRODUCER', role: 'MEMBER' }
+];
+const CERTIFIER_OPERATION_SPECS = [
+  { orgType: 'CERTIFICATION_BODY', role: 'ADMIN' },
+  { orgType: 'CERTIFICATION_BODY', role: 'MEMBER' }
+];
+const BUDGET_READ_SPECS = [
+  ...PRODUCER_OPERATION_SPECS,
+  ...CERTIFIER_OPERATION_SPECS,
+  { orgType: 'SYSTEM_ADMINISTRATOR', role: 'ADMIN' }
+];
+
 // Initialize PostgreSQL Client Pool
 const DATABASE_URL = process.env.DATABASE_URL || (process.env.NODE_ENV === 'test' ? 'postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_dev' : '');
 if (!DATABASE_URL) {
@@ -118,6 +132,22 @@ if (!REDIS_URL) {
 }
 const redisClient = new Redis(REDIS_URL);
 
+// C0 temporary containment: profile IDs currently equal organization IDs.
+// Replace these predicates with explicit profile.organization_id joins in C3.
+async function lockProducerBudget(client: pg.PoolClient, budgetId: string, organizationId: string) {
+  return client.query(
+    'SELECT * FROM budgets WHERE id = $1 AND producer_id = $2 FOR UPDATE',
+    [budgetId, organizationId]
+  );
+}
+
+async function lockCertifierBudget(client: pg.PoolClient, budgetId: string, organizationId: string) {
+  return client.query(
+    'SELECT * FROM budgets WHERE id = $1 AND certifier_id = $2 FOR UPDATE',
+    [budgetId, organizationId]
+  );
+}
+
 // Standard health check route
 server.get('/health', async () => {
   return { status: 'healthy', service: 'cpq-service' };
@@ -125,7 +155,7 @@ server.get('/health', async () => {
 
 // Route: Propose/Draft Budget
 server.post('/api/v1/budgets', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
+  preValidation: [server.authenticate, server.authorize(PRODUCER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const {
     producer_id,
@@ -149,9 +179,8 @@ server.post('/api/v1/budgets', {
     });
   }
 
-  // Enforce organization ownership validation (No cross-org budget proposals)
   const user = request.user as any;
-  if (user.orgType === 'PRODUCER' && producer_id !== user.orgId) {
+  if (producer_id !== user.orgId) {
     return reply.status(403).send({
       success: false,
       error: {
@@ -162,6 +191,51 @@ server.post('/api/v1/budgets', {
     });
   }
 
+  // C0 temporary containment: derive the producer from the JWT organization.
+  // The selected certifier must also be backed by an active organization so the
+  // quarantined legacy orphan cannot receive new budgets.
+  const producerProfile = await pgPool.query(
+    `SELECT p.id
+     FROM producers p
+     JOIN organizations o ON o.id = p.id
+     WHERE p.id = $1
+       AND o.type = 'PRODUCER'
+       AND o.status = 'ACTIVATED'`,
+    [user.orgId]
+  );
+  if (producerProfile.rowCount === 0) {
+    return reply.status(403).send({
+      success: false,
+      error: {
+        statusCode: 403,
+        code: 'PRODUCER_PROFILE_REQUIRED',
+        message: 'An active producer profile is required.'
+      }
+    });
+  }
+
+  const certifierProfile = await pgPool.query(
+    `SELECT c.id
+     FROM certifiers c
+     JOIN organizations o ON o.id = c.id
+     WHERE c.id = $1
+       AND c.key_status = 'ACTIVE'
+       AND o.type = 'CERTIFICATION_BODY'
+       AND o.status = 'ACTIVATED'`,
+    [certifier_id]
+  );
+  if (certifierProfile.rowCount === 0) {
+    return reply.status(404).send({
+      success: false,
+      error: {
+        statusCode: 404,
+        code: 'NOT_FOUND',
+        message: 'Certifier not found.'
+      }
+    });
+  }
+
+  const canonicalProducerId = user.orgId;
   const quantity = parseFloat(approved_quantity);
   if (isNaN(quantity) || quantity <= 0) {
     return reply.status(400).send({
@@ -185,7 +259,7 @@ server.post('/api/v1/budgets', {
          AND (
            (effective_start_date, effective_end_date) OVERLAPS ($3::timestamp, $4::timestamp)
          )`,
-      [producer_id, crop, effective_start_date, effective_end_date]
+      [canonicalProducerId, crop, effective_start_date, effective_end_date]
     );
     if (dupCheck.rows.length > 0) {
       return reply.status(409).send({
@@ -209,7 +283,7 @@ server.post('/api/v1/budgets', {
   `;
 
   const result = await pgPool.query(query, [
-    producer_id,
+    canonicalProducerId,
     certifier_id,
     source_unit_type,
     quantity,
@@ -249,9 +323,10 @@ async function logBudgetStatus(client: pg.PoolClient | pg.Pool, budgetId: string
 }
 
 server.post('/api/v1/budgets/:id/activate', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
+  const user = request.user as any;
 
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!uuidRegex.test(id)) {
@@ -265,63 +340,74 @@ server.post('/api/v1/budgets/:id/activate', {
     });
   }
 
-  // 1. Fetch budget first to get approved quantity and current status
-  const budgetFetch = await pgPool.query('SELECT status, approved_quantity FROM budgets WHERE id = $1', [id]);
-  if (budgetFetch.rows.length === 0) {
-    return reply.status(404).send({
-      success: false,
-      error: {
-        statusCode: 404,
-        code: 'NOT_FOUND',
-        message: 'Budget not found.'
-      }
-    });
-  }
-
-  const budget = budgetFetch.rows[0];
-  const approvedQuantity = budget.approved_quantity;
-  const message = `budget_id:${id};approved_quantity:${approvedQuantity}`;
-
-  // 2. Cryptographically co-sign using certifier Ed25519 private key
-  // Fail closed: never fall back to a hardcoded signing key. If the key is not configured,
-  // budget activation cannot be cryptographically co-signed and must not proceed.
-  const certifierPrivateKey = process.env.CERTIFIER_PRIVATE_KEY;
-  if (!certifierPrivateKey) {
-    server.log.error('CERTIFIER_PRIVATE_KEY is not configured; cannot co-sign budget activation.');
-    return reply.status(500).send({
-      success: false,
-      error: { statusCode: 500, code: 'SIGNING_UNAVAILABLE', message: 'Certifier signing key is not configured.' }
-    });
-  }
-
-  let signatureBundle = 'sig_failed';
+  const client = await pgPool.connect();
   try {
-    signatureBundle = crypto.sign(null, Buffer.from(message), certifierPrivateKey).toString('hex');
-  } catch (err) {
-    server.log.error(err as any, 'Ed25519 signing failed');
-  }
+    await client.query('BEGIN');
 
-  // 3. Update database budget to ACTIVE and save signature bundle
-  const result = await pgPool.query(
-    `UPDATE budgets SET status = 'ACTIVE', signature_bundle = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id, status, signature_bundle`,
-    [id, signatureBundle]
-  );
-
-  // Log status transition in history
-  const user = request.user as any;
-  await logBudgetStatus(pgPool, id, budget.status, 'ACTIVE', user ? user.username : 'CERTIFIER');
-
-  return {
-    success: true,
-    data: {
-      budget: result.rows[0]
+    const budgetFetch = await lockCertifierBudget(client, id, user.orgId);
+    if (budgetFetch.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({
+        success: false,
+        error: {
+          statusCode: 404,
+          code: 'NOT_FOUND',
+          message: 'Budget not found.'
+        }
+      });
     }
-  };
+
+    const budget = budgetFetch.rows[0];
+    const message = `budget_id:${id};approved_quantity:${budget.approved_quantity}`;
+    const certifierPrivateKey = process.env.CERTIFIER_PRIVATE_KEY;
+    if (!certifierPrivateKey) {
+      await client.query('ROLLBACK');
+      server.log.error('CERTIFIER_PRIVATE_KEY is not configured; cannot co-sign budget activation.');
+      return reply.status(500).send({
+        success: false,
+        error: { statusCode: 500, code: 'SIGNING_UNAVAILABLE', message: 'Certifier signing key is not configured.' }
+      });
+    }
+
+    let signatureBundle: string;
+    try {
+      signatureBundle = crypto.sign(null, Buffer.from(message), certifierPrivateKey).toString('hex');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      server.log.error(err as any, 'Ed25519 signing failed');
+      return reply.status(500).send({
+        success: false,
+        error: { statusCode: 500, code: 'SIGNING_FAILED', message: 'Budget activation could not be signed.' }
+      });
+    }
+
+    const result = await client.query(
+      `UPDATE budgets
+       SET status = 'ACTIVE', signature_bundle = $2, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING id, status, signature_bundle`,
+      [id, signatureBundle]
+    );
+    await logBudgetStatus(client, id, budget.status, 'ACTIVE', user.username);
+    await client.query('COMMIT');
+
+    return {
+      success: true,
+      data: {
+        budget: result.rows[0]
+      }
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 });
 
 // Route: Drawdown Capacity (supports row locking FOR UPDATE to prevent race conditions)
 server.post('/api/v1/budgets/:id/drawdown', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
+  preValidation: [server.authenticate, server.authorize(PRODUCER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const { amount } = request.body as any;
@@ -356,7 +442,8 @@ server.post('/api/v1/budgets/:id/drawdown', {
     await client.query('BEGIN');
 
     // 2. Select For Update (Row Lock to prevent double-mint race conditions)
-    const budgetRes = await client.query('SELECT * FROM budgets WHERE id = $1 FOR UPDATE', [id]);
+    const user = request.user as any;
+    const budgetRes = await lockProducerBudget(client, id, user.orgId);
     if (budgetRes.rowCount === 0) {
       await client.query('ROLLBACK');
       return reply.status(404).send({
@@ -370,20 +457,6 @@ server.post('/api/v1/budgets/:id/drawdown', {
     }
 
     const budget = budgetRes.rows[0];
-
-    // Enforce organization ownership validation (No cross-org budget drawdown)
-    const user = request.user as any;
-    if (user.orgType === 'PRODUCER' && budget.producer_id !== user.orgId) {
-      await client.query('ROLLBACK');
-      return reply.status(403).send({
-        success: false,
-        error: {
-          statusCode: 403,
-          code: 'FORBIDDEN',
-          message: 'You cannot drawdown budgets belonging to another organization.'
-        }
-      });
-    }
 
     // 2.5 Verify the certifier's Ed25519 signature over the budget authorization. Fail closed:
     // a missing certifier, an unverifiable signature, or the placeholder 'sig_default'/'sig_failed'
@@ -496,17 +569,25 @@ server.post('/api/v1/budgets/:id/drawdown', {
 
 // Route: Get all budgets
 server.get('/api/v1/budgets', {
-  preValidation: [server.authenticate]
+  preValidation: [server.authenticate, server.authorize(BUDGET_READ_SPECS)]
 }, async (request, reply) => {
   const user = request.user as any;
   let result;
   
-  if (user && user.orgType === 'PRODUCER') {
+  if (user.orgType === 'PRODUCER') {
     result = await pgPool.query(`
       SELECT b.*, p.name as producer 
       FROM budgets b 
       LEFT JOIN producers p ON b.producer_id = p.id 
       WHERE b.producer_id = $1
+      ORDER BY b.created_at DESC
+    `, [user.orgId]);
+  } else if (user.orgType === 'CERTIFICATION_BODY') {
+    result = await pgPool.query(`
+      SELECT b.*, p.name as producer
+      FROM budgets b
+      LEFT JOIN producers p ON b.producer_id = p.id
+      WHERE b.certifier_id = $1
       ORDER BY b.created_at DESC
     `, [user.orgId]);
   } else {
@@ -537,46 +618,65 @@ server.get('/api/v1/budgets', {
 
 // Route: Submit Budget Proposal for Approval
 server.post('/api/v1/budgets/:id/submit', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
+  preValidation: [server.authenticate, server.authorize(PRODUCER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const user = request.user as any;
+  const client = await pgPool.connect();
+  try {
+    await client.query('BEGIN');
+    const budgetFetch = await lockProducerBudget(client, id, user.orgId);
+    if (budgetFetch.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Budget not found.' } });
+    }
 
-  const budgetFetch = await pgPool.query('SELECT status FROM budgets WHERE id = $1', [id]);
-  if (budgetFetch.rows.length === 0) {
-    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Budget not found.' } });
+    await client.query(
+      `UPDATE budgets SET status = 'PENDING_APPROVAL', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [id]
+    );
+    await logBudgetStatus(client, id, budgetFetch.rows[0].status, 'PENDING_APPROVAL', user.username, 'Farmer submitted budget for certifier approval');
+    await client.query('COMMIT');
+    return { success: true, data: { status: 'PENDING_APPROVAL' } };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-  const currentStatus = budgetFetch.rows[0].status;
-
-  await pgPool.query(`UPDATE budgets SET status = 'PENDING_APPROVAL', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
-  await logBudgetStatus(pgPool, id, currentStatus, 'PENDING_APPROVAL', user.username, 'Farmer submitted budget for certifier approval');
-
-  return { success: true, data: { status: 'PENDING_APPROVAL' } };
 });
 
 // Route: Certifier Reviewing Budget
 server.post('/api/v1/budgets/:id/review', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const { notes } = request.body as any;
   const user = request.user as any;
+  const client = await pgPool.connect();
+  try {
+    await client.query('BEGIN');
+    const budgetFetch = await lockCertifierBudget(client, id, user.orgId);
+    if (budgetFetch.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Budget not found.' } });
+    }
 
-  const budgetFetch = await pgPool.query('SELECT status FROM budgets WHERE id = $1', [id]);
-  if (budgetFetch.rows.length === 0) {
-    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Budget not found.' } });
+    await client.query(`UPDATE budgets SET status = 'REVIEWING', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
+    await logBudgetStatus(client, id, budgetFetch.rows[0].status, 'REVIEWING', user.username, notes || 'Certifier started administrative review');
+    await client.query('COMMIT');
+    return { success: true, data: { status: 'REVIEWING' } };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-  const currentStatus = budgetFetch.rows[0].status;
-
-  await pgPool.query(`UPDATE budgets SET status = 'REVIEWING', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
-  await logBudgetStatus(pgPool, id, currentStatus, 'REVIEWING', user.username, notes || 'Certifier started administrative review');
-
-  return { success: true, data: { status: 'REVIEWING' } };
 });
 
 // Route: Certifier Reject Budget
 server.post('/api/v1/budgets/:id/reject', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const { rejection_reason } = request.body as any;
@@ -586,24 +686,33 @@ server.post('/api/v1/budgets/:id/reject', {
     return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Rejection reason is required.' } });
   }
 
-  const budgetFetch = await pgPool.query('SELECT status FROM budgets WHERE id = $1', [id]);
-  if (budgetFetch.rows.length === 0) {
-    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Budget not found.' } });
+  const client = await pgPool.connect();
+  try {
+    await client.query('BEGIN');
+    const budgetFetch = await lockCertifierBudget(client, id, user.orgId);
+    if (budgetFetch.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Budget not found.' } });
+    }
+
+    await client.query(
+      `UPDATE budgets SET status = 'REJECTED', rejection_reason = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [id, rejection_reason]
+    );
+    await logBudgetStatus(client, id, budgetFetch.rows[0].status, 'REJECTED', user.username, rejection_reason);
+    await client.query('COMMIT');
+    return { success: true, data: { status: 'REJECTED', rejection_reason } };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-  const currentStatus = budgetFetch.rows[0].status;
-
-  await pgPool.query(
-    `UPDATE budgets SET status = 'REJECTED', rejection_reason = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-    [id, rejection_reason]
-  );
-  await logBudgetStatus(pgPool, id, currentStatus, 'REJECTED', user.username, rejection_reason);
-
-  return { success: true, data: { status: 'REJECTED', rejection_reason } };
 });
 
 // Route: Certifier Request Revision
 server.post('/api/v1/budgets/:id/revision', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const { notes } = request.body as any;
@@ -613,19 +722,28 @@ server.post('/api/v1/budgets/:id/revision', {
     return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Revision notes are required.' } });
   }
 
-  const budgetFetch = await pgPool.query('SELECT status FROM budgets WHERE id = $1', [id]);
-  if (budgetFetch.rows.length === 0) {
-    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Budget not found.' } });
+  const client = await pgPool.connect();
+  try {
+    await client.query('BEGIN');
+    const budgetFetch = await lockCertifierBudget(client, id, user.orgId);
+    if (budgetFetch.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Budget not found.' } });
+    }
+
+    await client.query(
+      `UPDATE budgets SET status = 'REVISION_REQUESTED', rejection_reason = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [id, notes]
+    );
+    await logBudgetStatus(client, id, budgetFetch.rows[0].status, 'REVISION_REQUESTED', user.username, notes);
+    await client.query('COMMIT');
+    return { success: true, data: { status: 'REVISION_REQUESTED', notes } };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-  const currentStatus = budgetFetch.rows[0].status;
-
-  await pgPool.query(
-    `UPDATE budgets SET status = 'REVISION_REQUESTED', rejection_reason = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-    [id, notes]
-  );
-  await logBudgetStatus(pgPool, id, currentStatus, 'REVISION_REQUESTED', user.username, notes);
-
-  return { success: true, data: { status: 'REVISION_REQUESTED', notes } };
 });
 
 // Start the server
