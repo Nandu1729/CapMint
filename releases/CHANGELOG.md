@@ -13,6 +13,8 @@ Critical security remediation of the code-serialization capacity bypass, plus ga
 - **Fail-Closed Secrets (Critical)**: Removed the hardcoded `JWT_SECRET` and `CERTIFIER_PRIVATE_KEY` in-source fallbacks; services refuse to start without them. Scrubbed the real Ed25519 key from `.env.example`.
 - **Fail-Closed Signature Verification (High)**: Every capacity-consuming path — `cpq` budget drawdown, `mint-service` `/mint`, and `verification-service` `/verify/register` (explicit-lot and quick paths) — now rejects any budget whose Ed25519 certifier signature does not verify, removing the `sig_default` bypass and the silent skip when the certifier record is missing. Verified: an ACTIVE budget bearing a placeholder signature is rejected with `400 INVALID_SIGNATURE` at all paths instead of drawing down.
 
+- **Authenticated Ledger & Integration Endpoints (High)**: The transparency-ledger append (`POST /log`) and the AgriStack/TraceNet integration lookups now require a valid JWT; ledger reads (`/entries`, `/verify`) stay public for independent verification. Internal service-to-service ledger appends use a service token signed with the shared secret. Closes the previously world-writable ledger (SEC-02/API-03).
+
 ### Fixed
 - Operator UI no longer issues a redundant `/drawdown` call when minting (prevents double-counting after the register-path fix).
 

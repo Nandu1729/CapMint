@@ -1,4 +1,5 @@
-import Fastify from 'fastify';
+import Fastify, { FastifyReply, FastifyRequest } from 'fastify';
+import jwt from '@fastify/jwt';
 import pg from 'pg';
 import { Redis } from 'ioredis';
 import crypto from 'crypto';
@@ -6,8 +7,34 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+declare module 'fastify' {
+  interface FastifyInstance {
+    authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+  }
+}
+
 const server = Fastify({
   logger: true
+});
+
+// Configure JWT plugin. Fail closed: never fall back to a hardcoded secret in real environments.
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-insecure-secret' : '');
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set. Refusing to start with an insecure default.');
+  process.exit(1);
+}
+server.register(jwt, { secret: JWT_SECRET });
+
+// Authentication guard for ledger-mutating routes (append). Reads stay public (transparency).
+server.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    await request.jwtVerify();
+  } catch (err) {
+    return reply.status(401).send({
+      success: false,
+      error: { statusCode: 401, code: 'UNAUTHORIZED', message: 'Invalid or missing Authorization token.' }
+    });
+  }
 });
 
 // Initialize PostgreSQL Client Pool
@@ -44,8 +71,8 @@ server.get('/health', async () => {
   return { status: 'healthy', service: 'transparency-service' };
 });
 
-// Route: Append to Transparency Log (M-008)
-server.post('/api/v1/log', async (request, reply) => {
+// Route: Append to Transparency Log (M-008) — authenticated (ledger writes must not be forgeable)
+server.post('/api/v1/log', { preValidation: [server.authenticate] }, async (request, reply) => {
   const { entity_type, entity_id, event_type, payload } = request.body as any;
 
   if (!entity_type || !entity_id || !event_type || !payload) {
@@ -245,7 +272,7 @@ async function handleAppendLog(request: any, reply: any) {
   }
 }
 
-server.post('/log/api/v1/log', handleAppendLog);
+server.post('/log/api/v1/log', { preValidation: [server.authenticate] }, handleAppendLog);
 
 // Start the server
 const start = async () => {

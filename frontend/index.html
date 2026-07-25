@@ -1876,7 +1876,8 @@
       fetch(`${API_BASE_URL}/log/api/v1/log`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + AUTH_TOKEN
         },
         body: JSON.stringify({
           entity_type: entity,

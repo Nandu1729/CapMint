@@ -1026,7 +1026,9 @@ async function runTests() {
     console.log('\n--- Phase 11: External Integrations ---');
 
     // INT-03: TraceNet timeout mock lookup
-    const timeoutRes = await fetch(`${BASE_URL}/api/v1/integrations/tracenet/certificates/TIMEOUT-TEST`);
+    const timeoutRes = await fetch(`${BASE_URL}/api/v1/integrations/tracenet/certificates/TIMEOUT-TEST`, {
+      headers: { 'Authorization': 'Bearer ' + adminToken }
+    });
     report('INT-03', timeoutRes.status === 200 || timeoutRes.status === 408 || timeoutRes.status === 504 || timeoutRes.status === 404, 'Graceful network timeout handling (200/404/408/504)', timeoutRes.status);
 
     console.log('\n--- Phase 13: Security ---');

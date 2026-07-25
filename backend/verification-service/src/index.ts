@@ -40,6 +40,16 @@ server.register(jwt, {
   secret: JWT_SECRET
 });
 
+// Service-to-service token for authenticating internal ledger appends (signed with the shared JWT secret).
+function makeServiceToken(): string {
+  const enc = (o: any) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const head = enc({ alg: 'HS256', typ: 'JWT' });
+  const body = enc({ svc: 'verification-service', role: 'SERVICE', orgType: 'SYSTEM' });
+  const sig = crypto.createHmac('sha256', JWT_SECRET).update(`${head}.${body}`).digest('base64url');
+  return `${head}.${body}.${sig}`;
+}
+const SERVICE_TOKEN = makeServiceToken();
+
 // Decorators: authenticate / authorize
 server.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
   try {
@@ -399,7 +409,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
       try {
         await fetch(LEDGER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
           body: JSON.stringify({
             entity_type: 'INVESTIGATION',
             entity_id: public_identifier,
@@ -661,7 +671,7 @@ server.post('/api/v1/lots', {
     try {
       await fetch(LEDGER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
         body: JSON.stringify({
           entity_type: 'LOT',
           entity_id: lotUuid,
@@ -1101,7 +1111,7 @@ server.post('/api/v1/lots/:id/certify', {
     try {
       await fetch(LEDGER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
         body: JSON.stringify({
           entity_type: 'LOT',
           entity_id: id,
@@ -1288,7 +1298,7 @@ server.post('/api/v1/verify/investigations/:id/approve', {
     try {
       await fetch(LEDGER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
         body: JSON.stringify({
           entity_type: 'INVESTIGATION',
           entity_id: pubId,
@@ -1304,7 +1314,7 @@ server.post('/api/v1/verify/investigations/:id/approve', {
 
       await fetch(LEDGER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
         body: JSON.stringify({
           entity_type: 'PRODUCT',
           entity_id: pubId,
@@ -1365,7 +1375,7 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
     try {
       await fetch(LEDGER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
         body: JSON.stringify({
           entity_type: 'INVESTIGATION',
           entity_id: pubId,
@@ -1525,7 +1535,7 @@ server.post('/api/v1/verify/lab-results', {
       try {
         await fetch(LEDGER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
           body: JSON.stringify({
             entity_type: 'LOT',
             entity_id: lot_id,
@@ -1564,7 +1574,7 @@ server.post('/api/v1/verify/lab-results', {
       try {
         await fetch(LEDGER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
           body: JSON.stringify({
             entity_type: 'LOT',
             entity_id: lot_id,
@@ -1585,7 +1595,7 @@ server.post('/api/v1/verify/lab-results', {
       try {
         await fetch(LEDGER_URL, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
           body: JSON.stringify({
             entity_type: 'LOT',
             entity_id: lot_id,

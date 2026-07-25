@@ -1,10 +1,36 @@
-import Fastify from 'fastify';
+import Fastify, { FastifyReply, FastifyRequest } from 'fastify';
+import jwt from '@fastify/jwt'; // provided via npm-workspace hoisting
 import dotenv from 'dotenv';
 
 dotenv.config();
 
+declare module 'fastify' {
+  interface FastifyInstance {
+    authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+  }
+}
+
 const server = Fastify({
   logger: true
+});
+
+// Configure JWT plugin. Fail closed: never fall back to a hardcoded secret in real environments.
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-insecure-secret' : '');
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set. Refusing to start with an insecure default.');
+  process.exit(1);
+}
+server.register(jwt, { secret: JWT_SECRET });
+
+server.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
+  try {
+    await request.jwtVerify();
+  } catch (err) {
+    return reply.status(401).send({
+      success: false,
+      error: { statusCode: 401, code: 'UNAUTHORIZED', message: 'Invalid or missing Authorization token.' }
+    });
+  }
 });
 
 // Global error handler complying with RFC 7807 Problem Details
@@ -29,7 +55,7 @@ server.get('/health', async () => {
 });
 
 // Route: AgriStack Farmer Details Lookup (M-015)
-server.get('/api/v1/integrations/agristack/farmers/:id', async (request, reply) => {
+server.get('/api/v1/integrations/agristack/farmers/:id', { preValidation: [server.authenticate] }, async (request, reply) => {
   const { id } = request.params as any;
 
   if (!id) {
@@ -91,7 +117,7 @@ server.get('/api/v1/integrations/agristack/farmers/:id', async (request, reply) 
 });
 
 // Route: TraceNet NPOP Certification Validation (M-014)
-server.get('/api/v1/integrations/tracenet/certificates/:licenseId', async (request, reply) => {
+server.get('/api/v1/integrations/tracenet/certificates/:licenseId', { preValidation: [server.authenticate] }, async (request, reply) => {
   const { licenseId } = request.params as any;
 
   if (!licenseId) {
