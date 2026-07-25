@@ -139,6 +139,18 @@ server.post('/api/v1/gs1/validate', async (request, reply) => {
   };
 });
 
+// Verify a budget's certifier Ed25519 signature (fail closed: false on missing certifier or invalid signature).
+async function verifyBudgetAuthority(client: pg.PoolClient, budgetId: string, certifierId: string, approvedQuantity: any, signatureBundle: string): Promise<boolean> {
+  const certRes = await client.query('SELECT public_key FROM certifiers WHERE id = $1', [certifierId]);
+  if (certRes.rows.length === 0) return false;
+  const message = `budget_id:${budgetId};approved_quantity:${approvedQuantity}`;
+  try {
+    return crypto.verify(null, Buffer.from(message), certRes.rows[0].public_key, Buffer.from(signatureBundle || '', 'hex'));
+  } catch (err) {
+    return false;
+  }
+}
+
 // Route: Mint Serial Numbers (Minting Engine)
 server.post('/api/v1/mint', {
   preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
@@ -229,6 +241,15 @@ server.post('/api/v1/mint', {
           code: 'INACTIVE_BUDGET',
           message: `Linked budget status is: ${budget.status}. Cannot draw down capacity.`
         }
+      });
+    }
+
+    // Verify certifier signature authorizing this budget (defense in depth; fail closed).
+    if (!(await verifyBudgetAuthority(client, budget.id, budget.certifier_id, budget.approved_quantity, budget.signature_bundle))) {
+      await client.query('ROLLBACK');
+      return reply.status(400).send({
+        success: false,
+        error: { statusCode: 400, code: 'INVALID_SIGNATURE', message: 'Budget supply authority could not be cryptographically verified.' }
       });
     }
 

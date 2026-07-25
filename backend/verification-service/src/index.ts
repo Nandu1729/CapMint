@@ -440,6 +440,18 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
   };
 });
 
+// Verify a budget's certifier Ed25519 signature (fail closed: false on missing certifier or invalid signature).
+async function verifyBudgetAuthority(client: pg.PoolClient, budgetId: string, certifierId: string, approvedQuantity: any, signatureBundle: string): Promise<boolean> {
+  const certRes = await client.query('SELECT public_key FROM certifiers WHERE id = $1', [certifierId]);
+  if (certRes.rows.length === 0) return false;
+  const message = `budget_id:${budgetId};approved_quantity:${approvedQuantity}`;
+  try {
+    return crypto.verify(null, Buffer.from(message), certRes.rows[0].public_key, Buffer.from(signatureBundle || '', 'hex'));
+  } catch (err) {
+    return false;
+  }
+}
+
 // Route: Public simulation registration for Manufacturer Console (persists generated QR/record in DB)
 server.post('/api/v1/verify/register', {
   preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
@@ -468,7 +480,7 @@ server.post('/api/v1/verify/register', {
       // (POST /api/v1/lots draws down atomically). Lock the lot and bound the number of
       // unit codes to its batch_size so codes can never exceed the reserved quantity.
       const lotRes = await client.query(
-        `SELECT id, batch_size FROM lots WHERE id = $1 AND producer_id = $2 AND revocation_status = 'ACTIVE' FOR UPDATE`,
+        `SELECT id, batch_size, budget_id FROM lots WHERE id = $1 AND producer_id = $2 AND revocation_status = 'ACTIVE' FOR UPDATE`,
         [lot_id, user.orgId]
       );
       if (lotRes.rowCount === 0) {
@@ -487,12 +499,21 @@ server.post('/api/v1/verify/register', {
           error: { statusCode: 422, code: 'EXCEEDS_LOT_CAPACITY', message: `Lot capacity exhausted: ${countRes.rows[0].c}/${batchSize} units already minted for this lot.` }
         });
       }
+      // Verify the lot's budget carries a valid certifier signature (fail closed).
+      const budForLot = await client.query('SELECT id, certifier_id, approved_quantity, signature_bundle FROM budgets WHERE id = $1', [lotRes.rows[0].budget_id]);
+      if (budForLot.rows.length === 0 || !(await verifyBudgetAuthority(client, budForLot.rows[0].id, budForLot.rows[0].certifier_id, budForLot.rows[0].approved_quantity, budForLot.rows[0].signature_bundle))) {
+        await client.query('ROLLBACK');
+        return reply.status(400).send({
+          success: false,
+          error: { statusCode: 400, code: 'INVALID_SIGNATURE', message: 'Budget supply authority could not be cryptographically verified.' }
+        });
+      }
       lotUuid = lot_id;
     } else {
       // No explicit lot: draw down exactly one unit of budget capacity atomically and
       // create a single-unit lot, so this quick path can never over-issue.
       const budgetRes = await client.query(
-        `SELECT id, approved_quantity, consumed_quantity FROM budgets WHERE producer_id = $1 AND status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+        `SELECT id, approved_quantity, consumed_quantity, certifier_id, signature_bundle FROM budgets WHERE producer_id = $1 AND status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
         [user.orgId]
       );
       if (budgetRes.rowCount === 0) {
@@ -507,6 +528,14 @@ server.post('/api/v1/verify/register', {
         });
       }
       const budgetRow = budgetRes.rows[0];
+      // Verify certifier signature authorizing this budget (defense in depth; fail closed).
+      if (!(await verifyBudgetAuthority(client, budgetRow.id, budgetRow.certifier_id, budgetRow.approved_quantity, budgetRow.signature_bundle))) {
+        await client.query('ROLLBACK');
+        return reply.status(400).send({
+          success: false,
+          error: { statusCode: 400, code: 'INVALID_SIGNATURE', message: 'Budget supply authority could not be cryptographically verified.' }
+        });
+      }
       const remaining = parseFloat(budgetRow.approved_quantity) - parseFloat(budgetRow.consumed_quantity);
       if (remaining < 1) {
         await client.query('ROLLBACK');
