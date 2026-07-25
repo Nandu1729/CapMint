@@ -73,6 +73,23 @@ const server = http.createServer((req, res) => {
     filePath = path.join(PUBLIC_DIR, urlPath === '/' ? 'index.html' : urlPath);
   }
 
+  // Security: prevent path traversal. The resolved file must stay within an allowed root;
+  // otherwise a request like `/api/../.env` or `/../package.json` could read arbitrary files.
+  const resolvedPath = path.resolve(filePath);
+  const allowedRoots = [
+    PUBLIC_DIR,
+    path.join(__dirname, '..', 'playground'),
+    path.join(__dirname, '..', 'api')
+  ];
+  const withinAllowedRoot = allowedRoots.some(
+    (root) => resolvedPath === root || resolvedPath.startsWith(root + path.sep)
+  );
+  if (!withinAllowedRoot) {
+    res.writeHead(403, { 'Content-Type': 'text/plain' });
+    res.end('Forbidden');
+    return;
+  }
+
   const extname = String(path.extname(filePath)).toLowerCase();
   const contentType = MIME_TYPES[extname] || 'application/octet-stream';
 

@@ -49,8 +49,13 @@ const server = Fastify({
 });
 
 // Configure JWT plugin
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-insecure-secret' : '');
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set. Refusing to start with an insecure default.');
+  process.exit(1);
+}
 server.register(jwt, {
-  secret: process.env.JWT_SECRET || 'capmint_development_jwt_secret_must_be_minimum_32_bytes_long'
+  secret: JWT_SECRET
 });
 
 // Configure Bcrypt plugin

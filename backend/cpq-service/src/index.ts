@@ -19,8 +19,13 @@ const server = Fastify({
 });
 
 // Configure JWT plugin (using same shared secret)
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-insecure-secret' : '');
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set. Refusing to start with an insecure default.');
+  process.exit(1);
+}
 server.register(jwt, {
-  secret: process.env.JWT_SECRET || 'capmint_development_jwt_secret_must_be_minimum_32_bytes_long'
+  secret: JWT_SECRET
 });
 
 // Global error handler complying with RFC 7807 Problem Details
@@ -267,8 +272,17 @@ server.post('/api/v1/budgets/:id/activate', {
   const message = `budget_id:${id};approved_quantity:${approvedQuantity}`;
 
   // 2. Cryptographically co-sign using certifier Ed25519 private key
-  const certifierPrivateKey = process.env.CERTIFIER_PRIVATE_KEY || `-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIMFcJmCXMysxsYYa3t1KRVsOezHmrI+SUDoV0F6BFoK0\n-----END PRIVATE KEY-----`;
-  
+  // Fail closed: never fall back to a hardcoded signing key. If the key is not configured,
+  // budget activation cannot be cryptographically co-signed and must not proceed.
+  const certifierPrivateKey = process.env.CERTIFIER_PRIVATE_KEY;
+  if (!certifierPrivateKey) {
+    server.log.error('CERTIFIER_PRIVATE_KEY is not configured; cannot co-sign budget activation.');
+    return reply.status(500).send({
+      success: false,
+      error: { statusCode: 500, code: 'SIGNING_UNAVAILABLE', message: 'Certifier signing key is not configured.' }
+    });
+  }
+
   let signatureBundle = 'sig_failed';
   try {
     signatureBundle = crypto.sign(null, Buffer.from(message), certifierPrivateKey).toString('hex');

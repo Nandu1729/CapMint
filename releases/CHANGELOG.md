@@ -4,6 +4,22 @@ All notable changes to the CapMint platform will be documented in this file. Thi
 
 ---
 
+## [v1.0.3] - "Capacity Integrity" (2026-07-25)
+Critical security remediation of the code-serialization capacity bypass, plus gateway and secret hardening.
+
+### Security
+- **Capacity-Bound Serialization (Critical)**: `POST /api/v1/verify/register` now enforces budget capacity atomically — explicit lots are bounded by `batch_size`, and the quick path draws down one unit under a row lock. Closes an over-issuance bypass on the primary UI serialization path. Verified with a direct over-issuance test and the full compliance suite (52/52).
+- **Gateway Path-Traversal Guard (Critical)**: The static file handler in `scripts/frontend-server.js` now rejects paths outside an allowlist of roots; requests like `/api/../.env` return 403 instead of leaking secrets.
+- **Fail-Closed Secrets (Critical)**: Removed the hardcoded `JWT_SECRET` and `CERTIFIER_PRIVATE_KEY` in-source fallbacks; services refuse to start without them. Scrubbed the real Ed25519 key from `.env.example`.
+
+### Fixed
+- Operator UI no longer issues a redundant `/drawdown` call when minting (prevents double-counting after the register-path fix).
+
+### Known Gaps (carried forward, not yet fixed)
+- The signature-verification `sig_default` bypass, the `DATABASE_URL`/`REDIS_URL` in-source password fallbacks, and Redis rate limiting (described in v1.0.1 but not present in code) remain open.
+
+---
+
 ## [v1.0.2] - "Workflow Gap Closures" (2026-07-24)
 Feature release addressing core product workflow gaps and final real-world operational flows.
 

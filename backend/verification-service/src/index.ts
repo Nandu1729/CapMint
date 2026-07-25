@@ -31,8 +31,13 @@ server.addHook('onRequest', async (request, reply) => {
 });
 
 // Configure JWT plugin
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-insecure-secret' : '');
+if (!JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET is not set. Refusing to start with an insecure default.');
+  process.exit(1);
+}
 server.register(jwt, {
-  secret: process.env.JWT_SECRET || 'capmint_development_jwt_secret_must_be_minimum_32_bytes_long'
+  secret: JWT_SECRET
 });
 
 // Decorators: authenticate / authorize
@@ -457,43 +462,72 @@ server.post('/api/v1/verify/register', {
   try {
     await client.query('BEGIN');
 
-    // 1. Fetch active budget for the calling producer organization
-    const budgetRes = await client.query('SELECT id FROM budgets WHERE producer_id = $1 AND status = \'ACTIVE\' LIMIT 1', [user.orgId]);
-    if (budgetRes.rowCount === 0) {
-      await client.query('ROLLBACK');
-      return reply.status(400).send({
-        success: false,
-        error: {
-          statusCode: 400,
-          code: 'NO_ACTIVE_BUDGET',
-          message: 'No active budget found for your organization. Please request a budget and obtain certifier approval.'
-        }
-      });
-    }
-    const budgetId = budgetRes.rows[0].id;
-
     let lotUuid;
     if (lot_id) {
-      const lotCheck = await client.query('SELECT id FROM lots WHERE id = $1 AND producer_id = $2', [lot_id, user.orgId]);
-      if (lotCheck.rowCount === 0) {
+      // Explicit lot: budget capacity was already reserved when the lot was created
+      // (POST /api/v1/lots draws down atomically). Lock the lot and bound the number of
+      // unit codes to its batch_size so codes can never exceed the reserved quantity.
+      const lotRes = await client.query(
+        `SELECT id, batch_size FROM lots WHERE id = $1 AND producer_id = $2 AND revocation_status = 'ACTIVE' FOR UPDATE`,
+        [lot_id, user.orgId]
+      );
+      if (lotRes.rowCount === 0) {
         await client.query('ROLLBACK');
         return reply.status(404).send({
           success: false,
-          error: { statusCode: 404, code: 'NOT_FOUND', message: 'Explicit lot not found or unauthorized.' }
+          error: { statusCode: 404, code: 'NOT_FOUND', message: 'Explicit lot not found, revoked, or unauthorized.' }
+        });
+      }
+      const batchSize = parseFloat(lotRes.rows[0].batch_size);
+      const countRes = await client.query('SELECT COUNT(*)::int AS c FROM unit_codes WHERE lot_id = $1', [lot_id]);
+      if (countRes.rows[0].c + 1 > batchSize) {
+        await client.query('ROLLBACK');
+        return reply.status(422).send({
+          success: false,
+          error: { statusCode: 422, code: 'EXCEEDS_LOT_CAPACITY', message: `Lot capacity exhausted: ${countRes.rows[0].c}/${batchSize} units already minted for this lot.` }
         });
       }
       lotUuid = lot_id;
     } else {
-      // 2. Insert dynamic Lot
+      // No explicit lot: draw down exactly one unit of budget capacity atomically and
+      // create a single-unit lot, so this quick path can never over-issue.
+      const budgetRes = await client.query(
+        `SELECT id, approved_quantity, consumed_quantity FROM budgets WHERE producer_id = $1 AND status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+        [user.orgId]
+      );
+      if (budgetRes.rowCount === 0) {
+        await client.query('ROLLBACK');
+        return reply.status(400).send({
+          success: false,
+          error: {
+            statusCode: 400,
+            code: 'NO_ACTIVE_BUDGET',
+            message: 'No active budget found for your organization. Please request a budget and obtain certifier approval.'
+          }
+        });
+      }
+      const budgetRow = budgetRes.rows[0];
+      const remaining = parseFloat(budgetRow.approved_quantity) - parseFloat(budgetRow.consumed_quantity);
+      if (remaining < 1) {
+        await client.query('ROLLBACK');
+        return reply.status(422).send({
+          success: false,
+          error: { statusCode: 422, code: 'EXCEEDS_CAPACITY', message: 'No remaining budget capacity to mint a new unit.' }
+        });
+      }
+      await client.query(
+        `UPDATE budgets SET consumed_quantity = consumed_quantity + 1, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
+        [budgetRow.id]
+      );
       const lotInsert = await client.query(`
         INSERT INTO lots (id, producer_id, budget_id, product_metadata, batch_size, processing_dates, lab_status)
-        VALUES (uuid_generate_v4(), $1, $2, $3, 10000, '{}', 'PASSED')
+        VALUES (uuid_generate_v4(), $1, $2, $3, 1, '{}', 'PASSED')
         RETURNING id
-      `, [user.orgId, budgetId, JSON.stringify(product_metadata || { name: 'Organic White Honey', manufacturer: 'Premium Farms' })]);
+      `, [user.orgId, budgetRow.id, JSON.stringify(product_metadata || { name: 'Organic White Honey', manufacturer: 'Premium Farms' })]);
       lotUuid = lotInsert.rows[0].id;
     }
 
-    // 3. Insert Lab Result for the Lot if not exists
+    // Insert Lab Result for the Lot if not exists
     await client.query(`
       INSERT INTO lab_results (lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
       VALUES ($1, 'Intertek India Labs', 'Purity Certification Test', 'PASS', 'hash_lab_default', 'NABL-INTK-2026-10492')
