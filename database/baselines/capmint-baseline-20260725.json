@@ -1,0 +1,11 @@
+{
+  "identifier": "capmint-baseline-20260725-cutoff-0009",
+  "filename": "capmint-baseline-20260725.sql",
+  "schema_cutoff": 9,
+  "next_migration": 10,
+  "creation_version": "1",
+  "generated_on": "2026-07-25",
+  "checksum_algorithm": "sha256",
+  "checksum_sha256": "f73e4d2e237d52cef1a9c7d5755d921814ed4d28244c6ff49cdf69b2b0a56793",
+  "includes_seed_data": false
+}

@@ -1,10 +1,12 @@
--- CapMint PostgreSQL schema snapshot
--- Snapshot version: 2026-07-25-pre-DM03
+-- CapMint immutable PostgreSQL baseline
+-- Baseline identifier: capmint-baseline-20260725-cutoff-0009
+-- Creation version: 1
 -- Generated: 2026-07-25
--- Authoritative migration cutoff: 0010_reconcile_pre_dm03_schema.sql
--- Intended use: inspection and disposable-database schema comparison only.
--- DO NOT apply this snapshot to an existing database. Forward migrations are
--- the authoritative schema evolution path.
+-- Schema cutoff: 0009_widen_investigations_status_check.sql
+-- Next forward migration: 0010_reconcile_pre_dm03_schema.sql
+-- Source: validated canonical pre-DM-03 schema state represented by migrations 0001-0009.
+-- Seed users and development fixtures are intentionally excluded.
+-- IMMUTABLE AFTER RELEASE. Forward schema changes belong in numbered migrations.
 -- Target Engine: PostgreSQL 15+
 -- Purpose: Complete logical schema definition, constraints, and optimized index configurations.
 
