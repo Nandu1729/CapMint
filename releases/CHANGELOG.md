@@ -20,6 +20,7 @@ Critical security remediation of the code-serialization capacity bypass, plus ga
 
 ### Fixed
 - Operator UI no longer issues a redundant `/drawdown` call when minting (prevents double-counting after the register-path fix).
+- **Schema/Migration Drift (High)**: Added migration `0007` (creates `producer_brandings` + its `updated_at` trigger) and `0009` (widens the `investigations` status CHECK to include ESCALATED/RESOLVED/CLOSED). Migration-built databases no longer diverge from `schema.sql`, so the escalate/close investigation flows and branding queries work on migration-provisioned environments.
 
 ### Known Gaps (carried forward, not yet fixed)
 - Follow-ups: JWT token revocation (denylist), the unexpiring internal ledger service token, and the multi-tenant data-model / repo-hygiene items tracked separately.
