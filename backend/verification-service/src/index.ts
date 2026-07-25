@@ -54,7 +54,6 @@ const SERVICE_TOKEN = makeServiceToken();
 // Decorators: authenticate / authorize
 server.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
   try {
-    server.log.info({ authHeader: request.headers.authorization }, 'Received auth header');
     await request.jwtVerify();
   } catch (err) {
     server.log.error(err);
@@ -108,6 +107,29 @@ server.decorate('authorize', (allowedSpecs: any[]) => {
   };
 });
 
+const PRODUCER_OPERATION_SPECS = [
+  { orgType: 'PRODUCER', role: 'ADMIN' },
+  { orgType: 'PRODUCER', role: 'MEMBER' }
+];
+const CERTIFIER_OPERATION_SPECS = [
+  { orgType: 'CERTIFICATION_BODY', role: 'ADMIN' },
+  { orgType: 'CERTIFICATION_BODY', role: 'MEMBER' }
+];
+const LAB_OPERATION_SPECS = [
+  { orgType: 'NABL_LABORATORY', role: 'ADMIN' },
+  { orgType: 'NABL_LABORATORY', role: 'MEMBER' }
+];
+const SYSTEM_ADMIN_SPEC = { orgType: 'SYSTEM_ADMINISTRATOR', role: 'ADMIN' };
+const OPERATIONAL_READ_SPECS = [
+  ...PRODUCER_OPERATION_SPECS,
+  ...CERTIFIER_OPERATION_SPECS,
+  SYSTEM_ADMIN_SPEC
+];
+const INVESTIGATION_MUTATION_SPECS = [
+  ...CERTIFIER_OPERATION_SPECS,
+  SYSTEM_ADMIN_SPEC
+];
+
 // Initialize PostgreSQL Client Pool
 const DATABASE_URL = process.env.DATABASE_URL || (process.env.NODE_ENV === 'test' ? 'postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_dev' : '');
 if (!DATABASE_URL) {
@@ -125,6 +147,73 @@ if (!REDIS_URL) {
   process.exit(1);
 }
 const redisClient = new Redis(REDIS_URL);
+
+// C0 temporary containment: producer/certifier profile IDs currently equal
+// organization IDs. Replace these helpers with profile.organization_id joins in C3.
+async function lockCertifierLot(client: pg.PoolClient, lotId: string, organizationId: string) {
+  return client.query(
+    `SELECT l.*
+     FROM lots l
+     JOIN budgets b ON b.id = l.budget_id
+     WHERE l.id = $1
+       AND b.certifier_id = $2
+     FOR UPDATE OF l, b`,
+    [lotId, organizationId]
+  );
+}
+
+async function lockCertifierInvestigation(client: pg.PoolClient, investigationId: string, organizationId: string) {
+  return client.query(
+    `SELECT i.*
+     FROM investigations i
+     JOIN unit_codes u ON u.public_identifier = i.public_identifier
+     JOIN lots l ON l.id = u.lot_id
+     JOIN budgets b ON b.id = l.budget_id
+     WHERE i.id = $1
+       AND b.certifier_id = $2
+     FOR UPDATE OF i, u, l, b`,
+    [investigationId, organizationId]
+  );
+}
+
+function isSystemAdministrator(user: any): boolean {
+  return user.orgType === 'SYSTEM_ADMINISTRATOR' && user.role === 'ADMIN';
+}
+
+async function lockInvestigationForActor(client: pg.PoolClient, investigationId: string, user: any) {
+  if (isSystemAdministrator(user)) {
+    return client.query('SELECT * FROM investigations WHERE id = $1 FOR UPDATE', [investigationId]);
+  }
+  return lockCertifierInvestigation(client, investigationId, user.orgId);
+}
+
+async function findScopedLot(lotId: string, user: any) {
+  if (user.orgType === 'PRODUCER') {
+    return pgPool.query(
+      `SELECT l.*
+       FROM lots l
+       JOIN budgets b ON b.id = l.budget_id
+       WHERE l.id = $1
+         AND l.producer_id = $2
+         AND b.producer_id = $2`,
+      [lotId, user.orgId]
+    );
+  }
+  if (user.orgType === 'CERTIFICATION_BODY') {
+    return pgPool.query(
+      `SELECT l.*
+       FROM lots l
+       JOIN budgets b ON b.id = l.budget_id
+       WHERE l.id = $1
+         AND b.certifier_id = $2`,
+      [lotId, user.orgId]
+    );
+  }
+  if (isSystemAdministrator(user)) {
+    return pgPool.query('SELECT * FROM lots WHERE id = $1', [lotId]);
+  }
+  return pgPool.query('SELECT * FROM lots WHERE FALSE');
+}
 
 // Redis sliding-window rate limiter (per client IP). Returns true if within the limit.
 // Note: behind the local gateway proxy all requests share the gateway IP; production should
@@ -506,7 +595,7 @@ async function verifyBudgetAuthority(client: pg.PoolClient, budgetId: string, ce
 
 // Route: Public simulation registration for Manufacturer Console (persists generated QR/record in DB)
 server.post('/api/v1/verify/register', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
+  preValidation: [server.authenticate, server.authorize(PRODUCER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { public_identifier, gtin, serial, verification_url, qr_code_data_uri, product_metadata, lot_id } = request.body as any;
 
@@ -532,7 +621,14 @@ server.post('/api/v1/verify/register', {
       // (POST /api/v1/lots draws down atomically). Lock the lot and bound the number of
       // unit codes to its batch_size so codes can never exceed the reserved quantity.
       const lotRes = await client.query(
-        `SELECT id, batch_size, budget_id FROM lots WHERE id = $1 AND producer_id = $2 AND revocation_status = 'ACTIVE' FOR UPDATE`,
+        `SELECT l.id, l.batch_size, l.budget_id
+         FROM lots l
+         JOIN budgets b ON b.id = l.budget_id
+         WHERE l.id = $1
+           AND l.producer_id = $2
+           AND b.producer_id = $2
+           AND l.revocation_status = 'ACTIVE'
+         FOR UPDATE OF l, b`,
         [lot_id, user.orgId]
       );
       if (lotRes.rowCount === 0) {
@@ -635,7 +731,7 @@ server.post('/api/v1/verify/register', {
 
 // Route: Explicit Lot Creation for Manufacturers
 server.post('/api/v1/lots', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'PRODUCER' }])]
+  preValidation: [server.authenticate, server.authorize(PRODUCER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { budget_id, product_metadata, batch_size, processing_dates } = request.body as any;
   const user = request.user as any;
@@ -745,13 +841,14 @@ server.post('/api/v1/lots', {
 
 // Route: Export Lot Unit Codes as CSV
 server.get('/api/v1/lots/:id/export/csv', {
-  preValidation: [server.authenticate]
+  preValidation: [server.authenticate, server.authorize(OPERATIONAL_READ_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
+  const user = request.user as any;
 
-  const lotCheck = await pgPool.query('SELECT id FROM lots WHERE id = $1', [id]);
+  const lotCheck = await findScopedLot(id, user);
   if (lotCheck.rowCount === 0) {
-    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Lot not found.' } });
+    return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' } });
   }
 
   const result = await pgPool.query(
@@ -772,13 +869,14 @@ server.get('/api/v1/lots/:id/export/csv', {
 
 // Route: Export Lot Unit Codes as print-ready PDF data sheet
 server.get('/api/v1/lots/:id/export/pdf', {
-  preValidation: [server.authenticate]
+  preValidation: [server.authenticate, server.authorize(OPERATIONAL_READ_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
+  const user = request.user as any;
 
-  const lotCheck = await pgPool.query('SELECT product_metadata FROM lots WHERE id = $1', [id]);
+  const lotCheck = await findScopedLot(id, user);
   if (lotCheck.rowCount === 0) {
-    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Lot not found.' } });
+    return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' } });
   }
 
   const result = await pgPool.query(
@@ -808,7 +906,7 @@ server.get('/api/v1/lots/:id/export/pdf', {
 
 // Route: Assign Caseworker to Investigation
 server.post('/api/v1/verify/investigations/:id/assign', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }, { orgType: 'SYSTEM_ADMINISTRATOR' }])]
+  preValidation: [server.authenticate, server.authorize(INVESTIGATION_MUTATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const { assigned_to } = request.body as any;
@@ -818,33 +916,54 @@ server.post('/api/v1/verify/investigations/:id/assign', {
     return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Missing assigned_to UUID.' } });
   }
 
-  const timelineEntry = {
-    timestamp: new Date().toISOString(),
-    event: 'CASE_ASSIGNED',
-    author: user.username,
-    details: `Investigation assigned to caseworker ID: ${assigned_to}`
-  };
+  const client = await pgPool.connect();
+  try {
+    await client.query('BEGIN');
+    const investigation = await lockInvestigationForActor(client, id, user);
+    if (investigation.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Investigation not found.' } });
+    }
 
-  const result = await pgPool.query(
-    `UPDATE investigations 
-     SET assigned_to = $2, 
-         evidence_timeline = COALESCE(evidence_timeline, '[]'::jsonb) || $3::jsonb,
-         updated_at = CURRENT_TIMESTAMP 
-     WHERE id = $1 
-     RETURNING *`,
-    [id, assigned_to, JSON.stringify([timelineEntry])]
-  );
+    const assignee = isSystemAdministrator(user)
+      ? await client.query('SELECT id FROM users WHERE id = $1 AND status = $2', [assigned_to, 'ACTIVE'])
+      : await client.query(
+          'SELECT id FROM users WHERE id = $1 AND organization_id = $2 AND status = $3',
+          [assigned_to, user.orgId, 'ACTIVE']
+        );
+    if (assignee.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Assignee not found.' } });
+    }
 
-  if (result.rowCount === 0) {
-    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Investigation not found.' } });
+    const timelineEntry = {
+      timestamp: new Date().toISOString(),
+      event: 'CASE_ASSIGNED',
+      author: user.username,
+      details: `Investigation assigned to caseworker ID: ${assigned_to}`
+    };
+    const result = await client.query(
+      `UPDATE investigations
+       SET assigned_to = $2,
+           evidence_timeline = COALESCE(evidence_timeline, '[]'::jsonb) || $3::jsonb,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [id, assigned_to, JSON.stringify([timelineEntry])]
+    );
+    await client.query('COMMIT');
+    return { success: true, data: { investigation: result.rows[0] } };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-
-  return { success: true, data: { investigation: result.rows[0] } };
 });
 
 // Route: Add Case Notes to Investigation
 server.post('/api/v1/verify/investigations/:id/notes', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }, { orgType: 'SYSTEM_ADMINISTRATOR' }])]
+  preValidation: [server.authenticate, server.authorize(INVESTIGATION_MUTATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const { note_text } = request.body as any;
@@ -854,39 +973,44 @@ server.post('/api/v1/verify/investigations/:id/notes', {
     return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Missing note_text.' } });
   }
 
-  const noteEntry = {
-    timestamp: new Date().toISOString(),
-    author: user.username,
-    note: note_text
-  };
+  const client = await pgPool.connect();
+  try {
+    await client.query('BEGIN');
+    const investigation = await lockInvestigationForActor(client, id, user);
+    if (investigation.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Investigation not found.' } });
+    }
 
-  const timelineEntry = {
-    timestamp: new Date().toISOString(),
-    event: 'NOTE_ADDED',
-    author: user.username,
-    details: `Caseworker added a case note`
-  };
-
-  const result = await pgPool.query(
-    `UPDATE investigations 
-     SET case_notes = COALESCE(case_notes, '[]'::jsonb) || $2::jsonb, 
-         evidence_timeline = COALESCE(evidence_timeline, '[]'::jsonb) || $3::jsonb,
-         updated_at = CURRENT_TIMESTAMP 
-     WHERE id = $1 
-     RETURNING *`,
-    [id, JSON.stringify([noteEntry]), JSON.stringify([timelineEntry])]
-  );
-
-  if (result.rowCount === 0) {
-    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Investigation not found.' } });
+    const noteEntry = { timestamp: new Date().toISOString(), author: user.username, note: note_text };
+    const timelineEntry = {
+      timestamp: new Date().toISOString(),
+      event: 'NOTE_ADDED',
+      author: user.username,
+      details: 'Caseworker added a case note'
+    };
+    const result = await client.query(
+      `UPDATE investigations
+       SET case_notes = COALESCE(case_notes, '[]'::jsonb) || $2::jsonb,
+           evidence_timeline = COALESCE(evidence_timeline, '[]'::jsonb) || $3::jsonb,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [id, JSON.stringify([noteEntry]), JSON.stringify([timelineEntry])]
+    );
+    await client.query('COMMIT');
+    return { success: true, data: { investigation: result.rows[0] } };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-
-  return { success: true, data: { investigation: result.rows[0] } };
 });
 
 // Route: Escalate Investigation Severity
 server.post('/api/v1/verify/investigations/:id/escalate', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }, { orgType: 'SYSTEM_ADMINISTRATOR' }])]
+  preValidation: [server.authenticate, server.authorize(INVESTIGATION_MUTATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const { risk_level } = request.body as any;
@@ -896,69 +1020,95 @@ server.post('/api/v1/verify/investigations/:id/escalate', {
     return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Missing risk_level.' } });
   }
 
-  const timelineEntry = {
-    timestamp: new Date().toISOString(),
-    event: 'CASE_ESCALATED',
-    author: user.username,
-    details: `Threat level escalated to ${risk_level}`
-  };
+  const client = await pgPool.connect();
+  try {
+    await client.query('BEGIN');
+    const investigation = await lockInvestigationForActor(client, id, user);
+    if (investigation.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Investigation not found.' } });
+    }
 
-  const result = await pgPool.query(
-    `UPDATE investigations 
-     SET risk_level = $2, 
-         status = 'ESCALATED',
-         evidence_timeline = COALESCE(evidence_timeline, '[]'::jsonb) || $3::jsonb,
-         updated_at = CURRENT_TIMESTAMP 
-     WHERE id = $1 
-     RETURNING *`,
-    [id, risk_level, JSON.stringify([timelineEntry])]
-  );
-
-  if (result.rowCount === 0) {
-    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Investigation not found.' } });
+    const timelineEntry = {
+      timestamp: new Date().toISOString(),
+      event: 'CASE_ESCALATED',
+      author: user.username,
+      details: `Threat level escalated to ${risk_level}`
+    };
+    const result = await client.query(
+      `UPDATE investigations
+       SET risk_level = $2,
+           status = 'ESCALATED',
+           evidence_timeline = COALESCE(evidence_timeline, '[]'::jsonb) || $3::jsonb,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [id, risk_level, JSON.stringify([timelineEntry])]
+    );
+    await client.query('COMMIT');
+    return { success: true, data: { investigation: result.rows[0] } };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
   }
-
-  return { success: true, data: { investigation: result.rows[0] } };
 });
 
 // Route: Close/Resolve Investigation
 server.post('/api/v1/verify/investigations/:id/close', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }, { orgType: 'SYSTEM_ADMINISTRATOR' }])]
+  preValidation: [server.authenticate, server.authorize(INVESTIGATION_MUTATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const { closure_status, notes } = request.body as any;
   const user = request.user as any;
 
   const finalStatus = closure_status || 'CLOSED';
-  const timelineEntry = {
-    timestamp: new Date().toISOString(),
-    event: 'CASE_CLOSED',
-    author: user.username,
-    details: `Investigation closed as ${finalStatus}. Notes: ${notes || ''}`
-  };
-
-  const result = await pgPool.query(
-    `UPDATE investigations 
-     SET status = $2, 
-         evidence_timeline = COALESCE(evidence_timeline, '[]'::jsonb) || $3::jsonb,
-         updated_at = CURRENT_TIMESTAMP 
-     WHERE id = $1 
-     RETURNING *`,
-    [id, finalStatus, JSON.stringify([timelineEntry])]
-  );
-
-  if (result.rowCount === 0) {
-    return reply.status(404).send({ success: false, error: { statusCode: 404, message: 'Investigation not found.' } });
+  const allowedClosureStatuses = ['RESOLVED', 'CLOSED'];
+  if (!allowedClosureStatuses.includes(finalStatus)) {
+    return reply.status(400).send({ success: false, error: { statusCode: 400, code: 'BAD_REQUEST', message: 'Invalid closure status.' } });
   }
 
-  return { success: true, data: { investigation: result.rows[0] } };
+  const client = await pgPool.connect();
+  try {
+    await client.query('BEGIN');
+    const investigation = await lockInvestigationForActor(client, id, user);
+    if (investigation.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Investigation not found.' } });
+    }
+
+    const timelineEntry = {
+      timestamp: new Date().toISOString(),
+      event: 'CASE_CLOSED',
+      author: user.username,
+      details: `Investigation closed as ${finalStatus}. Notes: ${notes || ''}`
+    };
+    const result = await client.query(
+      `UPDATE investigations
+       SET status = $2,
+           evidence_timeline = COALESCE(evidence_timeline, '[]'::jsonb) || $3::jsonb,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1
+       RETURNING *`,
+      [id, finalStatus, JSON.stringify([timelineEntry])]
+    );
+    await client.query('COMMIT');
+    return { success: true, data: { investigation: result.rows[0] } };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 });
 
 // Route: Public simulation revocation for Manufacturer Console
 server.post('/api/v1/verify/revoke', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { batch_id, reason } = request.body as any;
+  const user = request.user as any;
 
   if (!batch_id) {
     return reply.status(400).send({
@@ -975,32 +1125,38 @@ server.post('/api/v1/verify/revoke', {
   try {
     await client.query('BEGIN');
 
-    // 1. Find all lots matching batch_id
     const lotRes = await client.query(
-      `SELECT id FROM lots WHERE product_metadata->>'batch_id' = $1`,
-      [batch_id]
+      `SELECT l.id
+       FROM lots l
+       JOIN budgets b ON b.id = l.budget_id
+       WHERE l.product_metadata->>'batch_id' = $1
+         AND b.certifier_id = $2
+       FOR UPDATE OF l`,
+      [batch_id, user.orgId]
     );
 
-    if (lotRes.rowCount !== null && lotRes.rowCount > 0) {
-      const lotIds = lotRes.rows.map(row => row.id);
-      const revocationReason = reason || 'Organic certification withdrawn';
-      
-      // 2. Update revocation status and metadata on these lots
-      await client.query(
-        `UPDATE lots 
-         SET revocation_status = 'REVOKED', 
-             product_metadata = product_metadata || jsonb_build_object('revocation_reason', $2::text, 'revocation_date', CURRENT_TIMESTAMP),
-             updated_at = CURRENT_TIMESTAMP 
-         WHERE id = ANY($1)`,
-        [lotIds, revocationReason]
-      );
-
-      // 3. Update associated unit codes to REVOKED state
-      await client.query(
-        `UPDATE unit_codes SET current_state = 'REVOKED', revoked_at = CURRENT_TIMESTAMP WHERE lot_id = ANY($1)`,
-        [lotIds]
-      );
+    if (lotRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({
+        success: false,
+        error: { statusCode: 404, code: 'NOT_FOUND', message: 'Batch not found.' }
+      });
     }
+
+    const lotIds = lotRes.rows.map(row => row.id);
+    const revocationReason = reason || 'Organic certification withdrawn';
+    await client.query(
+      `UPDATE lots
+       SET revocation_status = 'REVOKED',
+           product_metadata = product_metadata || jsonb_build_object('revocation_reason', $2::text, 'revocation_date', CURRENT_TIMESTAMP),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = ANY($1)`,
+      [lotIds, revocationReason]
+    );
+    await client.query(
+      `UPDATE unit_codes SET current_state = 'REVOKED', revoked_at = CURRENT_TIMESTAMP WHERE lot_id = ANY($1)`,
+      [lotIds]
+    );
 
     await client.query('COMMIT');
     return { success: true, message: `Batch ${batch_id} and all associated unit codes cascade revoked successfully in simulation.` };
@@ -1014,16 +1170,16 @@ server.post('/api/v1/verify/revoke', {
 
 // Route: Cascade Revocation (M-011)
 server.post('/api/v1/lots/:id/revoke', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
+  const user = request.user as any;
 
   const client = await pgPool.connect();
   try {
     await client.query('BEGIN');
 
-    // 1. Check if Lot exists
-    const lotRes = await client.query('SELECT id, revocation_status FROM lots WHERE id = $1', [id]);
+    const lotRes = await lockCertifierLot(client, id, user.orgId);
     if (lotRes.rowCount === 0) {
       await client.query('ROLLBACK');
       return reply.status(404).send({
@@ -1075,16 +1231,16 @@ server.post('/api/v1/lots/:id/revoke', {
 
 // Route: Certify Lot (Certification Body only)
 server.post('/api/v1/lots/:id/certify', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
+  const user = request.user as any;
 
   const client = await pgPool.connect();
   try {
     await client.query('BEGIN');
 
-    // 1. Check if Lot exists
-    const lotRes = await client.query('SELECT * FROM lots WHERE id = $1', [id]);
+    const lotRes = await lockCertifierLot(client, id, user.orgId);
     if (lotRes.rowCount === 0) {
       await client.query('ROLLBACK');
       return reply.status(404).send({
@@ -1179,13 +1335,40 @@ server.post('/api/v1/lots/:id/certify', {
 });
 
 // Route: Get all unit codes
-server.get('/api/v1/verify/unit-codes', async (request, reply) => {
-  const result = await pgPool.query(`
-    SELECT u.*, l.product_metadata 
-    FROM unit_codes u
-    LEFT JOIN lots l ON u.lot_id = l.id
-    ORDER BY u.minted_at DESC
-  `);
+server.get('/api/v1/verify/unit-codes', {
+  preValidation: [server.authenticate, server.authorize(OPERATIONAL_READ_SPECS)]
+}, async (request, reply) => {
+  const user = request.user as any;
+  let result;
+  if (user.orgType === 'PRODUCER') {
+    result = await pgPool.query(
+      `SELECT u.*, l.product_metadata
+       FROM unit_codes u
+       JOIN lots l ON l.id = u.lot_id
+       JOIN budgets b ON b.id = l.budget_id
+       WHERE l.producer_id = $1
+         AND b.producer_id = $1
+       ORDER BY u.minted_at DESC`,
+      [user.orgId]
+    );
+  } else if (user.orgType === 'CERTIFICATION_BODY') {
+    result = await pgPool.query(
+      `SELECT u.*, l.product_metadata
+       FROM unit_codes u
+       JOIN lots l ON l.id = u.lot_id
+       JOIN budgets b ON b.id = l.budget_id
+       WHERE b.certifier_id = $1
+       ORDER BY u.minted_at DESC`,
+      [user.orgId]
+    );
+  } else {
+    result = await pgPool.query(`
+      SELECT u.*, l.product_metadata
+      FROM unit_codes u
+      JOIN lots l ON l.id = u.lot_id
+      ORDER BY u.minted_at DESC
+    `);
+  }
   return {
     success: true,
     data: {
@@ -1205,8 +1388,33 @@ server.get('/api/v1/verify/unit-codes', async (request, reply) => {
 });
 
 // Route: Get all lots
-server.get('/api/v1/verify/lots', async (request, reply) => {
-  const result = await pgPool.query('SELECT * FROM lots ORDER BY created_at DESC');
+server.get('/api/v1/verify/lots', {
+  preValidation: [server.authenticate, server.authorize(OPERATIONAL_READ_SPECS)]
+}, async (request, reply) => {
+  const user = request.user as any;
+  let result;
+  if (user.orgType === 'PRODUCER') {
+    result = await pgPool.query(
+      `SELECT l.*
+       FROM lots l
+       JOIN budgets b ON b.id = l.budget_id
+       WHERE l.producer_id = $1
+         AND b.producer_id = $1
+       ORDER BY l.created_at DESC`,
+      [user.orgId]
+    );
+  } else if (user.orgType === 'CERTIFICATION_BODY') {
+    result = await pgPool.query(
+      `SELECT l.*
+       FROM lots l
+       JOIN budgets b ON b.id = l.budget_id
+       WHERE b.certifier_id = $1
+       ORDER BY l.created_at DESC`,
+      [user.orgId]
+    );
+  } else {
+    result = await pgPool.query('SELECT * FROM lots ORDER BY created_at DESC');
+  }
   return {
     success: true,
     data: {
@@ -1228,9 +1436,19 @@ server.get('/api/v1/verify/lots', async (request, reply) => {
 
 // Route: List Investigations
 server.get('/api/v1/verify/investigations', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
 }, async (request, reply) => {
-  const result = await pgPool.query('SELECT * FROM investigations ORDER BY created_at DESC');
+  const user = request.user as any;
+  const result = await pgPool.query(
+    `SELECT i.*
+     FROM investigations i
+     JOIN unit_codes u ON u.public_identifier = i.public_identifier
+     JOIN lots l ON l.id = u.lot_id
+     JOIN budgets b ON b.id = l.budget_id
+     WHERE b.certifier_id = $1
+     ORDER BY i.created_at DESC`,
+    [user.orgId]
+  );
   return {
     success: true,
     data: {
@@ -1252,10 +1470,20 @@ server.get('/api/v1/verify/investigations', {
 
 // Route: Get Investigation Details
 server.get('/api/v1/verify/investigations/:id', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
-  const result = await pgPool.query('SELECT * FROM investigations WHERE id = $1', [id]);
+  const user = request.user as any;
+  const result = await pgPool.query(
+    `SELECT i.*
+     FROM investigations i
+     JOIN unit_codes u ON u.public_identifier = i.public_identifier
+     JOIN lots l ON l.id = u.lot_id
+     JOIN budgets b ON b.id = l.budget_id
+     WHERE i.id = $1
+       AND b.certifier_id = $2`,
+    [id, user.orgId]
+  );
   if (result.rows.length === 0) {
     return reply.status(404).send({
       success: false,
@@ -1284,15 +1512,16 @@ server.get('/api/v1/verify/investigations/:id', {
 
 // Route: Approve Revocation
 server.post('/api/v1/verify/investigations/:id/approve', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
+  const user = request.user as any;
   const client = await pgPool.connect();
   try {
     await client.query('BEGIN');
 
     // 1. Fetch Investigation
-    const invRes = await client.query('SELECT * FROM investigations WHERE id = $1 FOR UPDATE', [id]);
+    const invRes = await lockCertifierInvestigation(client, id, user.orgId);
     if (invRes.rows.length === 0) {
       await client.query('ROLLBACK');
       return reply.status(404).send({
@@ -1385,15 +1614,16 @@ server.post('/api/v1/verify/investigations/:id/approve', {
 
 // Route: Dismiss Investigation
 server.post('/api/v1/verify/investigations/:id/dismiss', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'CERTIFICATION_BODY' }])]
+  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
+  const user = request.user as any;
   const client = await pgPool.connect();
   try {
     await client.query('BEGIN');
 
     // 1. Fetch Investigation
-    const invRes = await client.query('SELECT * FROM investigations WHERE id = $1 FOR UPDATE', [id]);
+    const invRes = await lockCertifierInvestigation(client, id, user.orgId);
     if (invRes.rows.length === 0) {
       await client.query('ROLLBACK');
       return reply.status(404).send({
@@ -1447,17 +1677,8 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
 
 // Route: Register Lab Results
 server.post('/api/v1/verify/lab-results', {
-  preValidation: [server.authenticate, server.authorize([{ orgType: 'NABL_LABORATORY' }])]
+  preValidation: [server.authenticate, server.authorize(LAB_OPERATION_SPECS)]
 }, async (request, reply) => {
-  const { lot_id, lab_name, test_type, result_summary, report_hash, report_reference, pdf_content } = request.body as any;
-
-  if (!lot_id || !lab_name || !test_type || !result_summary || !report_hash) {
-    return reply.status(400).send({
-      success: false,
-      error: { statusCode: 400, code: 'BAD_REQUEST', message: 'Missing required lab result fields.' }
-    });
-  }
-
   const user = request.user as any;
   const authClient = await pgPool.connect();
   try {
@@ -1473,202 +1694,18 @@ server.post('/api/v1/verify/lab-results', {
     authClient.release();
   }
 
-  // Cryptographically validate and recompute PDF hash on the backend
-  if (pdf_content) {
-    try {
-      const buffer = Buffer.from(pdf_content, 'base64');
-      // Validate PDF magic bytes (%PDF)
-      const isPdf = buffer.length >= 4 && buffer.toString('ascii', 0, 4) === '%PDF';
-      if (!isPdf) {
-        return reply.status(400).send({
-          success: false,
-          error: {
-            statusCode: 400,
-            code: 'INVALID_PDF',
-            message: 'Uploaded file is not a valid PDF document.'
-          }
-        });
-      }
-      const calculatedHash = crypto.createHash('sha256').update(buffer).digest('hex');
-      if (calculatedHash !== report_hash) {
-        return reply.status(400).send({
-          success: false,
-          error: {
-            statusCode: 400,
-            code: 'HASH_MISMATCH',
-            message: `Uploaded PDF SHA-256 hash validation failed. Recomputed hash: ${calculatedHash} does not match provided hash: ${report_hash}.`
-          }
-        });
-      }
-    } catch (err) {
-      return reply.status(400).send({
-        success: false,
-        error: {
-          statusCode: 400,
-          code: 'INVALID_PDF_CONTENT',
-          message: 'Failed to decode and validate PDF content.'
-        }
-      });
+  // C0 fails closed because the current schema has no trusted lot-to-laboratory
+  // assignment. Do not inspect or process client-supplied report data before C2
+  // introduces the approved assignment relationship.
+  return reply.status(403).send({
+    success: false,
+    error: {
+      statusCode: 403,
+      code: 'LAB_ASSIGNMENT_REQUIRED',
+      message: 'This lot has no trusted laboratory assignment.'
     }
-  }
+  });
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // 1. Check if lot exists
-    const lotCheck = await client.query('SELECT id FROM lots WHERE id = $1', [lot_id]);
-    if (lotCheck.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return reply.status(404).send({
-        success: false,
-        error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' }
-      });
-    }
-
-    // Check duplicate or replacement logic
-    const existingCheck = await client.query('SELECT id, report_hash FROM lab_results WHERE lot_id = $1', [lot_id]);
-    
-    let isReplacement = false;
-    let insertRes;
-    
-    const dbResultSummary = (result_summary === 'PASSED' || result_summary === 'PASS') ? 'PASS' : 'FAIL';
-    const lotLabStatus = (result_summary === 'PASSED' || result_summary === 'PASS') ? 'PASSED' : 'FAILED';
-
-    if (existingCheck.rows.length > 0) {
-      // LAB-03: Upload duplicate report -> Conflict
-      if (existingCheck.rows[0].report_hash === report_hash) {
-        await client.query('ROLLBACK');
-        return reply.status(409).send({
-          success: false,
-          error: {
-            statusCode: 409,
-            code: 'CONFLICT',
-            message: 'A lab report with the same hash already exists for this lot.'
-          }
-        });
-      }
-      
-      // LAB-04: Replace existing report -> Audit entry created
-      isReplacement = true;
-      insertRes = await client.query(`
-        UPDATE lab_results 
-        SET lab_name = $2, test_type = $3, result_summary = $4, report_hash = $5, report_reference = $6
-        WHERE lot_id = $1
-        RETURNING *
-      `, [lot_id, lab_name, test_type, dbResultSummary, report_hash, report_reference || '']);
-    } else {
-      // 2. Insert lab result
-      insertRes = await client.query(`
-        INSERT INTO lab_results (id, lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
-        VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6)
-        RETURNING *
-      `, [lot_id, lab_name, test_type, dbResultSummary, report_hash, report_reference || '']);
-    }
-
-    // 3. Update the lot's lab status in PostgreSQL
-    await client.query(
-      `UPDATE lots SET lab_status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
-      [lot_id, lotLabStatus]
-    );
-
-    // If replacement, write replacement audit block to ledger
-    if (isReplacement) {
-      try {
-        await fetch(LEDGER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
-          body: JSON.stringify({
-            entity_type: 'LOT',
-            entity_id: lot_id,
-            event_type: 'LOT_LAB_TEST_REPLACED',
-            payload: {
-              lot_id,
-              lab_name,
-              test_type,
-              report_hash
-            }
-          })
-        });
-      } catch (logErr) {
-        server.log.error(logErr as any, 'Failed to append replacement lab test event to ledger');
-      }
-    }
-
-    // 4. If result is FAILED, trigger dynamic revocation
-    if (result_summary === 'FAILED') {
-      // Cascade revocation
-      await client.query(
-        `UPDATE unit_codes SET current_state = 'REVOKED', revoked_at = CURRENT_TIMESTAMP WHERE lot_id = $1`,
-        [lot_id]
-      );
-      
-      await client.query(
-        `UPDATE lots 
-         SET revocation_status = 'REVOKED', 
-             product_metadata = product_metadata || jsonb_build_object('revocation_reason', 'Laboratory test failed: ' || $2::text, 'revocation_date', CURRENT_TIMESTAMP),
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = $1`,
-        [lot_id, test_type]
-      );
-
-      // Append log entry to Transparency Ledger
-      try {
-        await fetch(LEDGER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
-          body: JSON.stringify({
-            entity_type: 'LOT',
-            entity_id: lot_id,
-            event_type: 'LOT_LAB_TEST_FAILED_CASCADING_REVOCATION',
-            payload: {
-              lot_id,
-              lab_name,
-              test_type,
-              report_hash
-            }
-          })
-        });
-      } catch (logErr) {
-        server.log.error(logErr as any, 'Failed to append failed lab test event to ledger');
-      }
-    } else {
-      // Append standard lab test passed log event
-      try {
-        await fetch(LEDGER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
-          body: JSON.stringify({
-            entity_type: 'LOT',
-            entity_id: lot_id,
-            event_type: 'LOT_LAB_TEST_PASSED',
-            payload: {
-              lot_id,
-              lab_name,
-              test_type,
-              report_hash
-            }
-          })
-        });
-      } catch (logErr) {
-        server.log.error(logErr as any, 'Failed to append passed lab test event to ledger');
-      }
-    }
-
-    await client.query('COMMIT');
-
-    return {
-      success: true,
-      data: {
-        labResult: insertRes.rows[0]
-      }
-    };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
 });
 
 // Start the server

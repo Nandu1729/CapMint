@@ -482,6 +482,7 @@ paths:
   /api/v1/budgets:
     post:
       summary: Propose a crop yield quota budget
+      description: The authenticated producer organization is authoritative; producer_id is accepted only for compatibility and must match the caller.
       tags:
         - Quota & Budgets (CPQ)
       security:
@@ -649,7 +650,8 @@ paths:
         '500':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
     get:
-      summary: Retrieve all quota budgets
+      summary: Retrieve tenant-scoped quota budgets
+      description: Producers see their budgets, certifiers see budgets assigned to them, and system-administrator admins may see all budgets.
       tags:
         - Quota & Budgets (CPQ)
       security:
@@ -740,7 +742,7 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   '/api/v1/budgets/{id}/activate':
     post:
-      summary: Approve/Activate a proposed quota budget
+      summary: Approve/Activate a budget assigned to the caller's certifier
       tags:
         - Quota & Budgets (CPQ)
       security:
@@ -794,7 +796,7 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   '/api/v1/budgets/{id}/drawdown':
     post:
-      summary: Draw down capacity from active quota
+      summary: Draw down capacity from the owning producer's active quota
       tags:
         - Quota & Budgets (CPQ)
       security:
@@ -865,7 +867,7 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   /api/v1/mint:
     post:
-      summary: Mint unique serialized numbers for a lot run
+      summary: Mint serialized numbers for a lot owned by the caller's producer
       tags:
         - Serialization & Minting
       security:
@@ -1894,7 +1896,7 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   /api/v1/verify/revoke:
     post:
-      summary: Revoke serialized codes under a batch lot
+      summary: Revoke serialized codes assigned to the caller's certifier
       tags:
         - Verification & Clones
       security:
@@ -1971,7 +1973,7 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   '/api/v1/lots/{id}/revoke':
     post:
-      summary: Revoke an entire batch lot run (Cascades to all codes)
+      summary: Revoke a lot assigned to the caller's certifier
       tags:
         - Verification & Clones
       security:
@@ -2003,9 +2005,11 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   /api/v1/verify/unit-codes:
     get:
-      summary: Get all registered unit serialization codes
+      summary: Get tenant-scoped operational unit codes
       tags:
         - Verification & Clones
+      security:
+        - BearerAuth: []
       responses:
         '200':
           description: List of registered unit serialization codes returned
@@ -2087,15 +2091,21 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
         '404':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
         '422':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
         '500':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   /api/v1/verify/lots:
     get:
-      summary: Get all registered batch lots
+      summary: Get tenant-scoped operational lots
       tags:
         - Verification & Clones
+      security:
+        - BearerAuth: []
       responses:
         '200':
           description: List of registered batch lots returned
@@ -2153,13 +2163,18 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
         '404':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
         '422':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
         '500':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   /api/v1/verify/lab-results:
     post:
-      summary: Upload laboratory result reports and bind PDF hash (Certifier/Lab only)
+      summary: Upload laboratory results for an assigned lot
+      description: C0 fails closed with LAB_ASSIGNMENT_REQUIRED until a trusted lot-to-laboratory assignment relationship is available.
       tags:
         - Verification & Clones
       security:
@@ -2286,7 +2301,7 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   /api/v1/verify/investigations:
     get:
-      summary: List all risk investigations (Certifier only)
+      summary: List investigations assigned through the caller's certifier
       tags:
         - Verification & Clones
       security:
@@ -2372,7 +2387,7 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   '/api/v1/verify/investigations/{id}':
     get:
-      summary: Get details and evidence for a specific investigation (Certifier only)
+      summary: Get a certifier-scoped investigation
       tags:
         - Verification & Clones
       security:
@@ -2417,7 +2432,7 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   '/api/v1/verify/investigations/{id}/approve':
     post:
-      summary: Approve product revocation for an investigation (Certifier only)
+      summary: Approve product revocation for a certifier-scoped investigation
       tags:
         - Verification & Clones
       security:
@@ -2468,7 +2483,7 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   '/api/v1/verify/investigations/{id}/dismiss':
     post:
-      summary: Dismiss an investigation case (Certifier only)
+      summary: Dismiss a certifier-scoped investigation
       tags:
         - Verification & Clones
       security:

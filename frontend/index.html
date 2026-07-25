@@ -1901,7 +1901,9 @@
 
     async function loadBudgets() {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/v1/budgets`);
+        const response = await fetch(`${API_BASE_URL}/api/v1/budgets`, {
+          headers: { 'Authorization': 'Bearer ' + AUTH_TOKEN }
+        });
         const res = await response.json();
         if (res.success && res.data && res.data.budgets) {
           DB.budgets = res.data.budgets;
@@ -1916,8 +1918,12 @@
     async function loadUnitCodes() {
       try {
         const [ucRes, lotRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/api/v1/verify/unit-codes`).then(r => r.json()),
-          fetch(`${API_BASE_URL}/api/v1/verify/lots`).then(r => r.json())
+          fetch(`${API_BASE_URL}/api/v1/verify/unit-codes`, {
+            headers: { 'Authorization': 'Bearer ' + AUTH_TOKEN }
+          }).then(r => r.json()),
+          fetch(`${API_BASE_URL}/api/v1/verify/lots`, {
+            headers: { 'Authorization': 'Bearer ' + AUTH_TOKEN }
+          }).then(r => r.json())
         ]);
         if (ucRes.success && ucRes.data && ucRes.data.unitCodes) {
           DB.unitCodes = ucRes.data.unitCodes;
@@ -2552,8 +2558,26 @@
       }
     }
 
-    function exportLotCSV(lotId) {
-      window.open(`${API_BASE_URL}/api/v1/lots/${lotId}/export/csv`, '_blank');
+    async function exportLotCSV(lotId) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/lots/${lotId}/export/csv`, {
+          headers: { 'Authorization': 'Bearer ' + AUTH_TOKEN }
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          alert('CSV export failed: ' + (error.error?.message || 'Not authorized.'));
+          return;
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `lot_export_${lotId}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('CSV export failed:', err);
+      }
     }
 
     async function exportLotPDF(lotId) {
@@ -2825,7 +2849,7 @@
 
       const reasonVal = reasonSelect ? reasonSelect.value : 'Organic certification withdrawn';
       
-      executePost('Cascade Revocation', `${API_BASE_URL}/api/v1/verify/revoke`, { batch_id: lotId, reason: reasonVal })
+      executePost('Cascade Revocation', `${API_BASE_URL}/api/v1/lots/${lotId}/revoke`, { reason: reasonVal }, true)
       .then(res => {
         if (res.offline) return;
         if (res.success) {
@@ -2848,7 +2872,10 @@
 
       fetch(`${API_BASE_URL}/api/v1/lots/${lotId}/certify`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + AUTH_TOKEN
+        },
         body: JSON.stringify({ certifier_notes: 'NABL laboratory compliance verified' })
       })
       .then(r => r.json())
