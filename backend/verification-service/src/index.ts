@@ -126,6 +126,25 @@ if (!REDIS_URL) {
 }
 const redisClient = new Redis(REDIS_URL);
 
+// Redis sliding-window rate limiter (per client IP). Returns true if within the limit.
+// Note: behind the local gateway proxy all requests share the gateway IP; production should
+// forward the real client IP (X-Forwarded-For + trust proxy) for per-client limiting.
+async function rateLimit(bucket: string, ip: string, max: number, windowMs: number): Promise<boolean> {
+  const key = `ratelimit:${bucket}:${ip}`;
+  const now = Date.now();
+  const results = await redisClient
+    .multi()
+    .zremrangebyscore(key, 0, now - windowMs)
+    .zadd(key, now, `${now}-${Math.random()}`)
+    .zcard(key)
+    .pexpire(key, windowMs)
+    .exec();
+  const count = Number(results?.[2]?.[1] ?? 0);
+  return count <= max;
+}
+const RATE_LIMIT_VERIFY_MAX = parseInt(process.env.RATE_LIMIT_VERIFY_MAX || '100', 10);
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10);
+
 // Helper: Haversine distance in km between two coordinates
 export function getHaversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371; // Radius of Earth in km
@@ -146,6 +165,12 @@ server.get('/health', async () => {
 
 // Route: Public Verification scan lookup (M-009 / M-010 clone detection)
 server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
+  if (!(await rateLimit('verify', request.ip, RATE_LIMIT_VERIFY_MAX, RATE_LIMIT_WINDOW_MS))) {
+    return reply.status(429).send({
+      success: false,
+      error: { statusCode: 429, code: 'RATE_LIMITED', message: 'Too many verification requests. Please try again shortly.' }
+    });
+  }
   const { gtin, serial } = request.params as any;
   const { lat, lon, device_metadata } = request.body as any;
 
@@ -255,6 +280,12 @@ server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
 
 // Route: Public Verification lookup by secure public identifier
 server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
+  if (!(await rateLimit('verify', request.ip, RATE_LIMIT_VERIFY_MAX, RATE_LIMIT_WINDOW_MS))) {
+    return reply.status(429).send({
+      success: false,
+      error: { statusCode: 429, code: 'RATE_LIMITED', message: 'Too many verification requests. Please try again shortly.' }
+    });
+  }
   const { public_identifier } = request.params as any;
   const { lat, lon, device_metadata } = request.body as any;
 

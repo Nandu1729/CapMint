@@ -135,6 +135,25 @@ if (!REDIS_URL) {
 }
 const redisClient = new Redis(REDIS_URL);
 
+// Redis sliding-window rate limiter (per client IP). Returns true if within the limit.
+// Note: behind the local gateway proxy all requests share the gateway IP; production should
+// forward the real client IP (X-Forwarded-For + trust proxy) for per-client limiting.
+async function rateLimit(bucket: string, ip: string, max: number, windowMs: number): Promise<boolean> {
+  const key = `ratelimit:${bucket}:${ip}`;
+  const now = Date.now();
+  const results = await redisClient
+    .multi()
+    .zremrangebyscore(key, 0, now - windowMs)
+    .zadd(key, now, `${now}-${Math.random()}`)
+    .zcard(key)
+    .pexpire(key, windowMs)
+    .exec();
+  const count = Number(results?.[2]?.[1] ?? 0);
+  return count <= max;
+}
+const RATE_LIMIT_LOGIN_MAX = parseInt(process.env.RATE_LIMIT_LOGIN_MAX || '100', 10);
+const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10);
+
 // Global error handler complying with RFC 7807 Problem Details
 server.setErrorHandler((error, request, reply) => {
   server.log.error(error);
@@ -307,6 +326,13 @@ server.post('/api/v1/auth/register-org', async (request, reply) => {
 
 // Route: User login (issues signed JWT carrying Org ID, Org Type, and User Role)
 server.post('/api/v1/auth/login', async (request, reply) => {
+  if (!(await rateLimit('login', request.ip, RATE_LIMIT_LOGIN_MAX, RATE_LIMIT_WINDOW_MS))) {
+    return reply.status(429).send({
+      success: false,
+      error: { statusCode: 429, code: 'RATE_LIMITED', message: 'Too many login attempts. Please try again shortly.' }
+    });
+  }
+
   const { username, password } = request.body as any;
 
   if (!username || !password) {
