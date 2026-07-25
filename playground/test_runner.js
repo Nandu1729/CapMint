@@ -1,7 +1,13 @@
 const crypto = require('crypto');
 
-const BASE_URL = 'http://localhost:8080';
-const JWT_SECRET = 'capmint_development_jwt_secret_must_be_minimum_32_bytes_long';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:8080';
+const JWT_SECRET = process.env.JWT_SECRET;
+const CERTIFIER_PUBLIC_KEY = process.env.CERTIFIER_PUBLIC_KEY;
+const EXPECTED_DATABASE_PREFIX = process.env.CAPMINT_EXPECTED_DATABASE_PREFIX || 'capmint_suite_';
+
+if (!JWT_SECRET || !CERTIFIER_PUBLIC_KEY || !process.env.DATABASE_URL) {
+  throw new Error('JWT_SECRET, CERTIFIER_PUBLIC_KEY, and DATABASE_URL are required for the compliance suite.');
+}
 
 // Helper to generate UUID v4
 function generateUUID() {
@@ -45,7 +51,10 @@ async function runTests() {
   console.log('====================================================\n');
 
   let passed = 0;
+  let pendingCount = 0;
   let failed = 0;
+  let fatalError = null;
+  let pgPool;
 
   function report(id, pass, expected, got) {
     if (pass) {
@@ -57,12 +66,22 @@ async function runTests() {
     }
   }
 
+  function pending(id, reason) {
+    pendingCount++;
+    console.log(`[\x1b[33mPENDING\x1b[0m] ${id}: ${reason}`);
+  }
+
   try {
     // 0. Database Cleaning and Initializing
     const pg = await import('pg');
-    const pgPool = new pg.default.Pool({
-      connectionString: process.env.DATABASE_URL || 'postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_dev'
-    });
+    pgPool = new pg.default.Pool({ connectionString: process.env.DATABASE_URL });
+    const databaseIdentity = await pgPool.query('SELECT current_database() AS name');
+    const currentDatabase = databaseIdentity.rows[0].name;
+    if (!currentDatabase.startsWith(EXPECTED_DATABASE_PREFIX)) {
+      throw new Error(
+        `Refusing destructive compliance run against ${currentDatabase}; expected prefix ${EXPECTED_DATABASE_PREFIX}.`
+      );
+    }
     await pgPool.query('TRUNCATE TABLE log_entries CASCADE');
     await pgPool.query(`
       INSERT INTO log_entries (entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
@@ -125,8 +144,7 @@ async function runTests() {
 
       // Update Certifier public key in database
       if (org.type === 'CERTIFICATION_BODY') {
-        const certPubKey = '-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAuivJCz//jZz3K7oRzWslrZ8f02pSYSU/9LqPUFgBBHA=\n-----END PUBLIC KEY-----';
-        await pgPool.query('UPDATE certifiers SET public_key = $1 WHERE id = $2', [certPubKey, orgId]);
+        await pgPool.query('UPDATE certifiers SET public_key = $1 WHERE id = $2', [CERTIFIER_PUBLIC_KEY, orgId]);
       }
 
       // Login to get token
@@ -138,6 +156,39 @@ async function runTests() {
       const logData = await log.json();
       tokens[org.type] = logData.data.token;
     }
+
+    // D-011: a second certifier proves operational reads and mutations are tenant-scoped.
+    const otherCertUsername = `cert_other_${uniqueId}`;
+    const otherCertRegistration = await fetch(`${BASE_URL}/api/v1/auth/register-org`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: `Certifier_Other_${uniqueId}`,
+        type: 'CERTIFICATION_BODY',
+        business_reg_details: {
+          tax_id: `TAX-CERTIFICATION_BODY-OTHER-${uniqueId}`,
+          registration_number: `REG-CERTIFICATION_BODY-OTHER-${uniqueId}`
+        },
+        official_email: `cert_other_${uniqueId}@test.com`,
+        contact_info: { phone: '+919999999998', address: 'Testing Sector' },
+        admin_username: otherCertUsername,
+        admin_password: 'password123'
+      })
+    });
+    const otherCertRegistrationData = await otherCertRegistration.json();
+    const otherCertifierId = otherCertRegistrationData.data.organization.id;
+    await fetch(`${BASE_URL}/api/v1/auth/organizations/${otherCertifierId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify({ status: 'ACTIVATED' })
+    });
+    const otherCertLogin = await fetch(`${BASE_URL}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: otherCertUsername, password: 'password123' })
+    });
+    const otherCertLoginData = await otherCertLogin.json();
+    const otherCertifierToken = otherCertLoginData.data.token;
 
     console.log('--- Phase 1: Authentication & Identity ---');
 
@@ -438,6 +489,141 @@ async function runTests() {
       body: '{}'
     });
 
+    // D-009: every capacity-consuming path must fail closed on an invalid certifier signature.
+    const signatureLotSetup = await fetch(`${BASE_URL}/api/v1/lots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.PRODUCER}` },
+      body: JSON.stringify({
+        budget_id: budgetIdLot,
+        batch_size: 5,
+        product_metadata: { name: 'Signature Enforcement Fixture' }
+      })
+    });
+    if (signatureLotSetup.status !== 200) {
+      throw new Error(`Signature enforcement fixture lot failed with ${signatureLotSetup.status}.`);
+    }
+    const signatureLotSetupData = await signatureLotSetup.json();
+    const signatureLotId = signatureLotSetupData.data.lot.id;
+    const signatureRecord = await pgPool.query(
+      'SELECT signature_bundle FROM budgets WHERE id = $1',
+      [budgetIdLot]
+    );
+    const validSignatureBundle = signatureRecord.rows[0].signature_bundle;
+    await pgPool.query(
+      "UPDATE budgets SET signature_bundle = 'sig_default' WHERE id = $1",
+      [budgetIdLot]
+    );
+    const invalidSignatureStateBefore = await pgPool.query(
+      `SELECT
+         (SELECT consumed_quantity FROM budgets WHERE id = $1) AS consumed_quantity,
+         (SELECT COUNT(*)::integer FROM lots WHERE budget_id = $1) AS lot_count,
+         (SELECT COUNT(*)::integer FROM unit_codes WHERE lot_id = $2) AS unit_code_count,
+         (SELECT COUNT(*)::integer FROM log_entries) AS ledger_count`,
+      [budgetIdLot, signatureLotId]
+    );
+
+    const invalidSignatureDrawdown = await fetch(`${BASE_URL}/api/v1/budgets/${budgetIdLot}/drawdown`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.PRODUCER}` },
+      body: JSON.stringify({ amount: 1 })
+    });
+    const invalidSignatureDrawdownData = await invalidSignatureDrawdown.json();
+    report(
+      'SIG-01',
+      invalidSignatureDrawdown.status === 400 && invalidSignatureDrawdownData.error?.code === 'INVALID_SIGNATURE',
+      'drawdown rejects invalid certifier signature',
+      `${invalidSignatureDrawdown.status} ${invalidSignatureDrawdownData.error?.code}`
+    );
+
+    const invalidSignatureLot = await fetch(`${BASE_URL}/api/v1/lots`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.PRODUCER}` },
+      body: JSON.stringify({
+        budget_id: budgetIdLot,
+        batch_size: 1,
+        product_metadata: { name: 'Rejected Unsigned Lot' }
+      })
+    });
+    const invalidSignatureLotData = await invalidSignatureLot.json();
+    report(
+      'SIG-02',
+      invalidSignatureLot.status === 400 && invalidSignatureLotData.error?.code === 'INVALID_SIGNATURE',
+      'lot reservation rejects invalid certifier signature',
+      `${invalidSignatureLot.status} ${invalidSignatureLotData.error?.code}`
+    );
+
+    const invalidSignatureMint = await fetch(`${BASE_URL}/api/v1/mint`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.PRODUCER}` },
+      body: JSON.stringify({ lot_id: signatureLotId, gtin: scanGtin, quantity: 1 })
+    });
+    const invalidSignatureMintData = await invalidSignatureMint.json();
+    report(
+      'SIG-03',
+      invalidSignatureMint.status === 400 && invalidSignatureMintData.error?.code === 'INVALID_SIGNATURE',
+      'mint rejects invalid certifier signature',
+      `${invalidSignatureMint.status} ${invalidSignatureMintData.error?.code}`
+    );
+
+    const invalidSignatureExplicitRegister = await fetch(`${BASE_URL}/api/v1/verify/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.PRODUCER}` },
+      body: JSON.stringify({
+        lot_id: signatureLotId,
+        public_identifier: generateUUID(),
+        gtin: scanGtin,
+        serial: `SN_SIG_EXPLICIT_${uniqueId}`,
+        verification_url: `${BASE_URL}/verify/${generateUUID()}`
+      })
+    });
+    const invalidSignatureExplicitRegisterData = await invalidSignatureExplicitRegister.json();
+    report(
+      'SIG-04',
+      invalidSignatureExplicitRegister.status === 400 &&
+        invalidSignatureExplicitRegisterData.error?.code === 'INVALID_SIGNATURE',
+      'explicit-lot registration rejects invalid certifier signature',
+      `${invalidSignatureExplicitRegister.status} ${invalidSignatureExplicitRegisterData.error?.code}`
+    );
+
+    const invalidSignatureQuickRegister = await fetch(`${BASE_URL}/api/v1/verify/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.PRODUCER}` },
+      body: JSON.stringify({
+        public_identifier: generateUUID(),
+        gtin: scanGtin,
+        serial: `SN_SIG_QUICK_${uniqueId}`,
+        verification_url: `${BASE_URL}/verify/${generateUUID()}`
+      })
+    });
+    const invalidSignatureQuickRegisterData = await invalidSignatureQuickRegister.json();
+    report(
+      'SIG-05',
+      invalidSignatureQuickRegister.status === 400 &&
+        invalidSignatureQuickRegisterData.error?.code === 'INVALID_SIGNATURE',
+      'quick registration rejects invalid certifier signature',
+      `${invalidSignatureQuickRegister.status} ${invalidSignatureQuickRegisterData.error?.code}`
+    );
+
+    const invalidSignatureStateAfter = await pgPool.query(
+      `SELECT
+         (SELECT consumed_quantity FROM budgets WHERE id = $1) AS consumed_quantity,
+         (SELECT COUNT(*)::integer FROM lots WHERE budget_id = $1) AS lot_count,
+         (SELECT COUNT(*)::integer FROM unit_codes WHERE lot_id = $2) AS unit_code_count,
+         (SELECT COUNT(*)::integer FROM log_entries) AS ledger_count`,
+      [budgetIdLot, signatureLotId]
+    );
+    report(
+      'SIG-06',
+      JSON.stringify(invalidSignatureStateAfter.rows[0]) ===
+        JSON.stringify(invalidSignatureStateBefore.rows[0]),
+      'all invalid-signature denials preserve capacity, lots, codes, and ledger',
+      JSON.stringify(invalidSignatureStateAfter.rows[0])
+    );
+    await pgPool.query(
+      'UPDATE budgets SET signature_bundle = $1 WHERE id = $2',
+      [validSignatureBundle, budgetIdLot]
+    );
+
     await fetch(`${BASE_URL}/api/v1/verify/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.PRODUCER}` },
@@ -451,9 +637,21 @@ async function runTests() {
       })
     });
 
-    const lotsListRes = await fetch(`${BASE_URL}/api/v1/verify/lots`);
+    // D-011: operational lot discovery is private and scoped to the authenticated producer.
+    const lotsListRes = await fetch(`${BASE_URL}/api/v1/verify/lots`, {
+      headers: { 'Authorization': `Bearer ${tokens.PRODUCER}` }
+    });
     const lotsListResData = await lotsListRes.json();
     const lotId = lotsListResData.data.lots.find(l => l.product_metadata?.batch_id === `BATCH-MINT-${uniqueId}`).id;
+
+    // MINT-07: valid GTIN-14 remains enforced by the GS1 engine.
+    const validGtin = await fetch(`${BASE_URL}/api/v1/gs1/validate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gtin: scanGtin })
+    });
+    const validGtinData = await validGtin.json();
+    report('MINT-07', validGtin.status === 200 && validGtinData.data.isValid === true, '200 OK + valid GTIN-14', validGtin.status);
 
     // MINT-05: Mint zero QR codes
     const mintZero = await fetch(`${BASE_URL}/api/v1/mint`, {
@@ -516,7 +714,10 @@ async function runTests() {
       })
     });
     
-    const lotsListRes2 = await fetch(`${BASE_URL}/api/v1/verify/lots`);
+    // D-011: operational lot discovery is private and scoped to the authenticated producer.
+    const lotsListRes2 = await fetch(`${BASE_URL}/api/v1/verify/lots`, {
+      headers: { 'Authorization': `Bearer ${tokens.PRODUCER}` }
+    });
     const lotsListRes2Data = await lotsListRes2.json();
     const lotId2 = lotsListRes2Data.data.lots.find(l => l.product_metadata?.batch_id === `BATCH-MINT-UNIQ-${uniqueId}`).id;
 
@@ -529,6 +730,20 @@ async function runTests() {
     const serials = mintUniqData.data.serials;
     const uniqueSerials = [...new Set(serials)];
     report('MINT-09', serials.length === 10 && uniqueSerials.length === 10, '10 unique serials', `${uniqueSerials.length} unique`);
+
+    // RESOLVER-01: GS1 Digital Link resolution remains intentionally public under D-011.
+    const resolverResponse = await fetch(`${BASE_URL}/01/${scanGtin}/21/${scanSerial}`, {
+      headers: { 'Accept': 'application/json' }
+    });
+    const resolverData = await resolverResponse.json();
+    report(
+      'RESOLVER-01',
+      resolverResponse.status === 200 &&
+        resolverData.data.gtin === scanGtin &&
+        resolverData.data.serial === scanSerial,
+      'public GS1 resolver returns the registered identity',
+      resolverResponse.status
+    );
 
     // MINT-10: Simulate concurrent mint requests
     const [concurrentMintRes1, concurrentMintRes2] = await Promise.all([
@@ -600,8 +815,8 @@ async function runTests() {
 
     console.log('\n--- Phase 6: NABL ---');
 
-    // LAB-01: Upload corrupted PDF -> Validation error
-    const uploadCorrupt = await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
+    // D-011: laboratory writes fail closed until DM-03 provides a trusted lot assignment.
+    const labGateResponse = await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
       body: JSON.stringify({
@@ -613,93 +828,26 @@ async function runTests() {
         pdf_content: 'invalid_base64_pdf_content'
       })
     });
-    report('LAB-01', uploadCorrupt.status === 400, '400 Bad Request', uploadCorrupt.status);
+    const labGateData = await labGateResponse.json();
+    report(
+      'LAB-GATE-01',
+      labGateResponse.status === 403 &&
+        labGateData.error?.code === 'LAB_ASSIGNMENT_REQUIRED' &&
+        labGateData.error?.message === 'This lot has no trusted laboratory assignment.',
+      '403 LAB_ASSIGNMENT_REQUIRED',
+      `${labGateResponse.status} ${labGateData.error?.code}`
+    );
 
-    // LAB-02: Upload non-PDF -> Validation error
-    // Upload text file base64 encoded "Hello World" (starts with SGVsbG8... not %PDF)
-    const uploadNonPdf = await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
-      body: JSON.stringify({
-        lot_id: lotId2,
-        lab_name: 'NABL Testing Labs',
-        test_type: 'Purity Check',
-        result_summary: 'PASSED',
-        report_hash: 'a591a6d40bf420404a011733cfb7b190d62c65bf0bcda32b57b277d9ad9f146e',
-        pdf_content: 'SGVsbG8gV29ybGQ=' // Hello World
-      })
-    });
-    report('LAB-02', uploadNonPdf.status === 400, '400 Bad Request', uploadNonPdf.status);
+    // D-011 keeps these controls visible until DM-03 supplies a trusted lab-to-lot relation.
+    pending('LAB-01', 'blocked by DM-03 lab-to-lot assignment: corrupted PDF validation');
+    pending('LAB-02', 'blocked by DM-03 lab-to-lot assignment: PDF magic-byte validation');
+    pending('LAB-03', 'blocked by DM-03 lab-to-lot assignment: duplicate report hash');
+    pending('LAB-04', 'blocked by DM-03 lab-to-lot assignment: replacement report and LOT_LAB_TEST_REPLACED ledger event');
+    pending('LAB-05', 'blocked by DM-03 lab-to-lot assignment: nonexistent lot handling');
 
-    // LAB-03: Upload duplicate report -> Conflict
+    // Retained for downstream certification fixtures; no laboratory API authorization is bypassed.
     const pdfBase64 = Buffer.from('%PDF-1.4 mock pdf report').toString('base64');
     const pdfHash = crypto.createHash('sha256').update(Buffer.from('%PDF-1.4 mock pdf report')).digest('hex');
-
-    // Upload first report
-    await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
-      body: JSON.stringify({
-        lot_id: lotId2,
-        lab_name: 'NABL Testing Labs',
-        test_type: 'Purity Check',
-        result_summary: 'PASSED',
-        report_hash: pdfHash,
-        pdf_content: pdfBase64
-      })
-    });
-
-    // Upload duplicate hash report
-    const uploadDupReport = await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
-      body: JSON.stringify({
-        lot_id: lotId2,
-        lab_name: 'NABL Testing Labs',
-        test_type: 'Purity Check',
-        result_summary: 'PASSED',
-        report_hash: pdfHash,
-        pdf_content: pdfBase64
-      })
-    });
-    report('LAB-03', uploadDupReport.status === 409, '409 Conflict', uploadDupReport.status);
-
-    // LAB-04: Replace existing report -> Audit entry created
-    const pdfBase64New = Buffer.from('%PDF-1.4 mock pdf report replacement').toString('base64');
-    const pdfHashNew = crypto.createHash('sha256').update(Buffer.from('%PDF-1.4 mock pdf report replacement')).digest('hex');
-
-    const uploadReplaceReport = await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
-      body: JSON.stringify({
-        lot_id: lotId2,
-        lab_name: 'NABL Testing Labs',
-        test_type: 'Purity Check',
-        result_summary: 'PASSED',
-        report_hash: pdfHashNew,
-        pdf_content: pdfBase64New
-      })
-    });
-
-    const entriesRes = await fetch(`${BASE_URL}/log/api/v1/log/entries`);
-    const entriesData = await entriesRes.json();
-    const replacedAudit = entriesData.data.logs.find(l => l.event === 'LOT_LAB_TEST_REPLACED');
-    report('LAB-04', uploadReplaceReport.status === 200 && replacedAudit !== undefined, '200 OK + LOT_LAB_TEST_REPLACED audit log', uploadReplaceReport.status);
-
-    // LAB-05: Upload report to nonexistent lot -> 404
-    const uploadNonexistLot = await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
-      body: JSON.stringify({
-        lot_id: generateUUID(),
-        lab_name: 'NABL Testing Labs',
-        test_type: 'Purity Check',
-        result_summary: 'PASSED',
-        report_hash: pdfHash,
-        pdf_content: pdfBase64
-      })
-    });
-    report('LAB-05', uploadNonexistLot.status === 404, '404 Not Found', uploadNonexistLot.status);
 
     console.log('\n--- Phase 7: Certification ---');
 
@@ -744,7 +892,10 @@ async function runTests() {
       })
     });
 
-    const lotsListRes3 = await fetch(`${BASE_URL}/api/v1/verify/lots`);
+    // D-011: certification setup discovers the producer's lot through its scoped list.
+    const lotsListRes3 = await fetch(`${BASE_URL}/api/v1/verify/lots`, {
+      headers: { 'Authorization': `Bearer ${tokens.PRODUCER}` }
+    });
     const lotsListRes3Data = await lotsListRes3.json();
     const lotIdCert = lotsListRes3Data.data.lots.find(l => l.product_metadata?.batch_id === `BATCH-CERT-${uniqueId}`).id;
 
@@ -758,21 +909,15 @@ async function runTests() {
     });
     report('CERT-01', certifyNoLab.status === 400, '400 Bad Request', certifyNoLab.status);
 
-    // Upload failed lab report to lotIdCert
-    const pdfBase64Fail = Buffer.from('%PDF-1.4 mock pdf report failed').toString('base64');
+    // D-011: seed the downstream certification state directly in this disposable database.
     const pdfHashFail = crypto.createHash('sha256').update(Buffer.from('%PDF-1.4 mock pdf report failed')).digest('hex');
-    await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
-      body: JSON.stringify({
-        lot_id: lotIdCert,
-        lab_name: 'NABL Testing Labs',
-        test_type: 'Purity Check',
-        result_summary: 'FAILED',
-        report_hash: pdfHashFail,
-        pdf_content: pdfBase64Fail
-      })
-    });
+    await pgPool.query(
+      `INSERT INTO lab_results
+         (lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
+       VALUES ($1, 'Compliance Fixture Laboratory', 'Purity Check', 'FAIL', $2, 'F1-CERT-FAIL')`,
+      [lotIdCert, pdfHashFail]
+    );
+    await pgPool.query("UPDATE lots SET lab_status = 'FAILED' WHERE id = $1", [lotIdCert]);
 
     // CERT-02: Certify failed lot -> Rejected
     const certifyFailed = await fetch(`${BASE_URL}/api/v1/lots/${lotIdCert}/certify`, {
@@ -822,23 +967,25 @@ async function runTests() {
       })
     });
 
-    const lotsListRes4 = await fetch(`${BASE_URL}/api/v1/verify/lots`);
+    // D-011: certification setup discovers the producer's lot through its scoped list.
+    const lotsListRes4 = await fetch(`${BASE_URL}/api/v1/verify/lots`, {
+      headers: { 'Authorization': `Bearer ${tokens.PRODUCER}` }
+    });
     const lotsListRes4Data = await lotsListRes4.json();
     const lotIdCertPass = lotsListRes4Data.data.lots.find(l => l.product_metadata?.batch_id === `BATCH-CERT-PASS-${uniqueId}`).id;
 
-    // Upload passed report
-    await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
-      body: JSON.stringify({
-        lot_id: lotIdCertPass,
-        lab_name: 'NABL Testing Labs',
-        test_type: 'Purity Check',
-        result_summary: 'PASSED',
-        report_hash: pdfHash,
-        pdf_content: pdfBase64
-      })
-    });
+    // D-011: retain certification coverage while lab writes remain feature-gated.
+    await pgPool.query(
+      `UPDATE lab_results
+       SET lab_name = 'Compliance Fixture Laboratory',
+           test_type = 'Purity Check',
+           result_summary = 'PASS',
+           report_hash = $2,
+           report_reference = 'F1-CERT-PASS'
+       WHERE lot_id = $1`,
+      [lotIdCertPass, pdfHash]
+    );
+    await pgPool.query("UPDATE lots SET lab_status = 'PASSED' WHERE id = $1", [lotIdCertPass]);
 
     // Certify Lot
     const certifySuccess = await fetch(`${BASE_URL}/api/v1/lots/${lotIdCertPass}/certify`, {
@@ -1002,9 +1149,237 @@ async function runTests() {
     const createdInv = invListData.data.investigations.find(i => i.public_identifier === clonePublicId);
     report('CLONE-04', createdInv !== undefined, 'Investigation created automatically', createdInv ? 'Created' : 'Not found');
 
+    console.log('\n--- Phase 9B: Tenant Isolation (D-011) ---');
+
+    const ownerLotsResponse = await fetch(`${BASE_URL}/api/v1/verify/lots`, {
+      headers: { 'Authorization': `Bearer ${tokens.PRODUCER}` }
+    });
+    const ownerLotsData = await ownerLotsResponse.json();
+    report(
+      'TENANT-01',
+      ownerLotsResponse.status === 200 &&
+        ownerLotsData.data.lots.some(lot => lot.id === lotId2) &&
+        ownerLotsData.data.lots.every(lot => lot.id !== undefined),
+      'owner lot list contains its lot',
+      ownerLotsResponse.status
+    );
+
+    const otherLotsResponse = await fetch(`${BASE_URL}/api/v1/verify/lots`, {
+      headers: { 'Authorization': `Bearer ${noBudgetToken}` }
+    });
+    const otherLotsData = await otherLotsResponse.json();
+    report(
+      'TENANT-02',
+      otherLotsResponse.status === 200 && otherLotsData.data.lots.every(lot => lot.id !== lotId2),
+      'other tenant lot list excludes owner lot',
+      otherLotsResponse.status
+    );
+
+    const anonymousLotsResponse = await fetch(`${BASE_URL}/api/v1/verify/lots`);
+    report('TENANT-03', anonymousLotsResponse.status === 401, '401 for unauthenticated lot list', anonymousLotsResponse.status);
+
+    const ownerCodesResponse = await fetch(`${BASE_URL}/api/v1/verify/unit-codes`, {
+      headers: { 'Authorization': `Bearer ${tokens.PRODUCER}` }
+    });
+    const ownerCodesData = await ownerCodesResponse.json();
+    report(
+      'TENANT-04',
+      ownerCodesResponse.status === 200 &&
+        ownerCodesData.data.unitCodes.some(code => code.lotId === lotId2 && code.serial === serials[0]),
+      'owner unit-code list contains its code',
+      ownerCodesResponse.status
+    );
+
+    const otherCodesResponse = await fetch(`${BASE_URL}/api/v1/verify/unit-codes`, {
+      headers: { 'Authorization': `Bearer ${noBudgetToken}` }
+    });
+    const otherCodesData = await otherCodesResponse.json();
+    report(
+      'TENANT-05',
+      otherCodesResponse.status === 200 &&
+        otherCodesData.data.unitCodes.every(code => code.lotId !== lotId2 && code.serial !== serials[0]),
+      'other tenant unit-code list excludes owner code',
+      otherCodesResponse.status
+    );
+
+    const anonymousCodesResponse = await fetch(`${BASE_URL}/api/v1/verify/unit-codes`);
+    report('TENANT-06', anonymousCodesResponse.status === 401, '401 for unauthenticated unit-code list', anonymousCodesResponse.status);
+
+    const ownerBudgetsResponse = await fetch(`${BASE_URL}/api/v1/budgets`, {
+      headers: { 'Authorization': `Bearer ${tokens.PRODUCER}` }
+    });
+    const ownerBudgetsData = await ownerBudgetsResponse.json();
+    report(
+      'TENANT-07',
+      ownerBudgetsResponse.status === 200 && ownerBudgetsData.data.budgets.some(budget => budget.id === budgetIdLot),
+      'owner budget list contains its budget',
+      ownerBudgetsResponse.status
+    );
+
+    const otherBudgetsResponse = await fetch(`${BASE_URL}/api/v1/budgets`, {
+      headers: { 'Authorization': `Bearer ${noBudgetToken}` }
+    });
+    const otherBudgetsData = await otherBudgetsResponse.json();
+    report(
+      'TENANT-08',
+      otherBudgetsResponse.status === 200 && otherBudgetsData.data.budgets.every(budget => budget.id !== budgetIdLot),
+      'other tenant budget list excludes owner budget',
+      otherBudgetsResponse.status
+    );
+
+    const anonymousBudgetsResponse = await fetch(`${BASE_URL}/api/v1/budgets`);
+    report('TENANT-09', anonymousBudgetsResponse.status === 401, '401 for unauthenticated budget list', anonymousBudgetsResponse.status);
+
+    const otherInvestigationsResponse = await fetch(`${BASE_URL}/api/v1/verify/investigations`, {
+      headers: { 'Authorization': `Bearer ${otherCertifierToken}` }
+    });
+    const otherInvestigationsData = await otherInvestigationsResponse.json();
+    report(
+      'TENANT-10',
+      otherInvestigationsResponse.status === 200 &&
+        otherInvestigationsData.data.investigations.every(investigation => investigation.id !== createdInv.id),
+      'other certifier investigation list excludes owner investigation',
+      otherInvestigationsResponse.status
+    );
+
+    const anonymousInvestigationsResponse = await fetch(`${BASE_URL}/api/v1/verify/investigations`);
+    report(
+      'TENANT-11',
+      anonymousInvestigationsResponse.status === 401,
+      '401 for unauthenticated investigation list',
+      anonymousInvestigationsResponse.status
+    );
+
+    const ownerCsvResponse = await fetch(`${BASE_URL}/api/v1/lots/${lotId2}/export/csv`, {
+      headers: { 'Authorization': `Bearer ${tokens.PRODUCER}` }
+    });
+    const ownerCsv = await ownerCsvResponse.text();
+    report(
+      'TENANT-12',
+      ownerCsvResponse.status === 200 && ownerCsv.includes(serials[0]),
+      'owner CSV export contains its code',
+      ownerCsvResponse.status
+    );
+
+    const otherCsvResponse = await fetch(`${BASE_URL}/api/v1/lots/${lotId2}/export/csv`, {
+      headers: { 'Authorization': `Bearer ${noBudgetToken}` }
+    });
+    report('TENANT-13', otherCsvResponse.status === 404, '404 for other tenant CSV export', otherCsvResponse.status);
+
+    const anonymousCsvResponse = await fetch(`${BASE_URL}/api/v1/lots/${lotId2}/export/csv`);
+    report('TENANT-14', anonymousCsvResponse.status === 401, '401 for unauthenticated CSV export', anonymousCsvResponse.status);
+
+    const ownerPdfResponse = await fetch(`${BASE_URL}/api/v1/lots/${lotId2}/export/pdf`, {
+      headers: { 'Authorization': `Bearer ${tokens.PRODUCER}` }
+    });
+    const ownerPdfData = await ownerPdfResponse.json();
+    report(
+      'TENANT-15',
+      ownerPdfResponse.status === 200 &&
+        ownerPdfData.data.lot_id === lotId2 &&
+        ownerPdfData.data.print_ready_codes.some(code => code.serial === serials[0]),
+      'owner PDF export contains only its lot data',
+      ownerPdfResponse.status
+    );
+
+    const otherPdfResponse = await fetch(`${BASE_URL}/api/v1/lots/${lotId2}/export/pdf`, {
+      headers: { 'Authorization': `Bearer ${noBudgetToken}` }
+    });
+    report('TENANT-16', otherPdfResponse.status === 404, '404 for other tenant PDF export', otherPdfResponse.status);
+
+    const anonymousPdfResponse = await fetch(`${BASE_URL}/api/v1/lots/${lotId2}/export/pdf`);
+    report('TENANT-17', anonymousPdfResponse.status === 401, '401 for unauthenticated PDF export', anonymousPdfResponse.status);
+
+    const containmentStateBefore = await pgPool.query(
+      `SELECT
+         (SELECT consumed_quantity FROM budgets WHERE id = $1) AS drawdown_consumed_quantity,
+         (SELECT consumed_quantity FROM budgets WHERE id = $2) AS lot_consumed_quantity,
+         (SELECT COUNT(*)::integer FROM unit_codes WHERE lot_id = $3) AS unit_code_count,
+         (SELECT revocation_status FROM lots WHERE id = $3) AS revocation_status,
+         (SELECT certification_status FROM lots WHERE id = $3) AS certification_status,
+         (SELECT status FROM investigations WHERE id = $4) AS investigation_status,
+         (SELECT COUNT(*)::integer FROM log_entries) AS ledger_count`,
+      [budgetIdLot, budgetIdMint, lotId2, createdInv.id]
+    );
+
+    const crossDrawdownResponse = await fetch(`${BASE_URL}/api/v1/budgets/${budgetIdLot}/drawdown`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${noBudgetToken}` },
+      body: JSON.stringify({ amount: 1 })
+    });
+    report('TENANT-18', crossDrawdownResponse.status === 404, '404 for cross-tenant drawdown', crossDrawdownResponse.status);
+
+    const crossMintResponse = await fetch(`${BASE_URL}/api/v1/mint`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${noBudgetToken}` },
+      body: JSON.stringify({ lot_id: lotId2, gtin: scanGtin, quantity: 1 })
+    });
+    report('TENANT-19', crossMintResponse.status === 404, '404 for cross-tenant mint', crossMintResponse.status);
+
+    const crossRegisterResponse = await fetch(`${BASE_URL}/api/v1/verify/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${noBudgetToken}` },
+      body: JSON.stringify({
+        lot_id: lotId2,
+        public_identifier: generateUUID(),
+        gtin: scanGtin,
+        serial: `SN_CROSS_TENANT_${uniqueId}`,
+        verification_url: `${BASE_URL}/verify/${generateUUID()}`
+      })
+    });
+    report('TENANT-20', crossRegisterResponse.status === 404, '404 for cross-tenant registration', crossRegisterResponse.status);
+
+    const crossCertifyResponse = await fetch(`${BASE_URL}/api/v1/lots/${lotId2}/certify`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${otherCertifierToken}` }
+    });
+    report('TENANT-21', crossCertifyResponse.status === 404, '404 for cross-certifier certification', crossCertifyResponse.status);
+
+    const crossRevokeResponse = await fetch(`${BASE_URL}/api/v1/lots/${lotId2}/revoke`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${otherCertifierToken}` }
+    });
+    report('TENANT-22', crossRevokeResponse.status === 404, '404 for cross-certifier revocation', crossRevokeResponse.status);
+
+    const crossInvestigationRead = await fetch(`${BASE_URL}/api/v1/verify/investigations/${createdInv.id}`, {
+      headers: { 'Authorization': `Bearer ${otherCertifierToken}` }
+    });
+    report('TENANT-23', crossInvestigationRead.status === 404, '404 for cross-certifier investigation read', crossInvestigationRead.status);
+
+    const crossInvestigationMutation = await fetch(`${BASE_URL}/api/v1/verify/investigations/${createdInv.id}/dismiss`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${otherCertifierToken}` }
+    });
+    report(
+      'TENANT-24',
+      crossInvestigationMutation.status === 404,
+      '404 for cross-certifier investigation mutation',
+      crossInvestigationMutation.status
+    );
+
+    const containmentStateAfter = await pgPool.query(
+      `SELECT
+         (SELECT consumed_quantity FROM budgets WHERE id = $1) AS drawdown_consumed_quantity,
+         (SELECT consumed_quantity FROM budgets WHERE id = $2) AS lot_consumed_quantity,
+         (SELECT COUNT(*)::integer FROM unit_codes WHERE lot_id = $3) AS unit_code_count,
+         (SELECT revocation_status FROM lots WHERE id = $3) AS revocation_status,
+         (SELECT certification_status FROM lots WHERE id = $3) AS certification_status,
+         (SELECT status FROM investigations WHERE id = $4) AS investigation_status,
+         (SELECT COUNT(*)::integer FROM log_entries) AS ledger_count`,
+      [budgetIdLot, budgetIdMint, lotId2, createdInv.id]
+    );
+    report(
+      'TENANT-25',
+      JSON.stringify(containmentStateAfter.rows[0]) === JSON.stringify(containmentStateBefore.rows[0]),
+      'cross-tenant denials cause zero database or ledger mutation',
+      JSON.stringify(containmentStateAfter.rows[0])
+    );
+
     console.log('\n--- Phase 10: Transparency Ledger ---');
 
     // LEDGER-04: Verify latest block hash matches calculated
+    const entriesRes = await fetch(`${BASE_URL}/log/api/v1/log/entries`);
+    const entriesData = await entriesRes.json();
     const lastEntry = entriesData.data.logs[entriesData.data.logs.length - 1];
     report('LEDGER-04', lastEntry.currentHash !== undefined && lastEntry.currentHash.length === 64, 'Valid SHA-256 current_hash', lastEntry.currentHash);
 
@@ -1148,7 +1523,10 @@ async function runTests() {
       })
     });
     
-    const lotsListRes5 = await fetch(`${BASE_URL}/api/v1/verify/lots`);
+    // D-011: end-to-end setup discovers the producer's lot through its scoped list.
+    const lotsListRes5 = await fetch(`${BASE_URL}/api/v1/verify/lots`, {
+      headers: { 'Authorization': `Bearer ${tokens.PRODUCER}` }
+    });
     const lotsListRes5Data = await lotsListRes5.json();
     const happyLotId = lotsListRes5Data.data.lots.find(l => l.product_metadata?.batch_id === `BATCH-HAPPY-${uniqueId}`).id;
 
@@ -1159,19 +1537,18 @@ async function runTests() {
       body: JSON.stringify({ lot_id: happyLotId, gtin: happyGtin, quantity: 10 })
     });
 
-    // 4. Lab results passed
-    await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
-      body: JSON.stringify({
-        lot_id: happyLotId,
-        lab_name: 'NABL Testing Labs',
-        test_type: 'Purity Check',
-        result_summary: 'PASSED',
-        report_hash: pdfHash,
-        pdf_content: pdfBase64
-      })
-    });
+    // 4. D-011: seed the downstream state while lab writes remain feature-gated.
+    await pgPool.query(
+      `UPDATE lab_results
+       SET lab_name = 'Compliance Fixture Laboratory',
+           test_type = 'Purity Check',
+           result_summary = 'PASS',
+           report_hash = $2,
+           report_reference = 'F1-E2E-PASS'
+       WHERE lot_id = $1`,
+      [happyLotId, pdfHash]
+    );
+    await pgPool.query("UPDATE lots SET lab_status = 'PASSED' WHERE id = $1", [happyLotId]);
 
     // 5. Certify lot
     await fetch(`${BASE_URL}/api/v1/lots/${happyLotId}/certify`, {
@@ -1188,19 +1565,47 @@ async function runTests() {
     const happyScanData = await happyScan.json();
     report('E2E-01', happyScan.status === 200 && happyScanData.data.status === 'VERIFIED', 'Provenance Happy Path fully VERIFIED', happyScanData.data.status);
 
-    await pgPool.end();
+    console.log('\n--- Phase 17: Rate Limiting ---');
+
+    let loginRateLimitStatus = 0;
+    for (let attempt = 0; attempt < 120 && loginRateLimitStatus !== 429; attempt += 1) {
+      const response = await fetch(`${BASE_URL}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: `rate_limit_${uniqueId}`, password: 'incorrect-password' })
+      });
+      loginRateLimitStatus = response.status;
+    }
+    report('SEC-05A', loginRateLimitStatus === 429, '429 from Redis login sliding-window limiter', loginRateLimitStatus);
+
+    let verifyRateLimitStatus = 0;
+    for (let attempt = 0; attempt < 120 && verifyRateLimitStatus !== 429; attempt += 1) {
+      const response = await fetch(`${BASE_URL}/api/v1/verify/v/${scanPublicIdSeq}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: 19.0760, lon: 72.8777 })
+      });
+      verifyRateLimitStatus = response.status;
+    }
+    report('SEC-05B', verifyRateLimitStatus === 429, '429 from Redis public-verification sliding-window limiter', verifyRateLimitStatus);
 
   } catch (error) {
+    fatalError = error;
     console.error('An error occurred during test execution:', error);
+  } finally {
+    if (pgPool) await pgPool.end().catch(() => undefined);
   }
 
   console.log('\n====================================================');
   console.log(` CapMint API Compliance Verification Complete`);
-  console.log(` Total Passed: ${passed} | Total Failed: ${failed}`);
+  console.log(` Total Passed: ${passed} | Total Pending: ${pendingCount} | Total Failed: ${failed}`);
   console.log('====================================================');
-  if (failed > 0) {
-    process.exit(1);
+  if (failed > 0 || fatalError) {
+    process.exitCode = 1;
   }
 }
 
-runTests();
+runTests().catch(error => {
+  console.error('Compliance runner failed before reporting:', error);
+  process.exitCode = 1;
+});
