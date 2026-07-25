@@ -47,10 +47,10 @@ graph TD
 *   **Lab Validation & PDF Integrity**: Registry checks on authorized laboratories, PDF magic bytes verification, and SHA-256 hash checks.
 *   **Transparency Ledger & Audits**: Cryptographic SHA-256 block hash chaining and non-blocking verification scanning.
 *   **Geovelocity & Caseworker Dashboard**: Chronological timeline, risk escalation, caseworker assignment, and revocation flow alerts.
-*   **Zero-Trust Hardening**: Strict environment assertions at boot, secured seed passwords, and CORS lockdown.
+*   **Zero-Trust Hardening**: Strict environment assertions at boot, explicit audited administrator bootstrap, no application startup fixtures, and CORS lockdown.
 *   **Sliding-Window Rate Limiting**: Redis-backed atomic rate limiters on public login and scan lookup routes.
 *   **State-Aware Migration Engine**: 10 forward migrations, immutable empty-database baseline, checksums, explicit adoption records, and PostgreSQL advisory locking.
-*   **Compliance Test Suite**: 52 compliance test cases running with 100% success rate (`node playground/test_runner.js`).
+*   **Compliance Test Suite**: Disposable tenant-scoped harness with 83 active passes, 5 explicit DM-03 pendings, and 0 failures.
 
 ---
 
@@ -74,7 +74,25 @@ Use `--bootstrap` only for a genuinely empty database. Adoption of effects that
 exist without migration history requires explicit filenames and an approved
 state review. See [`database/README.md`](database/README.md).
 
-### 3. Open UI Interfaces
+### 3. Initialize an Empty Environment
+
+Schema bootstrap creates no users or domain fixtures. Create the first system
+administrator through the explicit operator command:
+
+```bash
+npm run bootstrap:admin
+```
+
+Development fixtures require explicit non-production environment variables and:
+
+```bash
+npm run seed:development
+```
+
+See [`database/README.md`](database/README.md) for required variables, safety
+checks, and existing-database behavior.
+
+### 4. Open UI Interfaces
 *   **Interactive Web Portal (Dashboards / Scanner)**: Open **[http://localhost:8080](http://localhost:8080)**
 *   **API Developer Playground (Swagger UI)**: Open **[http://localhost:8080/playground/index.html](http://localhost:8080/playground/index.html)** to test live endpoints directly through the local server gateway.
 
@@ -82,9 +100,11 @@ state review. See [`database/README.md`](database/README.md).
 
 ## 🧪 Quality Assurance & Compliance Testing
 
-To run the extended 52-case compliance test suite:
+Run the tenant-scoped compliance harness only through its disposable database
+test. The current contract is 83 active passes, 5 explicit DM-03 pendings, and
+0 failures:
 ```bash
-node playground/test_runner.js
+RUN_F1_COMPLIANCE=1 F1_SUITE_RUN_ID=local npm test --workspace=backend/e2e-tests -- compliance-suite.test.ts
 ```
 
 ---

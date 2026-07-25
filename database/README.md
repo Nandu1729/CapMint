@@ -10,6 +10,18 @@ comparison; it must not be applied to an existing database.
 
 Seed and test data are separate from schema bootstrap.
 
+CapMint separates database initialization into four concerns:
+
+| Concern | Authority |
+|---|---|
+| Schema bootstrap | Immutable baseline plus newer forward migrations |
+| Required production reference data | None currently |
+| First system administrator | Explicit `npm run bootstrap:admin` operator command |
+| Development/test fixtures | Explicit `npm run seed:development` command |
+
+Auth and CPQ service startup performs no seed DML. Starting an application
+process is not a database initialization mechanism.
+
 The current baseline is:
 
 - identifier: `capmint-baseline-20260725-cutoff-0009`
@@ -95,6 +107,61 @@ tenant ownership columns or seed data.
 Do not insert migration rows manually or rerun historical migrations merely to
 make the ledger appear complete.
 
+## First Administrator
+
+After bootstrapping a new schema and confirming `--check` is clean, inject the
+following variables from an operator-controlled secret source:
+
+```bash
+export DATABASE_URL='<redacted>'
+export CAPMINT_BOOTSTRAP_ADMIN_USERNAME='<operator username>'
+export CAPMINT_BOOTSTRAP_ADMIN_ORG_NAME='<system administration organization>'
+export CAPMINT_BOOTSTRAP_ADMIN_EMAIL='<operator email>'
+export CAPMINT_BOOTSTRAP_ADMIN_PASSWORD='<strong secret>'
+npm run bootstrap:admin
+```
+
+The command requires a 16-128 character mixed-class password and rejects known
+defaults or a password containing the username/email local part. It acquires
+the migration and bootstrap advisory locks, verifies migration state, and
+creates the activated organization, active ADMIN user, and
+`SYSTEM_ADMIN_BOOTSTRAPPED` ledger event in one transaction.
+
+The command refuses any existing or partial system-administrator state. A
+second run returns `ADMIN_ALREADY_EXISTS` and changes nothing. It does not
+implement or claim forced first-login password rotation; the current schema and
+authentication API have no enforceable rotation state.
+
+Completed bootstrap removal is not an automatic rollback. A reviewed recovery
+operation should disable the account and organization and append a compensating
+audit event rather than deleting ledger history.
+
+## Development Fixtures
+
+Development/test fixtures are explicit and are never applied by service
+startup:
+
+```bash
+export NODE_ENV=development
+export CAPMINT_ALLOW_DEVELOPMENT_SEED=1
+export CAPMINT_DEVELOPMENT_SEED_PASSWORD='<strong development-only secret>'
+export CAPMINT_DEVELOPMENT_CERTIFIER_PRIVATE_KEY='<development-only Ed25519 private key>'
+export CAPMINT_DEVELOPMENT_CERTIFIER_PUBLIC_KEY='<matching Ed25519 public key>'
+npm run seed:development
+```
+
+The command refuses production, staging, unset environments, missing enablement,
+mismatched keys, the known compromised historical key, and non-empty database
+states that are not the exact versioned fixture set. It stores only the public
+key and creates a correctly signed, non-active demo budget. An exact rerun is a
+no-op; it never overwrites credentials or uses blind conflict suppression.
+
+Legacy migration `0006` remains unchanged for historical integrity but is not
+part of baseline bootstrap. The former `database/seed/seed.sql` duplicated its
+known credential and compromised key and has been removed. Existing databases
+are not modified by either command unless an operator explicitly targets an
+eligible state.
+
 ## Rollback and Audit
 
 Metadata column additions can be removed only through a separately reviewed
@@ -119,6 +186,9 @@ CI uses disposable PostgreSQL databases to verify:
 - baseline/snapshot normalized schema equality;
 - baseline/forward-migration normalized schema equality;
 - duplicate and non-monotonic migration rejection.
+- first-admin atomicity, auditability, and existing-state refusal;
+- explicit development fixture gating, key validation, and idempotency;
+- production auth/CPQ startup with zero seed DML.
 
 Released baseline SQL and manifest checksums must change together before
 release. After release, create a new baseline identifier rather than editing an
