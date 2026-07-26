@@ -736,15 +736,12 @@ async function runTests() {
       body: '{}'
     });
 
-    await fetch(`${BASE_URL}/api/v1/verify/register`, {
+    await fetch(`${BASE_URL}/api/v1/lots`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.PRODUCER}` },
       body: JSON.stringify({
-        public_identifier: generateUUID(),
-        gtin: scanGtin,
-        serial: `SN_MINT_UNIQ_${uniqueId}`,
-        verification_url: `${BASE_URL}/verify/${generateUUID()}`,
-        qr_code_data_uri: 'data:image/png;base64,mock',
+        budget_id: budgetIdMint,
+        batch_size: 20,
         product_metadata: { name: 'Organic Honey', manufacturer: `Producer_${uniqueId}`, batch_id: `BATCH-MINT-UNIQ-${uniqueId}` }
       })
     });
