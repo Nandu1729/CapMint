@@ -458,6 +458,20 @@ suite('F2 secure bootstrap and development seed', () => {
             organization_id: '00000000-0000-0000-0000-000000000002'
           }
         ]);
+        const laboratoryFixtures = (await pool.query(`
+          SELECT
+            (SELECT count(*)::int
+             FROM organizations
+             WHERE type = 'NABL_LABORATORY'
+               AND status = 'ACTIVATED') AS laboratories,
+            (SELECT assigned_laboratory_organization_id
+             FROM lots
+             WHERE id = '00000000-0000-0000-0000-000000000050') AS assigned_laboratory
+        `)).rows[0];
+        expect(laboratoryFixtures).toEqual({
+          laboratories: 2,
+          assigned_laboratory: '00000000-0000-0000-0000-000000000004'
+        });
       });
     } finally {
       await dropDatabase(name);

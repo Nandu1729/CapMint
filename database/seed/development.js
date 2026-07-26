@@ -11,10 +11,11 @@ const {
 } = require('../../scripts/bootstrap-admin');
 
 const ALLOWED_ENVIRONMENTS = new Set(['development', 'test', 'integration']);
-const FIXTURE_VERSION = 'development-v1';
+const FIXTURE_VERSION = 'development-v2';
 const COMPROMISED_PUBLIC_KEY_FINGERPRINT =
   '7ee529f8fe8cfc739e7e0c7faef4119c6f7c7f6de78df1dbe7a8dcd686fcde7c';
 const BUDGET_ID = '00000000-0000-0000-0000-000000000003';
+const LOT_ID = '00000000-0000-0000-0000-000000000050';
 const APPROVED_QUANTITY = '10000.00';
 
 const ORGANIZATIONS = [
@@ -47,6 +48,12 @@ const ORGANIZATIONS = [
     name: 'CapMint Development System Admin',
     type: 'SYSTEM_ADMINISTRATOR',
     email: 'admin@capmint.example'
+  },
+  {
+    id: '00000000-0000-0000-0000-000000000007',
+    name: 'NABL Development Isolation Laboratory',
+    type: 'NABL_LABORATORY',
+    email: 'lab-isolation@capmint.example'
   }
 ];
 
@@ -75,6 +82,11 @@ const USERS = [
     id: '10000000-0000-0000-0000-000000000006',
     organizationId: ORGANIZATIONS[4].id,
     username: 'admin'
+  },
+  {
+    id: '10000000-0000-0000-0000-000000000007',
+    organizationId: ORGANIZATIONS[5].id,
+    username: 'lab-isolation'
   }
 ];
 
@@ -205,6 +217,12 @@ async function exactFixtureState(client, configuration) {
      FROM budgets WHERE id = $1`,
     [BUDGET_ID]
   )).rows[0];
+  const lot = (await client.query(
+    `SELECT id, producer_id, budget_id, product_metadata, batch_size,
+            processing_dates, lab_status, assigned_laboratory_organization_id
+     FROM lots WHERE id = $1`,
+    [LOT_ID]
+  )).rows[0];
   const auditCount = Number((await client.query(
     `SELECT count(*)::int AS count
      FROM log_entries
@@ -216,6 +234,7 @@ async function exactFixtureState(client, configuration) {
     || !certifier
     || !producer
     || !budget
+    || !lot
     || auditCount !== 1) {
     return false;
   }
@@ -270,6 +289,15 @@ async function exactFixtureState(client, configuration) {
     && budget.effective_end_date.toISOString() === '2099-12-31T00:00:00.000Z'
     && JSON.stringify(budget.yield_assumptions)
       === JSON.stringify({ crop: 'Organic White Honey', fixture_version: FIXTURE_VERSION })
+    && lot.id === LOT_ID
+    && lot.producer_id === ORGANIZATIONS[1].id
+    && lot.budget_id === BUDGET_ID
+    && lot.batch_size === '1.00'
+    && lot.lab_status === 'PENDING'
+    && lot.assigned_laboratory_organization_id === ORGANIZATIONS[2].id
+    && JSON.stringify(lot.product_metadata)
+      === JSON.stringify({ name: 'Development Assignment Fixture', fixture_version: FIXTURE_VERSION })
+    && JSON.stringify(lot.processing_dates) === '{}'
     && crypto.verify(
       null,
       Buffer.from(message),
@@ -368,6 +396,22 @@ async function seedDevelopment(environment = process.env, dependencies = {}) {
           JSON.stringify({ crop: 'Organic White Honey', fixture_version: FIXTURE_VERSION })
         ]
       );
+      await client.query(
+        `INSERT INTO lots
+           (id, producer_id, budget_id, product_metadata, batch_size,
+            processing_dates, lab_status, assigned_laboratory_organization_id)
+         VALUES ($1, $2, $3, $4::jsonb, 1, '{}'::jsonb, 'PENDING', $5)`,
+        [
+          LOT_ID,
+          ORGANIZATIONS[1].id,
+          BUDGET_ID,
+          JSON.stringify({
+            name: 'Development Assignment Fixture',
+            fixture_version: FIXTURE_VERSION
+          }),
+          ORGANIZATIONS[2].id
+        ]
+      );
       await appendAuditEvent(
         client,
         'ORGANIZATION',
@@ -379,7 +423,9 @@ async function seedDevelopment(environment = process.env, dependencies = {}) {
           users: USERS.length,
           certifiers: 1,
           producers: 1,
-          budgets: 1
+          budgets: 1,
+          laboratories: 2,
+          assigned_lots: 1
         }
       );
 

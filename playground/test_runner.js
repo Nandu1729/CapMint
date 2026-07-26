@@ -98,6 +98,7 @@ async function runTests() {
     const certUsername = `cert_user_${uniqueId}`;
     const labEmail = `lab_${uniqueId}@test.com`;
     const labUsername = `lab_user_${uniqueId}`;
+    const otherLabUsername = `lab_other_${uniqueId}`;
     const expEmail = `exp_${uniqueId}@test.com`;
     const expUsername = `exp_user_${uniqueId}`;
 
@@ -159,6 +160,37 @@ async function runTests() {
       const logData = await log.json();
       tokens[org.type] = logData.data.token;
     }
+
+    const otherLabRegistration = await fetch(`${BASE_URL}/api/v1/auth/register-org`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: `Lab_Other_${uniqueId}`,
+        type: 'NABL_LABORATORY',
+        business_reg_details: {
+          tax_id: `TAX-NABL-LABORATORY-OTHER-${uniqueId}`,
+          registration_number: `REG-NABL-LABORATORY-OTHER-${uniqueId}`
+        },
+        official_email: `lab_other_${uniqueId}@test.com`,
+        contact_info: { phone: '+919999999997', address: 'Testing Sector' },
+        admin_username: otherLabUsername,
+        admin_password: 'password123'
+      })
+    });
+    const otherLabRegistrationData = await otherLabRegistration.json();
+    const otherLabOrganizationId = otherLabRegistrationData.data.organization.id;
+    await fetch(`${BASE_URL}/api/v1/auth/organizations/${otherLabOrganizationId}/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
+      body: JSON.stringify({ status: 'ACTIVATED' })
+    });
+    const otherLabLogin = await fetch(`${BASE_URL}/api/v1/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: otherLabUsername, password: 'password123' })
+    });
+    const otherLabLoginData = await otherLabLogin.json();
+    const otherLabToken = otherLabLoginData.data.token;
 
     // D-011: a second certifier proves operational reads and mutations are tenant-scoped.
     const otherCertUsername = `cert_other_${uniqueId}`;
@@ -841,16 +873,155 @@ async function runTests() {
       `${labGateResponse.status} ${labGateData.error?.code}`
     );
 
-    // D-011 keeps these controls visible until DM-03 supplies a trusted lab-to-lot relation.
-    pending('LAB-01', 'blocked by DM-03 lab-to-lot assignment: corrupted PDF validation');
-    pending('LAB-02', 'blocked by DM-03 lab-to-lot assignment: PDF magic-byte validation');
-    pending('LAB-03', 'blocked by DM-03 lab-to-lot assignment: duplicate report hash');
-    pending('LAB-04', 'blocked by DM-03 lab-to-lot assignment: replacement report and LOT_LAB_TEST_REPLACED ledger event');
-    pending('LAB-05', 'blocked by DM-03 lab-to-lot assignment: nonexistent lot handling');
+    const assignmentResponse = await fetch(
+      `${BASE_URL}/api/v1/lots/${lotId2}/assign-laboratory`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tokens.CERTIFICATION_BODY}`
+        },
+        body: JSON.stringify({ laboratory_organization_id: orgIds.NABL_LABORATORY })
+      }
+    );
+    if (assignmentResponse.status !== 200) {
+      throw new Error(`Laboratory assignment fixture failed with ${assignmentResponse.status}.`);
+    }
 
-    // Retained for downstream certification fixtures; no laboratory API authorization is bypassed.
     const pdfBase64 = Buffer.from('%PDF-1.4 mock pdf report').toString('base64');
     const pdfHash = crypto.createHash('sha256').update(Buffer.from('%PDF-1.4 mock pdf report')).digest('hex');
+
+    const corruptedPdfResponse = await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
+      body: JSON.stringify({
+        lot_id: lotId2,
+        lab_name: 'NABL Testing Labs',
+        test_type: 'Purity Check',
+        result_summary: 'PASSED',
+        report_hash: crypto.createHash('sha256').update('different-content').digest('hex'),
+        report_reference: 'corrupted.pdf',
+        pdf_content: pdfBase64
+      })
+    });
+    const corruptedPdfData = await corruptedPdfResponse.json();
+    report(
+      'LAB-01',
+      corruptedPdfResponse.status === 400 && corruptedPdfData.error?.code === 'HASH_MISMATCH',
+      '400 HASH_MISMATCH',
+      `${corruptedPdfResponse.status} ${corruptedPdfData.error?.code}`
+    );
+
+    const invalidPdfResponse = await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
+      body: JSON.stringify({
+        lot_id: lotId2,
+        lab_name: 'NABL Testing Labs',
+        test_type: 'Purity Check',
+        result_summary: 'PASSED',
+        report_hash: crypto.createHash('sha256').update('not a pdf').digest('hex'),
+        report_reference: 'invalid.pdf',
+        pdf_content: Buffer.from('not a pdf').toString('base64')
+      })
+    });
+    const invalidPdfData = await invalidPdfResponse.json();
+    report(
+      'LAB-02',
+      invalidPdfResponse.status === 400 && invalidPdfData.error?.code === 'INVALID_PDF',
+      '400 INVALID_PDF',
+      `${invalidPdfResponse.status} ${invalidPdfData.error?.code}`
+    );
+
+    const acceptedLabResult = await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
+      body: JSON.stringify({
+        lot_id: lotId2,
+        lab_name: 'NABL Testing Labs',
+        test_type: 'Purity Check',
+        result_summary: 'PASSED',
+        report_hash: pdfHash,
+        report_reference: 'accepted.pdf',
+        pdf_content: pdfBase64
+      })
+    });
+    if (acceptedLabResult.status !== 200) {
+      throw new Error(`Accepted laboratory result fixture failed with ${acceptedLabResult.status}.`);
+    }
+
+    const duplicateLabResult = await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
+      body: JSON.stringify({
+        lot_id: lotId2,
+        lab_name: 'NABL Testing Labs',
+        test_type: 'Purity Check',
+        result_summary: 'PASSED',
+        report_hash: pdfHash,
+        report_reference: 'duplicate.pdf',
+        pdf_content: pdfBase64
+      })
+    });
+    report('LAB-03', duplicateLabResult.status === 409, '409 Conflict', duplicateLabResult.status);
+
+    const replacementPdf = Buffer.from('%PDF-1.4 replacement mock pdf report');
+    const replacementHash = crypto.createHash('sha256').update(replacementPdf).digest('hex');
+    const replacementLabResult = await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
+      body: JSON.stringify({
+        lot_id: lotId2,
+        lab_name: 'NABL Testing Labs',
+        test_type: 'Purity and residue',
+        result_summary: 'PASSED',
+        report_hash: replacementHash,
+        report_reference: 'replacement.pdf',
+        pdf_content: replacementPdf.toString('base64')
+      })
+    });
+    const replacementAudit = await pgPool.query(
+      `SELECT count(*)::int AS count
+       FROM log_entries
+       WHERE entity_id = $1
+         AND event_type = 'LOT_LAB_TEST_REPLACED'`,
+      [lotId2]
+    );
+    report(
+      'LAB-04',
+      replacementLabResult.status === 200 && replacementAudit.rows[0].count > 0,
+      '200 replacement + LOT_LAB_TEST_REPLACED',
+      `${replacementLabResult.status} / ${replacementAudit.rows[0].count} events`
+    );
+
+    const missingLotResult = await fetch(`${BASE_URL}/api/v1/verify/lab-results`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.NABL_LABORATORY}` },
+      body: JSON.stringify({
+        lot_id: generateUUID(),
+        lab_name: 'NABL Testing Labs',
+        test_type: 'Purity Check',
+        result_summary: 'PASSED',
+        report_hash: pdfHash,
+        report_reference: 'missing.pdf',
+        pdf_content: pdfBase64
+      })
+    });
+    const missingLotData = await missingLotResult.json();
+    report(
+      'LAB-05',
+      missingLotResult.status === 403 && missingLotData.error?.code === 'LAB_ASSIGNMENT_REQUIRED',
+      '403 LAB_ASSIGNMENT_REQUIRED',
+      `${missingLotResult.status} ${missingLotData.error?.code}`
+    );
+
+    const otherLabList = await fetch(`${BASE_URL}/api/v1/verify/lots`, {
+      headers: { 'Authorization': `Bearer ${otherLabToken}` }
+    });
+    const otherLabListData = await otherLabList.json();
+    if (otherLabList.status !== 200 || otherLabListData.data.lots.some(lot => lot.id === lotId2)) {
+      throw new Error('Unassigned laboratory fixture could read the assigned private lot.');
+    }
 
     console.log('\n--- Phase 7: Certification ---');
 
