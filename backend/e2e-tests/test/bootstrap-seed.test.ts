@@ -334,7 +334,12 @@ suite('F2 secure bootstrap and development seed', () => {
       try {
         if (scenario === 'legacy') {
           const sql = await fs.readFile(legacySeedPath, 'utf8');
-          await withPool(name, pool => pool.query(sql).then(() => undefined));
+          await withPool(name, async pool => {
+            await pool.query(
+              'ALTER TABLE certifiers DROP COLUMN organization_id'
+            );
+            await pool.query(sql);
+          });
         } else if (scenario === 'mixed') {
           await withPool(name, async pool => {
             await pool.query(

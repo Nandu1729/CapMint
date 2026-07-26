@@ -29,12 +29,12 @@ describe('migration runner metadata and planning primitives', () => {
     expect(() => runner.parseArgs(['--adopt'])).toThrow(/requires one or more/);
   });
 
-  it('loads a monotonic migration set ending in tenancy-tightening migration 0013', () => {
+  it('loads a monotonic migration set ending in certifier-tightening migration 0014', () => {
     const result = runner.loadMigrations();
     expect(result.errors).toEqual([]);
-    expect(result.migrations.at(-1)?.filename).toBe('0013_tighten_tenant_constraints.sql');
+    expect(result.migrations.at(-1)?.filename).toBe('0014_tighten_certifier_organization_id.sql');
     expect(result.migrations.map((migration: { version: number }) => migration.version))
-      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
     for (const migration of result.migrations) {
       expect(migration.checksum).toMatch(/^[a-f0-9]{64}$/);
     }
@@ -130,5 +130,17 @@ describe('migration runner metadata and planning primitives', () => {
         quarantinedStatus: 'REVOKED'
       }
     });
+  });
+
+  it('defines the certifier NOT NULL successor state', () => {
+    expect(runner.CERTIFIER_NOT_NULL_STATE).toEqual({
+      column: {
+        table: 'certifiers',
+        name: 'organization_id'
+      },
+      temporaryConstraint: 'certifiers_organization_id_not_null',
+      orphanId: '00000000-0000-0000-0000-000000000003'
+    });
+    expect(runner.verify0014).toBeTypeOf('function');
   });
 });
