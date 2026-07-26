@@ -29,12 +29,12 @@ describe('migration runner metadata and planning primitives', () => {
     expect(() => runner.parseArgs(['--adopt'])).toThrow(/requires one or more/);
   });
 
-  it('loads a monotonic migration set ending in RLS-foundation migration 0015', () => {
+  it('loads a monotonic migration set ending in identity-table RLS migration 0016', () => {
     const result = runner.loadMigrations();
     expect(result.errors).toEqual([]);
-    expect(result.migrations.at(-1)?.filename).toBe('0015_add_capmint_app_role.sql');
+    expect(result.migrations.at(-1)?.filename).toBe('0016_enable_identity_table_rls.sql');
     expect(result.migrations.map((migration: { version: number }) => migration.version))
-      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
     for (const migration of result.migrations) {
       expect(migration.checksum).toMatch(/^[a-f0-9]{64}$/);
     }
@@ -166,5 +166,18 @@ describe('migration runner metadata and planning primitives', () => {
       sequencePrivileges: ['SELECT', 'USAGE']
     });
     expect(runner.verify0015).toBeTypeOf('function');
+  });
+
+  it('defines the exact D2 identity-table RLS surface', () => {
+    expect(runner.IDENTITY_RLS_STATE.tables).toEqual([
+      'certifiers',
+      'organizations',
+      'producers'
+    ]);
+    expect(runner.IDENTITY_RLS_STATE.policies).toHaveLength(12);
+    expect(runner.IDENTITY_RLS_STATE.policies.every(
+      (policy: { signature: string }) => /^[a-f0-9]{64}$/.test(policy.signature)
+    )).toBe(true);
+    expect(runner.verify0016).toBeTypeOf('function');
   });
 });

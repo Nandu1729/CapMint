@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import pg from 'pg';
+import { withTenantTx } from '../../../packages/shared/tenant-db.js';
 
 const RUN_INTEGRATION = process.env.RUN_C0_INTEGRATION === '1';
 const TEST_DATABASE_NAME = process.env.C0_TEST_DATABASE_NAME || '';
@@ -41,6 +42,7 @@ const ids = {
   producerB: crypto.randomUUID(),
   certifierA: crypto.randomUUID(),
   certifierB: crypto.randomUUID(),
+  revokedCertifierB: crypto.randomUUID(),
   labA: crypto.randomUUID(),
   labB: crypto.randomUUID(),
   exporter: crypto.randomUUID(),
@@ -219,9 +221,17 @@ async function insertFixtures(): Promise<void> {
     );
     await client.query(
       `INSERT INTO certifiers (id, name, accreditation_details, public_key, key_status, organization_id)
-       VALUES ($1, 'C0 Certifier A', '{}', $5, 'ACTIVE', $2),
-              ($3, 'C0 Certifier B', '{}', $5, 'ACTIVE', $4)`,
-      [ids.certifierA, ids.certifierOrgA, ids.certifierB, ids.certifierOrgB, certifierPublicKey]
+       VALUES ($1, 'C0 Certifier A', '{}', $6, 'ACTIVE', $2),
+              ($3, 'C0 Certifier B', '{}', $6, 'ACTIVE', $4),
+              ($5, 'C0 Revoked Certifier B', '{}', $6, 'REVOKED', $4)`,
+      [
+        ids.certifierA,
+        ids.certifierOrgA,
+        ids.certifierB,
+        ids.certifierOrgB,
+        ids.revokedCertifierB,
+        certifierPublicKey
+      ]
     );
     await client.query(
       `INSERT INTO users (id, organization_id, username, password_hash, role, status)
@@ -377,6 +387,11 @@ suite('C0 tenant authorization containment', () => {
     databaseCreated = true;
     testDatabaseUrl = makeDatabaseUrl(sourceDatabaseUrl, TEST_DATABASE_NAME);
     testPool = new pg.Pool({ connectionString: testDatabaseUrl });
+    const migrationLogSchema = await fs.readFile(
+      path.join(ROOT, 'database/schema/migrations_log.sql'),
+      'utf8'
+    );
+    await testPool.query(migrationLogSchema);
     const schema = await fs.readFile(path.join(ROOT, 'database/schema/schema.sql'), 'utf8');
     await testPool.query(schema);
     const roleMigration = await fs.readFile(
@@ -384,6 +399,19 @@ suite('C0 tenant authorization containment', () => {
       'utf8'
     );
     await testPool.query(roleMigration);
+    await testPool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0015_add_capmint_app_role.sql')`
+    );
+    const identityRlsMigration = await fs.readFile(
+      path.join(ROOT, 'database/migrations/0016_enable_identity_table_rls.sql'),
+      'utf8'
+    );
+    await testPool.query(identityRlsMigration);
+    await testPool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0016_enable_identity_table_rls.sql')`
+    );
     const roleState = await adminPool.query(
       `SELECT rolcanlogin FROM pg_roles WHERE rolname = 'capmint_app'`
     );
@@ -458,6 +486,136 @@ suite('C0 tenant authorization containment', () => {
     expect(systemLots.status).toBe(200);
     expect(JSON.stringify(systemLots.data)).toContain(ids.lotA);
     expect(JSON.stringify(systemLots.data)).toContain(ids.lotB);
+  });
+
+  it('enforces identity-table isolation on raw capmint_app queries', async () => {
+    const appPool = new pg.Pool({ connectionString: appDatabaseUrl, max: 1 });
+    try {
+      await withTenantTx(
+        appPool,
+        {
+          access: 'authenticated',
+          orgId: ids.producerOrgA,
+          isSystemAdmin: false
+        },
+        async client => {
+          expect((await client.query(
+            'SELECT id FROM organizations WHERE id = $1',
+            [ids.producerOrgB]
+          )).rowCount).toBe(0);
+          expect((await client.query(
+            'UPDATE organizations SET name = name WHERE id = $1 RETURNING id',
+            [ids.producerOrgB]
+          )).rowCount).toBe(0);
+          expect((await client.query(
+            'DELETE FROM organizations WHERE id = $1 RETURNING id',
+            [ids.producerOrgB]
+          )).rowCount).toBe(0);
+
+          expect((await client.query(
+            'SELECT id FROM producers WHERE id = $1',
+            [ids.producerB]
+          )).rowCount).toBe(0);
+          expect((await client.query(
+            'UPDATE producers SET name = name WHERE id = $1 RETURNING id',
+            [ids.producerB]
+          )).rowCount).toBe(0);
+          expect((await client.query(
+            'DELETE FROM producers WHERE id = $1 RETURNING id',
+            [ids.producerB]
+          )).rowCount).toBe(0);
+
+          expect((await client.query(
+            'SELECT id FROM certifiers WHERE id = $1',
+            [ids.revokedCertifierB]
+          )).rowCount).toBe(0);
+          expect((await client.query(
+            'SELECT public_key FROM certifiers WHERE id = $1',
+            [ids.certifierB]
+          )).rowCount).toBe(1);
+          expect((await client.query(
+            'UPDATE certifiers SET name = name WHERE id = $1 RETURNING id',
+            [ids.certifierB]
+          )).rowCount).toBe(0);
+          expect((await client.query(
+            'DELETE FROM certifiers WHERE id = $1 RETURNING id',
+            [ids.certifierB]
+          )).rowCount).toBe(0);
+        }
+      );
+
+      await withTenantTx(
+        appPool,
+        {
+          access: 'authenticated',
+          orgId: ids.certifierOrgA,
+          isSystemAdmin: false
+        },
+        async client => {
+          expect((await client.query(
+            `SELECT id FROM organizations
+             WHERE id = $1
+               AND type = 'NABL_LABORATORY'
+               AND status = 'ACTIVATED'`,
+            [ids.labA]
+          )).rowCount).toBe(1);
+        }
+      );
+
+      const producerContext = {
+        access: 'authenticated' as const,
+        orgId: ids.producerOrgA,
+        isSystemAdmin: false
+      };
+      await expect(withTenantTx(
+        appPool,
+        producerContext,
+        client => client.query(
+          `INSERT INTO organizations
+             (id, name, type, official_email, status)
+           VALUES ($1, 'Cross-tenant insert', 'PRODUCER', $2, 'ACTIVATED')`,
+          [crypto.randomUUID(), `cross-${crypto.randomUUID()}@c0.test`]
+        )
+      )).rejects.toMatchObject({ code: '42501' });
+      await expect(withTenantTx(
+        appPool,
+        producerContext,
+        client => client.query(
+          `INSERT INTO producers
+             (id, name, type, registry_references, organization_id)
+           VALUES ($1, 'Cross-tenant producer', 'FARMER', '{}', $2)`,
+          [crypto.randomUUID(), ids.producerOrgB]
+        )
+      )).rejects.toMatchObject({ code: '42501' });
+      await expect(withTenantTx(
+        appPool,
+        producerContext,
+        client => client.query(
+          `INSERT INTO certifiers
+             (id, name, accreditation_details, public_key, key_status, organization_id)
+           VALUES ($1, 'Cross-tenant certifier', '{}', $2, 'ACTIVE', $3)`,
+          [crypto.randomUUID(), certifierPublicKey, ids.certifierOrgB]
+        )
+      )).rejects.toMatchObject({ code: '42501' });
+
+      const adminRows = await withTenantTx(
+        appPool,
+        { access: 'authenticated', orgId: null, isSystemAdmin: true },
+        async client => client.query(
+          `SELECT
+             (SELECT count(*)::int FROM organizations) AS organizations,
+             (SELECT count(*)::int FROM producers) AS producers,
+             (SELECT count(*)::int FROM certifiers) AS certifiers`
+        )
+      );
+      expect(adminRows.rows[0]).toMatchObject({
+        organizations: 7,
+        producers: 2,
+        certifiers: 3
+      });
+    } finally {
+      await appPool.end();
+    }
   });
 
   it('enforces explicit integration lookup role allowlists', async () => {
@@ -637,7 +795,7 @@ suite('C0 tenant authorization containment', () => {
           body: { laboratory_organization_id: ids.labA }
         }
       );
-      expect(assigned.status).toBe(200);
+      expect(assigned.status, JSON.stringify(assigned.data)).toBe(200);
       expect(assigned.data).toEqual({
         success: true,
         data: {
@@ -728,7 +886,7 @@ suite('C0 tenant authorization containment', () => {
         body: { laboratory_organization_id: ids.labA }
       }
     );
-    expect(assignment.status).toBe(200);
+    expect(assignment.status, JSON.stringify(assignment.data)).toBe(200);
 
     const firstPdf = Buffer.from('%PDF-1.4 assigned laboratory report one');
     const firstHash = crypto.createHash('sha256').update(firstPdf).digest('hex');

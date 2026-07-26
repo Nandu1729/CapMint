@@ -17,6 +17,7 @@ const baselinePath = path.join(ROOT, 'database/baselines/capmint-baseline-202607
 const tighteningMigrationPath = path.join(ROOT, 'database/migrations/0013_tighten_tenant_constraints.sql');
 const certifierTighteningMigrationPath = path.join(ROOT, 'database/migrations/0014_tighten_certifier_organization_id.sql');
 const appRoleMigrationPath = path.join(ROOT, 'database/migrations/0015_add_capmint_app_role.sql');
+const identityRlsMigrationPath = path.join(ROOT, 'database/migrations/0016_enable_identity_table_rls.sql');
 const allLegacyFiles = [
   '0001_add_certification_status_and_updated_at.sql',
   '0002_add_investigations_table.sql',
@@ -242,7 +243,7 @@ suite('C1 migration reconciliation', () => {
     if (adminPool) await adminPool.end();
   }, 60_000);
 
-  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0015, and becomes a no-op', async () => {
+  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0016, and becomes a no-op', async () => {
     const name = databaseName('bootstrap');
     await createDatabase(name);
     try {
@@ -261,7 +262,7 @@ suite('C1 migration reconciliation', () => {
          FROM migrations_log
          ORDER BY id`
       ).then(result => result.rows));
-      expect(rows).toHaveLength(7);
+      expect(rows).toHaveLength(8);
       expect(rows[0]).toMatchObject({
         filename: 'capmint-baseline-20260725.sql',
         application_mode: 'BASELINE',
@@ -294,6 +295,10 @@ suite('C1 migration reconciliation', () => {
         filename: '0015_add_capmint_app_role.sql',
         application_mode: 'EXECUTED'
       });
+      expect(rows[7]).toMatchObject({
+        filename: '0016_enable_identity_table_rls.sql',
+        application_mode: 'EXECUTED'
+      });
       const baselineState = await withPool(name, pool => pool.query(
         `SELECT
            EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'uuid-ossp') AS has_uuid_ossp,
@@ -310,7 +315,7 @@ suite('C1 migration reconciliation', () => {
       expect(bootstrapNoOpApply.status, bootstrapNoOpApply.stderr).toBe(0);
       expect(runRunner(name, ['--check']).status).toBe(0);
       const count = await withPool(name, pool => pool.query('SELECT count(*)::int AS count FROM migrations_log').then(result => result.rows[0].count));
-      expect(count).toBe(7);
+      expect(count).toBe(8);
     } finally {
       await dropDatabase(name);
     }
@@ -1242,6 +1247,90 @@ suite('C1 migration reconciliation', () => {
       await dropDatabase(exactName);
       await dropDatabase(partialName);
       await dropDatabase(rlsName);
+    }
+  }, 90_000);
+
+  it('enables only identity-table RLS idempotently and anchors the 0015 successor state on the 0016 record', async () => {
+    const absentName = databaseName('identity_rls_absent');
+    const exactName = databaseName('identity_rls_exact');
+    const partialName = databaseName('identity_rls_partial');
+    const forcedName = databaseName('identity_rls_forced');
+    for (const name of [absentName, exactName, partialName, forcedName]) {
+      await createDatabase(name);
+      await applySqlFile(name, schemaPath);
+      await createLegacyLog(name, []);
+      await applySqlFile(name, appRoleMigrationPath);
+      await withPool(name, pool =>
+        pool.query(
+          `INSERT INTO migrations_log (filename)
+           VALUES ('0015_add_capmint_app_role.sql')
+           ON CONFLICT (filename) DO NOTHING`
+        ).then(() => undefined));
+    }
+    try {
+      expect((await withPool(absentName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('absent');
+
+      await applySqlFile(exactName, identityRlsMigrationPath);
+      expect((await withPool(exactName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('exact');
+      expect((await withPool(exactName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(exactName, pool =>
+        pool.query(
+          `INSERT INTO migrations_log (filename)
+           VALUES ('0016_enable_identity_table_rls.sql')
+           ON CONFLICT (filename) DO NOTHING`
+        ).then(() => undefined));
+      expect((await withPool(exactName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('exact');
+
+      const beforeRerun = await schemaFingerprint(exactName);
+      await applySqlFile(exactName, identityRlsMigrationPath);
+      expect(await schemaFingerprint(exactName)).toBe(beforeRerun);
+      const exactState = await withPool(exactName, pool => migrationRunner.verify0016(pool));
+      expect(exactState.status).toBe('exact');
+      expect(exactState.evidence.rls_tables).toEqual([
+        { table_name: 'certifiers', enabled: true, forced: false },
+        { table_name: 'organizations', enabled: true, forced: false },
+        { table_name: 'producers', enabled: true, forced: false }
+      ]);
+      expect(exactState.evidence.policies).toHaveLength(12);
+
+      await withPool(exactName, async pool => {
+        await pool.query(
+          'DROP POLICY organizations_tenant_delete ON organizations'
+        );
+        await pool.query(
+          `CREATE POLICY organizations_tenant_delete
+           ON organizations
+           FOR DELETE
+           TO capmint_app
+           USING (true)`
+        );
+      });
+      await expect(applySqlFile(exactName, identityRlsMigrationPath))
+        .rejects.toThrow(/0016_PARTIAL_RLS_STATE/);
+      expect((await withPool(exactName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(partialName, pool =>
+        pool.query('ALTER TABLE organizations ENABLE ROW LEVEL SECURITY').then(() => undefined));
+      expect((await withPool(partialName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(forcedName, async pool => {
+        await pool.query('ALTER TABLE organizations ENABLE ROW LEVEL SECURITY');
+        await pool.query('ALTER TABLE organizations FORCE ROW LEVEL SECURITY');
+      });
+      expect((await withPool(forcedName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('incompatible');
+    } finally {
+      await dropDatabase(absentName);
+      await dropDatabase(exactName);
+      await dropDatabase(partialName);
+      await dropDatabase(forcedName);
     }
   }, 90_000);
 

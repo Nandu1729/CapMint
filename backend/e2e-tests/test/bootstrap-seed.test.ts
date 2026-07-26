@@ -355,6 +355,16 @@ suite('F2 secure bootstrap and development seed', () => {
           const sql = await fs.readFile(legacySeedPath, 'utf8');
           await withPool(name, async pool => {
             await pool.query(
+              `DROP POLICY IF EXISTS producers_tenant_select ON producers;
+               DROP POLICY IF EXISTS certifiers_tenant_select ON certifiers;
+               DROP POLICY IF EXISTS certifiers_tenant_insert ON certifiers;
+               DROP POLICY IF EXISTS certifiers_tenant_update ON certifiers;
+               DROP POLICY IF EXISTS certifiers_tenant_delete ON certifiers;
+               ALTER TABLE organizations DISABLE ROW LEVEL SECURITY;
+               ALTER TABLE producers DISABLE ROW LEVEL SECURITY;
+               ALTER TABLE certifiers DISABLE ROW LEVEL SECURITY`
+            );
+            await pool.query(
               'ALTER TABLE certifiers DROP COLUMN organization_id'
             );
             await pool.query(sql);
