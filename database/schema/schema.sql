@@ -1,7 +1,7 @@
 -- CapMint PostgreSQL schema snapshot
--- Snapshot version: 2026-07-26-DM03-C3a
+-- Snapshot version: 2026-07-26-DM03-C3c
 -- Generated: 2026-07-26
--- Authoritative migration cutoff: 0012_add_derived_tenant_relationships.sql
+-- Authoritative migration cutoff: 0013_tighten_tenant_constraints.sql
 -- Intended use: inspection and disposable-database schema comparison only.
 -- DO NOT apply this snapshot to an existing database. Forward migrations are
 -- the authoritative schema evolution path.
@@ -66,7 +66,7 @@ CREATE TABLE producers (
     contact_metadata JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    organization_id UUID REFERENCES organizations(id),
+    organization_id UUID NOT NULL REFERENCES organizations(id),
     CONSTRAINT chk_producers_type CHECK (type IN ('FARMER', 'FPO', 'BRAND', 'HIVE_OPERATOR'))
 );
 
@@ -200,7 +200,7 @@ CREATE TABLE investigations (
     assigned_to UUID,
     case_notes JSONB DEFAULT '[]'::jsonb,
     evidence_timeline JSONB DEFAULT '[]'::jsonb,
-    unit_code_id UUID REFERENCES unit_codes(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+    unit_code_id UUID NOT NULL REFERENCES unit_codes(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT chk_investigations_status CHECK (status IN ('OPEN', 'UNDER_REVIEW', 'ESCALATED', 'RESOLVED', 'REVOKED', 'DISMISSED', 'CLOSED'))
 );
 
@@ -271,7 +271,7 @@ CREATE INDEX idx_users_organization_id ON users(organization_id);
 -- Index to optimize clone investigations search
 CREATE INDEX idx_investigations_public_identifier ON investigations(public_identifier);
 CREATE INDEX idx_investigations_status ON investigations(status);
-CREATE INDEX idx_investigations_unit_code_id ON investigations(unit_code_id);
+CREATE UNIQUE INDEX idx_investigations_unit_code_id ON investigations(unit_code_id);
 
 -- =========================================================================
 -- DATABASE FUNCTIONS AND AUTO-UPDATE TRIGGERS

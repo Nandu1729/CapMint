@@ -25,6 +25,7 @@ const OLD_INVESTIGATION_STATUSES = [
   'REVOKED',
   'UNDER_REVIEW'
 ];
+const KNOWN_ORPHAN_CERTIFIER_ID = '00000000-0000-0000-0000-000000000003';
 const PROFILE_ORGANIZATION_STATE = [
   {
     table: 'producers',
@@ -92,6 +93,25 @@ const DERIVED_TENANCY_STATE = {
       columns: ['assigned_laboratory_organization_id']
     }
   ]
+};
+const TENANCY_TIGHTENING_STATE = {
+  columns: [
+    { table: 'producers', column: 'organization_id', notNull: true },
+    { table: 'certifiers', column: 'organization_id', notNull: false },
+    { table: 'investigations', column: 'unit_code_id', notNull: true },
+    { table: 'lab_results', column: 'submitted_by_organization_id', notNull: false },
+    { table: 'lots', column: 'assigned_laboratory_organization_id', notNull: false }
+  ],
+  index: {
+    table: 'investigations',
+    name: 'idx_investigations_unit_code_id',
+    columns: ['unit_code_id']
+  },
+  orphan: {
+    id: KNOWN_ORPHAN_CERTIFIER_ID,
+    activeStatus: 'ACTIVE',
+    quarantinedStatus: 'REVOKED'
+  }
 };
 const CORE_TABLES = [
   'organizations',
@@ -506,12 +526,11 @@ async function verify0011(client) {
     };
   }
 
-  const exact = PROFILE_ORGANIZATION_STATE.every(expected => {
+  const ownershipShapeExact = PROFILE_ORGANIZATION_STATE.every(expected => {
     const actual = evidence[expected.table];
     if (!actual.table
       || !actual.column
       || actual.column.type !== 'uuid'
-      || actual.column.not_null
       || actual.column.default_expr !== null
       || actual.constraints.length !== 1
       || actual.indexes.length !== 1) {
@@ -535,10 +554,20 @@ async function verify0011(client) {
       && Number(index.total_columns) === 1
       && stableJson(index.columns) === stableJson(['organization_id']);
   });
-  if (exact) {
+  const producerNullable = evidence.producers.column && !evidence.producers.column.not_null;
+  const certifierNullable = evidence.certifiers.column && !evidence.certifiers.column.not_null;
+  const tighteningEvidence = ownershipShapeExact && !producerNullable
+    ? await readTenancyTighteningEvidence(client)
+    : null;
+  const successorExact = tighteningEvidence
+    ? tenancyTighteningSchemaExact(tighteningEvidence)
+    : false;
+  if (ownershipShapeExact && certifierNullable && (producerNullable || successorExact)) {
     return {
       status: 'exact',
-      summary: 'Nullable profile organization columns, validated foreign keys, and indexes are exact.',
+      summary: successorExact
+        ? 'Profile organization ownership is exact with the approved 0013 producer tightening.'
+        : 'Nullable profile organization columns, validated foreign keys, and indexes are exact.',
       evidence,
       fingerprint: evidenceFingerprint(evidence)
     };
@@ -617,6 +646,135 @@ async function readDerivedTenancyIndex(client, expected) {
   )).rows;
 }
 
+async function readTenancyTighteningEvidence(client) {
+  const evidence = {
+    columns: {},
+    index: [],
+    data: {
+      certifier_count: null,
+      certifier_orphans: null,
+      known_orphan_rows: null,
+      known_orphan_status: null,
+      known_orphan_budget_references: null
+    }
+  };
+
+  for (const expected of TENANCY_TIGHTENING_STATE.columns) {
+    const key = `${expected.table}.${expected.column}`;
+    if (!(await tableExists(client, expected.table))) {
+      evidence.columns[key] = { table: false, column: null };
+      continue;
+    }
+    evidence.columns[key] = {
+      table: true,
+      column: await readDerivedTenancyColumn(client, expected)
+    };
+  }
+
+  evidence.index = await readDerivedTenancyIndex(client, TENANCY_TIGHTENING_STATE.index);
+
+  if (await tableExists(client, 'certifiers')) {
+    const certifierOrganizationColumn = evidence.columns['certifiers.organization_id'].column;
+    const orphanExpression = certifierOrganizationColumn
+      ? 'count(*) FILTER (WHERE organization_id IS NULL)::int'
+      : 'NULL::int';
+    evidence.data = (await client.query(
+      `SELECT
+         count(*)::int AS certifier_count,
+         ${orphanExpression} AS certifier_orphans,
+         count(*) FILTER (WHERE id = $1)::int AS known_orphan_rows,
+         max(key_status) FILTER (WHERE id = $1) AS known_orphan_status,
+         (SELECT count(*)::int
+          FROM budgets
+          WHERE certifier_id = $1) AS known_orphan_budget_references
+       FROM certifiers`,
+      [KNOWN_ORPHAN_CERTIFIER_ID]
+    )).rows[0];
+  }
+
+  return evidence;
+}
+
+function tenancyTighteningSchemaExact(evidence) {
+  const columnsExact = TENANCY_TIGHTENING_STATE.columns.every(expected => {
+    const actual = evidence.columns[`${expected.table}.${expected.column}`];
+    return actual
+      && actual.table
+      && actual.column
+      && actual.column.type === 'uuid'
+      && actual.column.not_null === expected.notNull
+      && actual.column.default_expr === null;
+  });
+  if (!columnsExact || evidence.index.length !== 1) return false;
+  const index = evidence.index[0];
+  return index.table_name === TENANCY_TIGHTENING_STATE.index.table
+    && index.access_method === 'btree'
+    && index.unique
+    && index.valid
+    && index.ready
+    && index.unfiltered
+    && index.plain_columns
+    && Number(index.key_columns) === 1
+    && Number(index.total_columns) === 1
+    && stableJson(index.columns) === stableJson(TENANCY_TIGHTENING_STATE.index.columns);
+}
+
+function tenancyTighteningOrphanExact(evidence) {
+  const data = evidence.data;
+  if (Number(data.certifier_count) === 0) {
+    return Number(data.known_orphan_rows) === 0
+      && Number(data.known_orphan_budget_references) === 0;
+  }
+  return Number(data.certifier_orphans) === 1
+    && Number(data.known_orphan_rows) === 1
+    && data.known_orphan_status === TENANCY_TIGHTENING_STATE.orphan.quarantinedStatus
+    && Number(data.known_orphan_budget_references) === 0;
+}
+
+function tenancyTighteningEffectsAbsent(evidence) {
+  const producer = evidence.columns['producers.organization_id'];
+  const investigation = evidence.columns['investigations.unit_code_id'];
+  const noTightenedColumns = (!producer || !producer.column || !producer.column.not_null)
+    && (!investigation || !investigation.column || !investigation.column.not_null);
+  const noUniqueIndex = evidence.index.length === 0
+    || (evidence.index.length === 1 && !evidence.index[0].unique);
+  const data = evidence.data;
+  const noQuarantine = Number(data.certifier_count) === 0
+    || (Number(data.known_orphan_rows) === 1
+      && data.known_orphan_status === TENANCY_TIGHTENING_STATE.orphan.activeStatus
+      && Number(data.known_orphan_budget_references) === 0);
+  return noTightenedColumns && noUniqueIndex && noQuarantine;
+}
+
+async function verify0013(client) {
+  const evidence = await readTenancyTighteningEvidence(client);
+
+  if (tenancyTighteningSchemaExact(evidence) && tenancyTighteningOrphanExact(evidence)) {
+    return {
+      status: 'exact',
+      summary: 'C3c producer/investigation constraints, unique provenance index, and orphan quarantine are exact.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  if (tenancyTighteningEffectsAbsent(evidence)) {
+    return {
+      status: 'absent',
+      summary: 'C3c tightening and orphan quarantine effects are absent.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  return {
+    status: 'incompatible',
+    summary: 'C3c tightening or orphan quarantine is partially present or incompatible.',
+    evidence,
+    fingerprint: evidenceFingerprint(evidence)
+  };
+}
+
 async function verify0012(client) {
   const evidence = {
     columns: {},
@@ -657,7 +815,7 @@ async function verify0012(client) {
     };
   }
 
-  const columnsExact = DERIVED_TENANCY_STATE.columns.every(expected => {
+  const nullableColumnsExact = DERIVED_TENANCY_STATE.columns.every(expected => {
     const actual = evidence.columns[`${expected.table}.${expected.column}`];
     return actual.table
       && actual.column
@@ -673,7 +831,7 @@ async function verify0012(client) {
       && rows[0].validated
       && rows[0].definition === expected.definition;
   });
-  const indexesExact = DERIVED_TENANCY_STATE.indexes.every(expected => {
+  const plainIndexesExact = DERIVED_TENANCY_STATE.indexes.every(expected => {
     const rows = evidence.indexes[expected.name];
     if (rows.length !== 1) return false;
     const actual = rows[0];
@@ -688,8 +846,14 @@ async function verify0012(client) {
       && Number(actual.total_columns) === expected.columns.length
       && stableJson(actual.columns) === stableJson(expected.columns);
   });
+  const tighteningEvidence = (!nullableColumnsExact || !plainIndexesExact)
+    ? await readTenancyTighteningEvidence(client)
+    : null;
+  const successorExact = tighteningEvidence
+    ? tenancyTighteningSchemaExact(tighteningEvidence)
+    : false;
 
-  if (columnsExact && constraintsExact && indexesExact) {
+  if (constraintsExact && ((nullableColumnsExact && plainIndexesExact) || successorExact)) {
     evidence.data = (await client.query(
       `SELECT
          (SELECT count(*)::int
@@ -707,7 +871,9 @@ async function verify0012(client) {
       && Number(evidence.data.investigation_link_mismatches) === 0) {
       return {
         status: 'exact',
-        summary: 'C3a nullable relationship columns, validated constraints, plain indexes, and deterministic links are exact.',
+        summary: successorExact
+          ? 'C3a relationships remain exact with the approved 0013 investigation tightening.'
+          : 'C3a nullable relationship columns, validated constraints, plain indexes, and deterministic links are exact.',
         evidence,
         fingerprint: evidenceFingerprint(evidence)
       };
@@ -726,7 +892,8 @@ const STATE_VERIFIERS = new Map([
   ['0007_add_producer_brandings_table.sql', verify0007],
   ['0009_widen_investigations_status_check.sql', verify0009],
   ['0011_add_profile_organization_id.sql', verify0011],
-  ['0012_add_derived_tenant_relationships.sql', verify0012]
+  ['0012_add_derived_tenant_relationships.sql', verify0012],
+  ['0013_tighten_tenant_constraints.sql', verify0013]
 ]);
 
 async function readMetadata(client) {
@@ -1172,6 +1339,7 @@ module.exports = {
   LOCK_KEY_2,
   DERIVED_TENANCY_STATE,
   PROFILE_ORGANIZATION_STATE,
+  TENANCY_TIGHTENING_STATE,
   TOOL_VERSION,
   evidenceFingerprint,
   extractStatusValues,
@@ -1186,5 +1354,6 @@ module.exports = {
   verify0007,
   verify0009,
   verify0011,
-  verify0012
+  verify0012,
+  verify0013
 };
