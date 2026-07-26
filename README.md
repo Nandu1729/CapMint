@@ -56,6 +56,34 @@ graph TD
 
 ## 🚀 Local Development Quickstart
 
+### Setup & Test
+
+The committed root `package-lock.json` locks the root package and every npm
+workspace. From the repository root, install exactly that dependency graph:
+
+```bash
+npm ci
+```
+
+Run each workspace test suite explicitly:
+
+```bash
+npm test --workspace=backend/auth-service
+npm test --workspace=backend/cpq-service
+npm test --workspace=backend/e2e-tests
+npm test --workspace=backend/integration-service
+npm test --workspace=backend/mint-service
+npm test --workspace=backend/resolver-service
+npm test --workspace=backend/transparency-service
+npm test --workspace=backend/verification-service
+```
+
+To run every workspace test script in one command:
+
+```bash
+npm test
+```
+
 ### 1. Run Dev Servers
 To spin up all local microservices:
 ```bash
