@@ -111,10 +111,10 @@ or modify orphan profiles. The columns are intentionally non-unique so the
 approved structural model permits an organization to own multiple profiles,
 while current activation continues to create one equal-ID profile.
 
-JWTs continue to carry only `orgId`. C3a replaces the temporary equal-ID
-authorization predicates with explicit profile ownership joins. Orphan
-resolution, `NOT NULL`, laboratory assignment behavior, and RLS enforcement
-remain separately gated work.
+JWTs continue to carry only `orgId`. C3a replaced the temporary equal-ID
+authorization predicates with explicit profile ownership joins. C3c makes
+producer ownership mandatory while retaining the known quarantined certifier
+exception. RLS enforcement remains separately gated work.
 
 The reserved tenant-session convention for future RLS policies is the
 transaction-local PostgreSQL GUC `app.current_org`. A future application
@@ -123,10 +123,11 @@ and policies will read it with `current_setting('app.current_org', true)`.
 Migration 0011 does not set the GUC, create policies, enable RLS, or change
 database roles.
 
-`verify0011` is the adoption authority for out-of-band exact state. It returns
-`exact` only when both nullable UUID columns, both named validated foreign keys,
-and both named single-column btree indexes match the expected shape. A completely
-absent shape returns `absent`; partial or incompatible state fails closed.
+`verify0011` is the adoption authority for out-of-band exact state. It accepts
+the original nullable C2 shape and the approved 0013 successor shape, while
+requiring both named validated foreign keys and both named single-column btree
+indexes. A completely absent shape returns `absent`; partial or incompatible
+state fails closed.
 
 ## Derived Tenant Relationships 0012
 
@@ -154,10 +155,10 @@ requires zero lot/budget producer mismatches and exact investigation links.
 The corresponding application authorization resolves producer and certifier
 scope through `profile.organization_id = jwt.orgId`; JWT claims are unchanged.
 
-C3a does not enable RLS, set `NOT NULL`, or add investigation uniqueness.
+C3a did not enable RLS, set `NOT NULL`, or add investigation uniqueness.
 Laboratory assignment and write enforcement are implemented by C3b application
-code without further DDL; tightening remains behind the C3c and DM-04 approval
-gates.
+code without further DDL. C3c supplies the deterministic producer and
+investigation tightening; RLS remains behind the DM-04 approval gate.
 
 ## Laboratory Assignment Enforcement
 
@@ -179,6 +180,32 @@ DM-03 C3b uses the nullable 0012 relationships without changing schema:
 The assignment and submitter columns remain nullable for legacy compatibility.
 C3b adds no migration, RLS policy, database role, `NOT NULL`, or uniqueness
 constraint.
+
+## Tenant Constraint Tightening 0013
+
+`0013_tighten_tenant_constraints.sql` completes the approved DM-03 C3c
+constraint slice:
+
+- fail-closed preflight requires zero producer ownership NULLs, zero
+  investigation unit NULLs, and zero duplicate investigation unit links;
+- non-empty legacy environments must contain exactly the approved orphan
+  certifier `00000000-0000-0000-0000-000000000003` with zero budget
+  references; an entirely empty certifier table is permitted for the immutable
+  schema-only bootstrap;
+- `producers.organization_id` and `investigations.unit_code_id` become
+  `NOT NULL`;
+- `idx_investigations_unit_code_id` is replaced in place by a same-name unique
+  btree index;
+- the approved orphan is changed from `ACTIVE` to the existing reversible
+  `REVOKED` key lifecycle state by an exact-ID update.
+
+`certifiers.organization_id`,
+`lab_results.submitted_by_organization_id`, and
+`lots.assigned_laboratory_organization_id` remain nullable. No RLS role,
+policy, or tenant GUC enforcement is created. `verify0013` classifies the
+tightening and quarantine together as exact, absent, or incompatible; the
+0011/0012 verifiers recognize the approved successor shape without accepting
+partial tightening.
 
 ## Existing Database Procedure
 

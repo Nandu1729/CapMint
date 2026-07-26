@@ -154,17 +154,19 @@ erDiagram
 5.  **`producers` $\rightarrow$ `lots` ($1:N$)**: A producer acts as the packaging organization for zero or more lots.
 6.  **`lots` $\rightarrow$ `unit_codes` ($1:N$)**: A lot run generates one or more retail-level package unit codes.
 7.  **`lots` $\rightarrow$ `lab_results` ($1:1$)**: A lot run is backed by at most one analytical test report (NMR/residue panels).
-8.  **`unit_codes` $\rightarrow$ `investigations` ($1:N$ in C3a)**: Every migrated investigation resolves through an exact FK-backed unit-code link; C3c may tighten the intended one-to-one relationship.
+8.  **`unit_codes` $\rightarrow$ `investigations` ($1:0..1$)**: Every investigation resolves through an exact mandatory FK-backed unit-code link; the C3c unique index permits at most one investigation per unit.
 9.  **`unit_codes` $\rightarrow$ `scan_events` ($1:N$)**: An individual unit code generates zero or more public verification telemetry logs.
 
-The tenant root is `organizations`. Its nullable foreign keys on
-`producers.organization_id` and `certifiers.organization_id` permit structural
-1:N ownership while quarantining unmapped legacy profiles as `NULL`. Runtime
-authorization derives producer and certifier scope through those explicit
-ownership keys. C3b assigns laboratories through the nullable lot relationship,
+The tenant root is `organizations`. Its profile foreign keys permit structural
+1:N ownership. C3c makes `producers.organization_id` mandatory; the sole
+zero-reference legacy certifier remains `NULL` and is quarantined with
+`key_status = 'REVOKED'` pending separate disposition. Runtime authorization
+derives producer and certifier scope through those explicit ownership keys. C3b
+assigns laboratories through the nullable lot relationship,
 restricts laboratory lists and writes to that assignment, and records the
 authenticated submitter on new/replaced results. Legacy `NULL` submitters remain
-unknown. No RLS policy or `NOT NULL`/investigation-uniqueness tightening exists.
+unknown. No RLS policy exists, and certifier/laboratory tenant columns remain
+nullable.
 
 *Note: The `log_entries` table is logically associated with all mutable entities (Budgets, Lots, Unit Codes) using polymorphic references (`entity_type` + `entity_id`) without physical foreign key constraints. This prevents cascading deletions or profile changes from breaking the historical cryptographic chain.*
 

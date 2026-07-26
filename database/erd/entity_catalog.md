@@ -31,7 +31,7 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | Column Name | Database Data Type | Nullability | Constraints / Keys | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `NOT NULL` | `PRIMARY KEY` | Unique identifier. |
-| `organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Explicit tenant owner. Nullable only for unmapped legacy profiles during DM-03 C2. |
+| `organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Explicit tenant owner. The sole NULL profile is exact-ID quarantined as `REVOKED` pending separate disposition. |
 | `name` | `VARCHAR(255)` | `NOT NULL` | `UNIQUE` | Registered name of the certifier. |
 | `accreditation_details`| `JSONB` | `NOT NULL` | None | Accreditation agency IDs, licenses, validity dates. |
 | `public_key` | `VARCHAR(128)` | `NOT NULL` | None | Ed25519 cryptographic public key in Hex. |
@@ -58,7 +58,7 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | Column Name | Database Data Type | Nullability | Constraints / Keys | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `NOT NULL` | `PRIMARY KEY` | Unique identifier. |
-| `organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Explicit tenant owner. Nullable only for unmapped legacy profiles during DM-03 C2. |
+| `organization_id` | `UUID` | `NOT NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Explicit tenant owner, mandatory after DM-03 C3c. |
 | `name` | `VARCHAR(255)` | `NOT NULL` | None | Registered producer or FPO name. |
 | `type` | `VARCHAR(32)` | `NOT NULL` | Check: `FARMER`, `FPO`, `BRAND`, `HIVE_OPERATOR` | Producer operating classification. |
 | `registry_references` | `JSONB` | `NOT NULL` | None | AgriStack IDs, TraceNet organic certificates. |
@@ -267,20 +267,20 @@ The database is divided into nine core tables, mapped to their single-writer mic
 ### 2.10 Table: `investigations`
 *   **Logical Owner Service**: `Verification Service`
 *   **Purpose**: Tracks anomaly cases derived from serialized unit codes.
-*   **Key Constraints**: Unique logical `public_identifier`; validated nullable
-    FK from `unit_code_id` to `unit_codes(id)`.
+*   **Key Constraints**: Unique logical `public_identifier`; mandatory unique
+    FK-backed `unit_code_id` provenance to `unit_codes(id)`.
 
 | Column Name | Database Data Type | Nullability | Constraints / Keys | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `NOT NULL` | `PRIMARY KEY` | Investigation identifier. |
 | `public_identifier` | `UUID` | `NOT NULL` | `UNIQUE` | Public code identifier retained for compatibility. |
-| `unit_code_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `unit_codes(id)` | Exact provenance link backfilled in C3a; NOT NULL/UNIQUE tightening is deferred to C3c. |
+| `unit_code_id` | `UUID` | `NOT NULL` | `FOREIGN KEY` $\rightarrow$ `unit_codes(id)` plus unique index | Exact provenance link backfilled in C3a and tightened in C3c. |
 | `risk_level` | `VARCHAR(32)` | `NOT NULL` | None | Current case risk. |
 | `status` | `VARCHAR(32)` | `NOT NULL` | Status CHECK | Investigation workflow state. |
 
 *   **Indexing Targets**:
-    *   `idx_investigations_unit_code_id` ON (`unit_code_id`) — Supports derived
-        certifier ownership joins.
+    *   `idx_investigations_unit_code_id` UNIQUE ON (`unit_code_id`) — Enforces
+        one case per unit and supports derived certifier ownership joins.
 
 ---
 *End of entity_catalog.md*

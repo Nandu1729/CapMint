@@ -14,8 +14,8 @@ The table below lists all database relationships in CapMint:
 
 | Parent Table | Child Table | Relationship Type | Cardinality | FK Column | Delete Rule | Update Rule | Purpose |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `organizations` | `producers` | One-to-Many ($1:N$) | $0..1$ during C2 migration $\rightarrow$ $0..*$ | `organization_id` | `NO ACTION` | `NO ACTION` | Explicit tenant owner; nullable only for quarantined legacy rows during C2. |
-| `organizations` | `certifiers` | One-to-Many ($1:N$) | $0..1$ during C2 migration $\rightarrow$ $0..*$ | `organization_id` | `NO ACTION` | `NO ACTION` | Explicit tenant owner; nullable only for quarantined legacy rows during C2. |
+| `organizations` | `producers` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ | `organization_id` | `NO ACTION` | `NO ACTION` | Explicit tenant owner; mandatory after C3c. |
+| `organizations` | `certifiers` | One-to-Many ($1:N$) | $0..1$ $\rightarrow$ $0..*$ | `organization_id` | `NO ACTION` | `NO ACTION` | Explicit tenant owner; nullable only for the exact quarantined legacy certifier pending disposition. |
 | `producers` | `plots_or_hive_clusters` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `producer_id` | `RESTRICT` | `CASCADE` | Maps locations to owning producer. |
 | `certifiers` | `budgets` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `certifier_id` | `RESTRICT` | `CASCADE` | Tracks certifier signing budget quota. |
 | `producers` | `budgets` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `producer_id` | `RESTRICT` | `CASCADE` | Tracks capacity allocation to producer. |
@@ -26,7 +26,7 @@ The table below lists all database relationships in CapMint:
 | `lots` | `lab_results` | One-to-One ($1:1$) | $1$ (Mandatory) $\rightarrow$ $0..1$ (Optional) | `lot_id` | `RESTRICT` | `CASCADE` | Binds lab PDF reports to lots. |
 | `organizations` | `lots` | Laboratory assignment | $0..1$ (Optional) $\rightarrow$ $0..*$ | `assigned_laboratory_organization_id` | `RESTRICT` | `NO ACTION` | Nullable relationship; C3b assignment is restricted to the budget-controlling certifier and an activated NABL target. |
 | `organizations` | `lab_results` | Laboratory submitter provenance | $0..1$ (Optional) $\rightarrow$ $0..*$ | `submitted_by_organization_id` | `RESTRICT` | `NO ACTION` | C3b writes persist the authenticated assigned lab; legacy rows stay NULL. |
-| `unit_codes` | `investigations` | One-to-One candidate | $1$ after C3a backfill $\rightarrow$ $0..*$ | `unit_code_id` | `RESTRICT` | `CASCADE` | Exact FK-backed investigation provenance; NOT NULL/UNIQUE tightening is deferred to C3c. |
+| `unit_codes` | `investigations` | One-to-Zero-or-One ($1:0..1$) | $1$ (Mandatory) $\rightarrow$ $0..1$ | `unit_code_id` | `RESTRICT` | `CASCADE` | Exact FK-backed investigation provenance; C3c enforces NOT NULL and uniqueness. |
 | `unit_codes` | `scan_events` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `unit_code_id` | `RESTRICT` | `CASCADE` | Logs telemetry query events. |
 | *Polymorphic* | `log_entries` | Polymorphic (Logical) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `entity_id` | N/A (Manual) | N/A (Manual)| decoupled ledger audit trail. |
 
@@ -36,9 +36,9 @@ The table below lists all database relationships in CapMint:
 
 ### 3.1 Organization $\rightarrow$ Producer/Certifier Profiles ($1:N$)
 *   **Business Rationale**: JWT `orgId` identifies `organizations.id`, while producer and certifier primary keys remain independent domain identifiers. Explicit foreign keys make tenant ownership expressible without changing existing provenance identifiers.
-*   **Cardinality**: The schema permits one organization to own multiple profiles. Current activation provisions at most one equal-ID profile. During C2, a legacy profile may have no mapped organization and therefore retains `NULL`.
+*   **Cardinality**: The schema permits one organization to own multiple profiles. Current activation provisions at most one equal-ID profile. C3c requires every producer to have an owner; only the exact revoked legacy certifier remains `NULL` pending separately approved disposition.
 *   **Constraints**: `FOREIGN KEY (organization_id) REFERENCES organizations(id)` on both profile tables.
-*   **Enforcement rationale**: Every non-`NULL` tenant key is validated. C3a authorization derives ownership through these keys; uniqueness, `NOT NULL`, RLS, and orphan resolution remain separately gated.
+*   **Enforcement rationale**: Every non-`NULL` tenant key is validated. C3a authorization derives ownership through these keys; C3c enforces producer ownership and quarantines the sole zero-reference orphan. Certifier `NOT NULL` and RLS remain separately gated.
 
 ### 3.2 Producer $\rightarrow$ Plots or Hive Clusters ($1:N$)
 *   **Business Rationale**: A producer owns the land plots or apiary clusters where raw commodities are grown. 
@@ -97,8 +97,9 @@ The table below lists all database relationships in CapMint:
 *   **Investigation provenance**:
     `investigations.unit_code_id REFERENCES unit_codes(id)
     ON DELETE RESTRICT ON UPDATE CASCADE`. Migration 0012 fills it only from an
-    exact `public_identifier` match. It remains nullable and non-unique until
-    C3c.
+    exact `public_identifier` match. Migration 0013 makes it mandatory and
+    enforces one investigation per unit code with
+    `idx_investigations_unit_code_id` as a unique btree index.
 *   **Laboratory assignment and provenance**:
     `lots.assigned_laboratory_organization_id` and
     `lab_results.submitted_by_organization_id` reference organizations with
