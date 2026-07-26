@@ -205,7 +205,9 @@ constraint slice:
 policy, or tenant GUC enforcement is created. `verify0013` classifies the
 tightening and quarantine together as exact, absent, or incompatible; the
 0011/0012 verifiers recognize the approved successor shape without accepting
-partial tightening.
+partial tightening. After an empty bootstrap has recorded 0013, the verifier
+also accepts a later all-mapped certifier population with zero orphans; the
+same non-empty zero-orphan state remains incompatible before 0013 execution.
 
 ## Existing Database Procedure
 
