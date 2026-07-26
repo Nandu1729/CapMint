@@ -12,8 +12,15 @@ The diagram below represents the logical relationships and primary/foreign key c
 
 ```mermaid
 erDiagram
+    organizations {
+        uuid id PK
+        varchar name UK
+        varchar type
+        varchar status
+    }
     certifiers {
         uuid id PK
+        uuid organization_id FK
         varchar name UK
         jsonb accreditation_details
         varchar public_key
@@ -24,6 +31,7 @@ erDiagram
     }
     producers {
         uuid id PK
+        uuid organization_id FK
         varchar name
         varchar type
         jsonb registry_references
@@ -111,6 +119,8 @@ erDiagram
         timestamptz created_at
     }
 
+    organizations ||--o{ producers : "tenant owner"
+    organizations ||--o{ certifiers : "tenant owner"
     producers ||--o{ plots_or_hive_clusters : "owns"
     certifiers ||--o{ budgets : "approves"
     producers ||--o{ budgets : "receives"
@@ -133,6 +143,12 @@ erDiagram
 6.  **`lots` $\rightarrow$ `unit_codes` ($1:N$)**: A lot run generates one or more retail-level package unit codes.
 7.  **`lots` $\rightarrow$ `lab_results` ($1:1$)**: A lot run is backed by at most one analytical test report (NMR/residue panels).
 8.  **`unit_codes` $\rightarrow$ `scan_events` ($1:N$)**: An individual unit code generates zero or more public verification telemetry logs.
+
+The tenant root is `organizations`. Its nullable C2 foreign keys on
+`producers.organization_id` and `certifiers.organization_id` permit structural
+1:N ownership while quarantining unmapped legacy profiles as `NULL`. Runtime
+authorization continues to use the temporary equal-ID predicates until DM-03
+C3.
 
 *Note: The `log_entries` table is logically associated with all mutable entities (Budgets, Lots, Unit Codes) using polymorphic references (`entity_type` + `entity_id`) without physical foreign key constraints. This prevents cascading deletions or profile changes from breaking the historical cryptographic chain.*
 

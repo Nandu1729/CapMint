@@ -31,6 +31,7 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | Column Name | Database Data Type | Nullability | Constraints / Keys | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `NOT NULL` | `PRIMARY KEY` | Unique identifier. |
+| `organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Explicit tenant owner. Nullable only for unmapped legacy profiles during DM-03 C2. |
 | `name` | `VARCHAR(255)` | `NOT NULL` | `UNIQUE` | Registered name of the certifier. |
 | `accreditation_details`| `JSONB` | `NOT NULL` | None | Accreditation agency IDs, licenses, validity dates. |
 | `public_key` | `VARCHAR(128)` | `NOT NULL` | None | Ed25519 cryptographic public key in Hex. |
@@ -41,6 +42,7 @@ The database is divided into nine core tables, mapped to their single-writer mic
 
 *   **Indexing Targets**:
     *   `idx_certifiers_key_status` ON (`key_status`) — Optimizes signature verification checks.
+    *   `idx_certifiers_organization_id` ON (`organization_id`) — Supports tenant-profile resolution and future RLS policies.
 *   **Domain Events**:
     *   Inserts trigger `CertifierRegistered`.
     *   Updates on keys trigger `CertifierKeyRotated`.
@@ -56,6 +58,7 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | Column Name | Database Data Type | Nullability | Constraints / Keys | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `NOT NULL` | `PRIMARY KEY` | Unique identifier. |
+| `organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Explicit tenant owner. Nullable only for unmapped legacy profiles during DM-03 C2. |
 | `name` | `VARCHAR(255)` | `NOT NULL` | None | Registered producer or FPO name. |
 | `type` | `VARCHAR(32)` | `NOT NULL` | Check: `FARMER`, `FPO`, `BRAND`, `HIVE_OPERATOR` | Producer operating classification. |
 | `registry_references` | `JSONB` | `NOT NULL` | None | AgriStack IDs, TraceNet organic certificates. |
@@ -65,6 +68,7 @@ The database is divided into nine core tables, mapped to their single-writer mic
 
 *   **Indexing Targets**:
     *   `idx_producers_type` ON (`type`) — Optimizes classification filtering.
+    *   `idx_producers_organization_id` ON (`organization_id`) — Supports tenant-profile resolution and future RLS policies.
 *   **Domain Events**:
     *   Inserts trigger `ProducerOnboarded`.
 *   **Ledger Anchored**: Yes.

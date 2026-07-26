@@ -95,6 +95,39 @@ functions, extra branding triggers, contradictory investigation constraints,
 and unsupported investigation status data. It is repeatable and contains no
 tenant ownership columns or seed data.
 
+## Profile Tenant Ownership 0011
+
+`0011_add_profile_organization_id.sql` introduces the additive DM-03 C2 tenant
+foundation:
+
+- nullable `producers.organization_id` and `certifiers.organization_id` UUID
+  columns;
+- validated foreign keys to `organizations(id)`;
+- `idx_producers_organization_id` and `idx_certifiers_organization_id`;
+- guarded equal-ID backfill only when the matching organization exists.
+
+Unmapped profiles remain `NULL`; the migration does not synthesize organizations
+or modify orphan profiles. The columns are intentionally non-unique so the
+approved structural model permits an organization to own multiple profiles,
+while current activation continues to create one equal-ID profile.
+
+Runtime authorization remains on the temporary C0 equal-ID predicates. JWTs
+continue to carry only `orgId`. Predicate rewrites, orphan resolution,
+`NOT NULL`, laboratory assignment, and RLS enforcement require separately
+approved DM-03 C3 work.
+
+The reserved tenant-session convention for future RLS policies is the
+transaction-local PostgreSQL GUC `app.current_org`. A future application
+transaction will set it with `SET LOCAL app.current_org = '<organization UUID>'`
+and policies will read it with `current_setting('app.current_org', true)`.
+Migration 0011 does not set the GUC, create policies, enable RLS, or change
+database roles.
+
+`verify0011` is the adoption authority for out-of-band exact state. It returns
+`exact` only when both nullable UUID columns, both named validated foreign keys,
+and both named single-column btree indexes match the expected shape. A completely
+absent shape returns `absent`; partial or incompatible state fails closed.
+
 ## Existing Database Procedure
 
 1. Run `--check`.
