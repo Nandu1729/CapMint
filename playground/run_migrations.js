@@ -655,7 +655,8 @@ async function readTenancyTighteningEvidence(client) {
       certifier_orphans: null,
       known_orphan_rows: null,
       known_orphan_status: null,
-      known_orphan_budget_references: null
+      known_orphan_budget_references: null,
+      migration_recorded: false
     }
   };
 
@@ -690,6 +691,15 @@ async function readTenancyTighteningEvidence(client) {
        FROM certifiers`,
       [KNOWN_ORPHAN_CERTIFIER_ID]
     )).rows[0];
+    if (await tableExists(client, 'migrations_log')) {
+      evidence.data.migration_recorded = (await client.query(
+        `SELECT EXISTS (
+           SELECT 1
+           FROM migrations_log
+           WHERE filename = '0013_tighten_tenant_constraints.sql'
+         ) AS recorded`
+      )).rows[0].recorded;
+    }
   }
 
   return evidence;
@@ -724,6 +734,9 @@ function tenancyTighteningOrphanExact(evidence) {
   if (Number(data.certifier_count) === 0) {
     return Number(data.known_orphan_rows) === 0
       && Number(data.known_orphan_budget_references) === 0;
+  }
+  if (Number(data.certifier_orphans) === 0 && Number(data.known_orphan_rows) === 0) {
+    return data.migration_recorded;
   }
   return Number(data.certifier_orphans) === 1
     && Number(data.known_orphan_rows) === 1

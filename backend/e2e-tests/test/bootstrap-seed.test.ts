@@ -381,9 +381,11 @@ suite('F2 secure bootstrap and development seed', () => {
         const result = runNode(bootstrapAdminScript, adminEnvironment(name));
         expect(result.status).toBe(1);
         expect(JSON.parse(result.stderr).code).toBe(
-          ['partial', 'mixed'].includes(scenario)
-            ? 'AMBIGUOUS_BOOTSTRAP_STATE'
-            : 'ADMIN_ALREADY_EXISTS'
+          scenario === 'legacy'
+            ? 'MIGRATION_STATE_UNSAFE'
+            : (['partial', 'mixed'].includes(scenario)
+              ? 'AMBIGUOUS_BOOTSTRAP_STATE'
+              : 'ADMIN_ALREADY_EXISTS')
         );
         expect(await rowCounts(name)).toEqual(before);
       } finally {
