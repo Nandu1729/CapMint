@@ -52,12 +52,14 @@ const ids = {
   capacityBudget: crypto.randomUUID(),
   overfilledBudget: crypto.randomUUID(),
   unsignedBudget: crypto.randomUUID(),
+  revokedBudget: crypto.randomUUID(),
   lotA: crypto.randomUUID(),
   lotB: crypto.randomUUID(),
   lotRevokeA: crypto.randomUUID(),
   capacityLot: crypto.randomUUID(),
   overfilledLot: crypto.randomUUID(),
   unsignedLot: crypto.randomUUID(),
+  revokedBudgetLot: crypto.randomUUID(),
   codeA: crypto.randomUUID(),
   codeB: crypto.randomUUID(),
   codeRevokeA: crypto.randomUUID(),
@@ -254,6 +256,11 @@ async function insertFixtures(): Promise<void> {
       Buffer.from(`budget_id:${ids.overfilledBudget};approved_quantity:1.00`),
       certifierPrivateKey
     ).toString('hex');
+    const revokedSignature = crypto.sign(
+      null,
+      Buffer.from(`budget_id:${ids.revokedBudget};approved_quantity:1.00`),
+      certifierPrivateKey
+    ).toString('hex');
     await client.query(
       `INSERT INTO budgets
          (id, producer_id, certifier_id, source_unit_type, approved_quantity,
@@ -271,14 +278,17 @@ async function insertFixtures(): Promise<void> {
          ($12, $2, $3, 'UNIT_COUNT', 1, 1, '{"crop":"Overfilled guard"}', $13,
           CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 year', 'EXHAUSTED', '[]'),
          ($14, $2, $3, 'UNIT_COUNT', 1, 1, '{"crop":"Unsigned guard"}', '',
-          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 year', 'EXHAUSTED', '[]')`,
+          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 year', 'EXHAUSTED', '[]'),
+         ($15, $2, $3, 'UNIT_COUNT', 1, 1, '{"crop":"Revoked budget guard"}', $16,
+          CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 year', 'REVOKED', '[]')`,
       [
         ids.budgetA, ids.producerA, ids.certifierA, activeSignatureA,
         ids.budgetB, ids.producerB, ids.certifierB, activeSignatureB,
         ids.budgetActivateA,
         ids.capacityBudget, capacitySignature,
         ids.overfilledBudget, overfilledSignature,
-        ids.unsignedBudget
+        ids.unsignedBudget,
+        ids.revokedBudget, revokedSignature
       ]
     );
 
@@ -292,14 +302,16 @@ async function insertFixtures(): Promise<void> {
          ($8, $2, $3, '{"name":"C0 Revoke A"}', 20, '{}', 'PASSED', 'ACTIVE', 'PENDING'),
          ($9, $2, $10, '{"name":"Capacity race"}', 1, '{}', 'PASSED', 'ACTIVE', 'PENDING'),
          ($11, $2, $12, '{"name":"Overfilled guard"}', 1, '{}', 'PASSED', 'ACTIVE', 'PENDING'),
-         ($13, $2, $14, '{"name":"Unsigned guard"}', 1, '{}', 'PASSED', 'ACTIVE', 'PENDING')`,
+         ($13, $2, $14, '{"name":"Unsigned guard"}', 1, '{}', 'PASSED', 'ACTIVE', 'PENDING'),
+         ($15, $2, $16, '{"name":"Revoked budget guard"}', 1, '{}', 'PASSED', 'ACTIVE', 'PENDING')`,
       [
         ids.lotA, ids.producerA, ids.budgetA, JSON.stringify({ name: 'C0 Product A', batch_id: values.batchA }),
         ids.lotB, ids.producerB, ids.budgetB,
         ids.lotRevokeA,
         ids.capacityLot, ids.capacityBudget,
         ids.overfilledLot, ids.overfilledBudget,
-        ids.unsignedLot, ids.unsignedBudget
+        ids.unsignedLot, ids.unsignedBudget,
+        ids.revokedBudgetLot, ids.revokedBudget
       ]
     );
     await client.query(
@@ -997,6 +1009,40 @@ suite('C0 tenant authorization containment', () => {
       [ids.unsignedLot]
     );
     expect(issued.rows[0].count).toBe(0);
+  });
+
+  it('rejects explicit-lot /verify/register issuance when the budget is revoked', async () => {
+    const before = await testPool.query(
+      'SELECT COUNT(*)::int AS count FROM unit_codes WHERE lot_id = $1',
+      [ids.revokedBudgetLot]
+    );
+    const result = await requestJson(BASE.verification, '/api/v1/verify/register', {
+      method: 'POST',
+      token: tokens.producerA,
+      body: {
+        lot_id: ids.revokedBudgetLot,
+        public_identifier: crypto.randomUUID(),
+        gtin: values.gtinA,
+        serial: `R${crypto.randomBytes(6).toString('hex')}`,
+        verification_url: `https://verify.c0/v/${crypto.randomUUID()}`
+      }
+    });
+
+    expect(result.status).toBe(400);
+    expect(result.data).toEqual({
+      success: false,
+      error: {
+        statusCode: 400,
+        code: 'INACTIVE_BUDGET',
+        message: 'Linked budget status is: REVOKED. Cannot issue codes.'
+      }
+    });
+    const after = await testPool.query(
+      'SELECT COUNT(*)::int AS count FROM unit_codes WHERE lot_id = $1',
+      [ids.revokedBudgetLot]
+    );
+    expect(after.rows[0].count).toBe(before.rows[0].count);
+    expect(after.rows[0].count).toBe(0);
   });
 
   it('serializes parallel /verify/register requests without over-issuance', async () => {

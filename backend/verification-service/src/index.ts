@@ -749,7 +749,7 @@ async function reserveLotIssuance(
 ): Promise<LotIssuanceReservation | CapacityGuardFailure> {
   const lotRes = await client.query(
     `SELECT l.id, l.batch_size, l.budget_id, l.producer_id, l.revocation_status,
-            b.approved_quantity, b.certifier_id, b.signature_bundle
+            b.status AS budget_status, b.approved_quantity, b.certifier_id, b.signature_bundle
      FROM lots l
      JOIN budgets b ON b.id = l.budget_id
      JOIN producers p ON p.id = l.producer_id
@@ -765,6 +765,13 @@ async function reserveLotIssuance(
   }
 
   const lot = lotRes.rows[0];
+  if (!['ACTIVE', 'EXHAUSTED'].includes(lot.budget_status)) {
+    return capacityFailure(
+      400,
+      'INACTIVE_BUDGET',
+      `Linked budget status is: ${lot.budget_status}. Cannot issue codes.`
+    );
+  }
   if (!(await verifyBudgetAuthority(
     client,
     lot.budget_id,
