@@ -206,6 +206,62 @@ const PROVENANCE_RLS_STATE = {
     }
   ]
 };
+const SUPPORTING_RLS_STATE = {
+  tables: [
+    'investigations',
+    'lab_results',
+    'plots_or_hive_clusters',
+    'producer_brandings',
+    'scan_events'
+  ],
+  policies: [
+    { table_name: 'investigations', policy_name: 'investigations_tenant_insert', command: 'INSERT', signature: '859de1a2c5de2ccd62d79ef519b1fdc8a14139e2c860b4b961b44a26c2e2dae1' },
+    { table_name: 'investigations', policy_name: 'investigations_tenant_select', command: 'SELECT', signature: 'dabbf351749b358edb30c94a7a4e38e650eac9b2755029b4eff97413a9fa533b' },
+    { table_name: 'investigations', policy_name: 'investigations_tenant_update', command: 'UPDATE', signature: '87f7101e311730e2f954ad871e5ca49bb79afc0cb5192afba07cdf6bea85da37' },
+    { table_name: 'lab_results', policy_name: 'lab_results_tenant_insert', command: 'INSERT', signature: '8a5a6e9749da66b9699a90b13920369617b2780693833b4cf682bfc8231ecfe2' },
+    { table_name: 'lab_results', policy_name: 'lab_results_tenant_select', command: 'SELECT', signature: '40d6a98a9fd987d4727fb848ced810653fb59e6fa7c4821a5e63ee9c28161c2d' },
+    { table_name: 'lab_results', policy_name: 'lab_results_tenant_update', command: 'UPDATE', signature: '1790b23c2cc8c43d4d7c105fc5b399ab55fbd8d08c785add069d7f4ee69ee1f3' },
+    { table_name: 'plots_or_hive_clusters', policy_name: 'plots_or_hive_clusters_tenant_insert', command: 'INSERT', signature: '5556b05e4eaaef5d8fe1888d33b9038793c05073e3c86ce661962b95fc2fedfd' },
+    { table_name: 'plots_or_hive_clusters', policy_name: 'plots_or_hive_clusters_tenant_select', command: 'SELECT', signature: 'e667a9393aebc5b3688903e4c6a57cc2a5bcd10cedac6495d5d6290ca66efb18' },
+    { table_name: 'plots_or_hive_clusters', policy_name: 'plots_or_hive_clusters_tenant_update', command: 'UPDATE', signature: '927eeb9a392927ea8599fd2633c57d1571173d9f8d19584ddb002d0f82e1af5c' },
+    { table_name: 'producer_brandings', policy_name: 'producer_brandings_tenant_insert', command: 'INSERT', signature: '5556b05e4eaaef5d8fe1888d33b9038793c05073e3c86ce661962b95fc2fedfd' },
+    { table_name: 'producer_brandings', policy_name: 'producer_brandings_tenant_select', command: 'SELECT', signature: 'f090cb4f2892b29e8d0a4718adb4776e84f7993321919d3ae93fd86336845a66' },
+    { table_name: 'producer_brandings', policy_name: 'producer_brandings_tenant_update', command: 'UPDATE', signature: '927eeb9a392927ea8599fd2633c57d1571173d9f8d19584ddb002d0f82e1af5c' },
+    { table_name: 'scan_events', policy_name: 'scan_events_tenant_insert', command: 'INSERT', signature: '864849e5cd80136e434377d401934583816749d1621f16d22d2088d85caaf0dd' },
+    { table_name: 'scan_events', policy_name: 'scan_events_tenant_select', command: 'SELECT', signature: 'a2b650282c17e7a300b51a76212319e841f743ebd00b8bafc02b73c1d226bfdf' }
+  ],
+  helpers: [
+    {
+      function_name: 'capmint_rls_lab_result_writer',
+      identity_arguments:
+        'p_lot_id uuid, p_submitter_id uuid, p_organization_id uuid',
+      signature: 'e258372e5be138cdd0c7542047814e4983507345c7dd24f255b7e1c42845d110'
+    },
+    {
+      function_name: 'capmint_rls_producer_has_public_code',
+      identity_arguments: 'p_producer_id uuid',
+      signature: 'a5d64d71f0ad5ed6eabbc57e51df204ba86d7481439608d7ab278316d21701b2'
+    },
+    {
+      function_name: 'capmint_rls_registered_unit_code',
+      identity_arguments:
+        'p_unit_code_id uuid, p_public_identifier uuid',
+      signature: '1caae674ad953c22c3fc4ae720039844f38e6b189df5e323e5d03f0cf862f15a'
+    },
+    {
+      function_name: 'capmint_rls_unit_certifier',
+      identity_arguments:
+        'p_unit_code_id uuid, p_organization_id uuid',
+      signature: '80a57075b016c83ce32d00926f5e382aed26782a629023160a17c0167d5d3796'
+    },
+    {
+      function_name: 'capmint_rls_unit_code_actor',
+      identity_arguments:
+        'p_unit_code_id uuid, p_organization_id uuid',
+      signature: 'cd4df040b2bac0c34e85126a867cf812f5bc3004080ed3e06ed2f8ec472e89fa'
+    }
+  ]
+};
 const CORE_TABLES = [
   'organizations',
   'users',
@@ -1216,6 +1272,24 @@ async function verify0015(client) {
     };
   }
 
+  const supportingSuccessorEvidence =
+    await readSupportingRlsEvidence(client, provenanceSuccessorEvidence);
+  if (supportingSuccessorEvidence.supporting_migration_recorded
+    && supportingRlsExact(supportingSuccessorEvidence)
+    && appRoleSecurityExact(evidence)
+    && appRoleGrantsExact(evidence)) {
+    const combinedEvidence = {
+      ...evidence,
+      successor: supportingSuccessorEvidence
+    };
+    return {
+      status: 'exact',
+      summary: 'Non-owner capmint_app D1 grants remain exact with recorded 0018 supporting-table RLS enforcement.',
+      evidence: combinedEvidence,
+      fingerprint: evidenceFingerprint(combinedEvidence)
+    };
+  }
+
   const noDatabaseEffects = evidence.database_privileges.length === 0
     && evidence.schema_privileges.length === 0
     && evidence.table_privileges.length === 0
@@ -1259,6 +1333,7 @@ async function readIdentityRlsEvidence(client) {
   const evidence = {
     migration_recorded: false,
     provenance_migration_recorded: false,
+    supporting_migration_recorded: false,
     rls_tables: [],
     policies: []
   };
@@ -1273,11 +1348,18 @@ async function readIdentityRlsEvidence(client) {
          SELECT 1
          FROM migrations_log
          WHERE filename = '0017_enable_provenance_chain_rls.sql'
-       ) AS provenance_recorded`
+       ) AS provenance_recorded,
+       EXISTS (
+         SELECT 1
+         FROM migrations_log
+         WHERE filename = '0018_enable_supporting_table_rls.sql'
+       ) AS supporting_recorded`
     )).rows[0];
     evidence.migration_recorded = migrationRecords.identity_recorded;
     evidence.provenance_migration_recorded =
       migrationRecords.provenance_recorded;
+    evidence.supporting_migration_recorded =
+      migrationRecords.supporting_recorded;
   }
   evidence.rls_tables = (await client.query(
     `SELECT relation.relname AS table_name,
@@ -1488,6 +1570,59 @@ function provenanceRlsEffectsAbsent(evidence) {
     && evidence.helpers.length === 0;
 }
 
+async function readSupportingRlsEvidence(client, rlsEvidence = null) {
+  return readProvenanceRlsEvidence(client, rlsEvidence);
+}
+
+function supportingRlsExact(evidence) {
+  const expectedTables = [
+    ...IDENTITY_RLS_STATE.tables,
+    ...PROVENANCE_RLS_STATE.tables,
+    ...SUPPORTING_RLS_STATE.tables
+  ].sort().map(tableName => ({
+    table_name: tableName,
+    enabled: true,
+    forced: false
+  }));
+  const expectedPolicies = [
+    ...IDENTITY_RLS_STATE.policies,
+    ...PROVENANCE_RLS_STATE.policies,
+    ...SUPPORTING_RLS_STATE.policies
+  ].sort((left, right) =>
+    left.table_name.localeCompare(right.table_name)
+      || left.policy_name.localeCompare(right.policy_name));
+  const expectedHelpers = [
+    ...PROVENANCE_RLS_STATE.helpers,
+    ...SUPPORTING_RLS_STATE.helpers
+  ].sort((left, right) =>
+    left.function_name.localeCompare(right.function_name)
+      || left.identity_arguments.localeCompare(right.identity_arguments));
+
+  return stableJson(evidence.rls_tables) === stableJson(expectedTables)
+    && evidence.policies.length === expectedPolicies.length
+    && evidence.policies.every((policy, index) =>
+      identityPolicyShapeExact(policy, expectedPolicies[index]))
+    && evidence.helpers.length === expectedHelpers.length
+    && evidence.helpers.every((routine, index) =>
+      provenanceHelperShapeExact(routine, expectedHelpers[index]));
+}
+
+function supportingRlsEffectsAbsent(evidence) {
+  const supportingTables = new Set(SUPPORTING_RLS_STATE.tables);
+  const supportingHelpers = new Set(
+    SUPPORTING_RLS_STATE.helpers.map(helper => helper.function_name)
+  );
+  return evidence.rls_tables.every(
+    table => !supportingTables.has(table.table_name)
+  )
+    && evidence.policies.every(
+      policy => !supportingTables.has(policy.table_name)
+    )
+    && evidence.helpers.every(
+      helper => !supportingHelpers.has(helper.function_name)
+    );
+}
+
 async function verify0016(client) {
   const evidence = await readIdentityRlsEvidence(client);
 
@@ -1508,6 +1643,18 @@ async function verify0016(client) {
       summary: 'Identity-table RLS remains exact with recorded 0017 provenance-chain enforcement.',
       evidence: successorEvidence,
       fingerprint: evidenceFingerprint(successorEvidence)
+    };
+  }
+
+  const supportingSuccessorEvidence =
+    await readSupportingRlsEvidence(client, successorEvidence);
+  if (supportingSuccessorEvidence.supporting_migration_recorded
+    && supportingRlsExact(supportingSuccessorEvidence)) {
+    return {
+      status: 'exact',
+      summary: 'Identity-table RLS remains exact with recorded 0018 supporting-table enforcement.',
+      evidence: supportingSuccessorEvidence,
+      fingerprint: evidenceFingerprint(supportingSuccessorEvidence)
     };
   }
 
@@ -1540,6 +1687,17 @@ async function verify0017(client) {
     };
   }
 
+  const successorEvidence = await readSupportingRlsEvidence(client, evidence);
+  if (successorEvidence.supporting_migration_recorded
+    && supportingRlsExact(successorEvidence)) {
+    return {
+      status: 'exact',
+      summary: 'Provenance-chain RLS remains exact with recorded 0018 supporting-table enforcement.',
+      evidence: successorEvidence,
+      fingerprint: evidenceFingerprint(successorEvidence)
+    };
+  }
+
   if (provenanceRlsEffectsAbsent(evidence)) {
     return {
       status: 'absent',
@@ -1552,6 +1710,35 @@ async function verify0017(client) {
   return {
     status: 'incompatible',
     summary: 'Provenance-chain RLS is partial, forced, unexpected, or has a non-exact policy/helper set.',
+    evidence,
+    fingerprint: evidenceFingerprint(evidence)
+  };
+}
+
+async function verify0018(client) {
+  const evidence = await readSupportingRlsEvidence(client);
+
+  if (supportingRlsExact(evidence)) {
+    return {
+      status: 'exact',
+      summary: 'RLS, exact capmint_app policies, and bounded join helpers enforce the five supporting tables.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  if (supportingRlsEffectsAbsent(evidence)) {
+    return {
+      status: 'absent',
+      summary: 'Supporting-table RLS, policies, and D3b join helpers are absent.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  return {
+    status: 'incompatible',
+    summary: 'Supporting-table RLS is partial, forced, unexpected, or has a non-exact policy/helper set.',
     evidence,
     fingerprint: evidenceFingerprint(evidence)
   };
@@ -1731,7 +1918,8 @@ const STATE_VERIFIERS = new Map([
   ['0014_tighten_certifier_organization_id.sql', verify0014],
   ['0015_add_capmint_app_role.sql', verify0015],
   ['0016_enable_identity_table_rls.sql', verify0016],
-  ['0017_enable_provenance_chain_rls.sql', verify0017]
+  ['0017_enable_provenance_chain_rls.sql', verify0017],
+  ['0018_enable_supporting_table_rls.sql', verify0018]
 ]);
 
 async function readMetadata(client) {
@@ -2180,6 +2368,7 @@ module.exports = {
   APP_ROLE_STATE,
   IDENTITY_RLS_STATE,
   PROVENANCE_RLS_STATE,
+  SUPPORTING_RLS_STATE,
   PROFILE_ORGANIZATION_STATE,
   TENANCY_TIGHTENING_STATE,
   TOOL_VERSION,
@@ -2201,5 +2390,6 @@ module.exports = {
   verify0014,
   verify0015,
   verify0016,
-  verify0017
+  verify0017,
+  verify0018
 };
