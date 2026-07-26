@@ -158,6 +158,54 @@ const IDENTITY_RLS_STATE = {
     { table_name: 'producers', policy_name: 'producers_tenant_update', command: 'UPDATE', signature: '698a82369ca54d4ed185197b0d5e380a4349cf19d3213267e458883aad30bb69' }
   ]
 };
+const PROVENANCE_RLS_STATE = {
+  tables: ['budgets', 'lots', 'unit_codes'],
+  policies: [
+    { table_name: 'budgets', policy_name: 'budgets_tenant_insert', command: 'INSERT', signature: '5556b05e4eaaef5d8fe1888d33b9038793c05073e3c86ce661962b95fc2fedfd' },
+    { table_name: 'budgets', policy_name: 'budgets_tenant_select', command: 'SELECT', signature: '94a899a6024774b4b8bc29ec2d0dafd32fd137bcafe72a9ff5f40087bbf53d95' },
+    { table_name: 'budgets', policy_name: 'budgets_tenant_update', command: 'UPDATE', signature: 'e61d2fff5c8d316d9658029cdc2b126a5b0408fd51bb8472da516b1924736129' },
+    { table_name: 'lots', policy_name: 'lots_tenant_insert', command: 'INSERT', signature: '5556b05e4eaaef5d8fe1888d33b9038793c05073e3c86ce661962b95fc2fedfd' },
+    { table_name: 'lots', policy_name: 'lots_tenant_select', command: 'SELECT', signature: '72c6563b4c473923972b4dcdb87315ce63d0cd66cbe619a7673766ef265b6d68' },
+    { table_name: 'lots', policy_name: 'lots_tenant_update', command: 'UPDATE', signature: 'aeec178b3883b72ab869eb719e6f5481a74b8aeb9fefe6e4c47ebe2b2e782325' },
+    { table_name: 'unit_codes', policy_name: 'unit_codes_tenant_insert', command: 'INSERT', signature: '73d921726ef395e1ec3d2da04a1147c34afffa676675ea3107ed20c85bf05add' },
+    { table_name: 'unit_codes', policy_name: 'unit_codes_tenant_select', command: 'SELECT', signature: 'c120096c3badc2c7d36906da4ccb51f3d224b31af4672ca07edeecfd4585d698' },
+    { table_name: 'unit_codes', policy_name: 'unit_codes_tenant_update', command: 'UPDATE', signature: 'dc924a3adc239d97b3f64d44b8ab5bea95f0569318733e6badf39bf1d5653096' }
+  ],
+  helpers: [
+    {
+      function_name: 'capmint_rls_budget_actor',
+      identity_arguments:
+        'p_producer_id uuid, p_certifier_id uuid, p_organization_id uuid',
+      signature: '015873149e4f9ed226cee25cee5287f97f4562311963097e357e9b01d77c94af'
+    },
+    {
+      function_name: 'capmint_rls_has_public_code',
+      identity_arguments: 'p_budget_id uuid, p_lot_id uuid',
+      signature: 'aad9447a4593cf29580466cbe1936e261610ef45cbc75eaf8f182d132844ccd1'
+    },
+    {
+      function_name: 'capmint_rls_lot_actor',
+      identity_arguments:
+        'p_producer_id uuid, p_budget_id uuid, p_laboratory_id uuid, p_organization_id uuid',
+      signature: '2ab488c2db9c06b10d0a03983a6dee66ef3950febda61e18a995ed2a2ae4d2fb'
+    },
+    {
+      function_name: 'capmint_rls_lot_producer',
+      identity_arguments: 'p_lot_id uuid, p_organization_id uuid',
+      signature: '3607b75cb291210b4c56804244e3dedcf523fc6266348c0fedb84b82acc0590e'
+    },
+    {
+      function_name: 'capmint_rls_producer_owns',
+      identity_arguments: 'p_producer_id uuid, p_organization_id uuid',
+      signature: '1f74a301749c546d04bab6e1854248896cb0c3f3e9038afef686a82578cbcec2'
+    },
+    {
+      function_name: 'capmint_rls_unit_actor',
+      identity_arguments: 'p_lot_id uuid, p_organization_id uuid',
+      signature: '64da5a1309f79bb500abaf1fd2e58ccae4a2b64d8094f6dbe75fadfaa814302e'
+    }
+  ]
+};
 const CORE_TABLES = [
   'organizations',
   'users',
@@ -1150,6 +1198,24 @@ async function verify0015(client) {
     };
   }
 
+  const provenanceSuccessorEvidence =
+    await readProvenanceRlsEvidence(client, successorEvidence);
+  if (provenanceSuccessorEvidence.provenance_migration_recorded
+    && provenanceRlsExact(provenanceSuccessorEvidence)
+    && appRoleSecurityExact(evidence)
+    && appRoleGrantsExact(evidence)) {
+    const combinedEvidence = {
+      ...evidence,
+      successor: provenanceSuccessorEvidence
+    };
+    return {
+      status: 'exact',
+      summary: 'Non-owner capmint_app D1 grants remain exact with recorded 0017 provenance-chain RLS enforcement.',
+      evidence: combinedEvidence,
+      fingerprint: evidenceFingerprint(combinedEvidence)
+    };
+  }
+
   const noDatabaseEffects = evidence.database_privileges.length === 0
     && evidence.schema_privileges.length === 0
     && evidence.table_privileges.length === 0
@@ -1192,17 +1258,26 @@ function policyExpressionSignature(policy) {
 async function readIdentityRlsEvidence(client) {
   const evidence = {
     migration_recorded: false,
+    provenance_migration_recorded: false,
     rls_tables: [],
     policies: []
   };
   if (await tableExists(client, 'migrations_log')) {
-    evidence.migration_recorded = (await client.query(
+    const migrationRecords = (await client.query(
       `SELECT EXISTS (
          SELECT 1
          FROM migrations_log
          WHERE filename = '0016_enable_identity_table_rls.sql'
-       ) AS recorded`
-    )).rows[0].recorded;
+       ) AS identity_recorded,
+       EXISTS (
+         SELECT 1
+         FROM migrations_log
+         WHERE filename = '0017_enable_provenance_chain_rls.sql'
+       ) AS provenance_recorded`
+    )).rows[0];
+    evidence.migration_recorded = migrationRecords.identity_recorded;
+    evidence.provenance_migration_recorded =
+      migrationRecords.provenance_recorded;
   }
   evidence.rls_tables = (await client.query(
     `SELECT relation.relname AS table_name,
@@ -1235,6 +1310,77 @@ async function readIdentityRlsEvidence(client) {
     using_expression: normalizePolicyExpression(policy.using_expression),
     check_expression: normalizePolicyExpression(policy.check_expression),
     signature: policyExpressionSignature(policy)
+  }));
+  return evidence;
+}
+
+function normalizeFunctionSource(value) {
+  return value
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function functionSourceSignature(routine) {
+  return sha256(normalizeFunctionSource(routine.source));
+}
+
+async function readProvenanceRlsEvidence(client, rlsEvidence = null) {
+  const evidence = rlsEvidence || await readIdentityRlsEvidence(client);
+  evidence.helpers = (await client.query(
+    `SELECT routine.proname AS function_name,
+            pg_get_function_identity_arguments(routine.oid)
+              AS identity_arguments,
+            pg_get_function_result(routine.oid) AS result_type,
+            routine.prosecdef AS security_definer,
+            CASE routine.provolatile
+              WHEN 'i' THEN 'IMMUTABLE'
+              WHEN 's' THEN 'STABLE'
+              ELSE 'VOLATILE'
+            END AS volatility,
+            pg_get_userbyid(routine.proowner) AS owner,
+            language.lanname AS language,
+            COALESCE(routine.proconfig, ARRAY[]::text[]) AS configuration,
+            routine.prosrc AS source,
+            COALESCE(
+              (
+                SELECT json_agg(
+                  json_build_object(
+                    'grantee',
+                    CASE
+                      WHEN privilege.grantee = 0 THEN 'PUBLIC'
+                      ELSE pg_get_userbyid(privilege.grantee)
+                    END,
+                    'privilege_type',
+                    privilege.privilege_type
+                  )
+                  ORDER BY
+                    CASE
+                      WHEN privilege.grantee = 0 THEN 'PUBLIC'
+                      ELSE pg_get_userbyid(privilege.grantee)
+                    END,
+                    privilege.privilege_type
+                )
+                FROM aclexplode(
+                  COALESCE(
+                    routine.proacl,
+                    acldefault('f', routine.proowner)
+                  )
+                ) AS privilege
+              ),
+              '[]'::json
+            ) AS privileges
+     FROM pg_proc AS routine
+     JOIN pg_namespace AS namespace
+       ON namespace.oid = routine.pronamespace
+     JOIN pg_language AS language
+       ON language.oid = routine.prolang
+     WHERE namespace.nspname = 'public'
+       AND routine.proname LIKE 'capmint_rls_%'
+     ORDER BY routine.proname,
+              pg_get_function_identity_arguments(routine.oid)`
+  )).rows.map(routine => ({
+    ...routine,
+    signature: functionSourceSignature(routine)
   }));
   return evidence;
 }
@@ -1278,6 +1424,70 @@ function identityRlsExact(evidence) {
       identityPolicyShapeExact(policy, IDENTITY_RLS_STATE.policies[index]));
 }
 
+function provenanceHelperShapeExact(routine, expected) {
+  const allowedGrantees = new Set([routine.owner, 'capmint_app']);
+  const appExecute = routine.privileges.some(privilege =>
+    privilege.grantee === 'capmint_app'
+      && privilege.privilege_type === 'EXECUTE');
+  const privilegesExact = routine.privileges.length > 0
+    && routine.privileges.every(privilege =>
+      allowedGrantees.has(privilege.grantee)
+        && privilege.privilege_type === 'EXECUTE');
+
+  return routine.function_name === expected.function_name
+    && routine.identity_arguments === expected.identity_arguments
+    && routine.result_type === 'boolean'
+    && routine.security_definer
+    && routine.volatility === 'STABLE'
+    && routine.owner === 'capmint_admin'
+    && routine.language === 'sql'
+    && stableJson(routine.configuration)
+      === stableJson(['search_path=pg_catalog, public'])
+    && appExecute
+    && privilegesExact
+    && !routine.privileges.some(privilege => privilege.grantee === 'PUBLIC')
+    && (!expected.signature || routine.signature === expected.signature);
+}
+
+function provenanceRlsExact(evidence) {
+  const expectedTables = [
+    ...IDENTITY_RLS_STATE.tables,
+    ...PROVENANCE_RLS_STATE.tables
+  ].sort().map(tableName => ({
+    table_name: tableName,
+    enabled: true,
+    forced: false
+  }));
+  const expectedPolicies = [
+    ...IDENTITY_RLS_STATE.policies,
+    ...PROVENANCE_RLS_STATE.policies
+  ].sort((left, right) =>
+    left.table_name.localeCompare(right.table_name)
+      || left.policy_name.localeCompare(right.policy_name));
+
+  return stableJson(evidence.rls_tables) === stableJson(expectedTables)
+    && evidence.policies.length === expectedPolicies.length
+    && evidence.policies.every((policy, index) =>
+      identityPolicyShapeExact(policy, expectedPolicies[index]))
+    && evidence.helpers.length === PROVENANCE_RLS_STATE.helpers.length
+    && evidence.helpers.every((routine, index) =>
+      provenanceHelperShapeExact(
+        routine,
+        PROVENANCE_RLS_STATE.helpers[index]
+      ));
+}
+
+function provenanceRlsEffectsAbsent(evidence) {
+  const provenanceTables = new Set(PROVENANCE_RLS_STATE.tables);
+  return evidence.rls_tables.every(
+    table => !provenanceTables.has(table.table_name)
+  )
+    && evidence.policies.every(
+      policy => !provenanceTables.has(policy.table_name)
+    )
+    && evidence.helpers.length === 0;
+}
+
 async function verify0016(client) {
   const evidence = await readIdentityRlsEvidence(client);
 
@@ -1287,6 +1497,17 @@ async function verify0016(client) {
       summary: 'RLS and the exact capmint_app policy set are enabled on the three direct-organization identity tables.',
       evidence,
       fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  const successorEvidence = await readProvenanceRlsEvidence(client, evidence);
+  if (successorEvidence.provenance_migration_recorded
+    && provenanceRlsExact(successorEvidence)) {
+    return {
+      status: 'exact',
+      summary: 'Identity-table RLS remains exact with recorded 0017 provenance-chain enforcement.',
+      evidence: successorEvidence,
+      fingerprint: evidenceFingerprint(successorEvidence)
     };
   }
 
@@ -1302,6 +1523,35 @@ async function verify0016(client) {
   return {
     status: 'incompatible',
     summary: 'Identity-table RLS is partial, forced, unexpected, or has a non-exact policy set.',
+    evidence,
+    fingerprint: evidenceFingerprint(evidence)
+  };
+}
+
+async function verify0017(client) {
+  const evidence = await readProvenanceRlsEvidence(client);
+
+  if (provenanceRlsExact(evidence)) {
+    return {
+      status: 'exact',
+      summary: 'RLS, exact capmint_app policies, and bounded join helpers enforce the provenance chain.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  if (provenanceRlsEffectsAbsent(evidence)) {
+    return {
+      status: 'absent',
+      summary: 'Provenance-chain RLS, policies, and join helpers are absent.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  return {
+    status: 'incompatible',
+    summary: 'Provenance-chain RLS is partial, forced, unexpected, or has a non-exact policy/helper set.',
     evidence,
     fingerprint: evidenceFingerprint(evidence)
   };
@@ -1480,7 +1730,8 @@ const STATE_VERIFIERS = new Map([
   ['0013_tighten_tenant_constraints.sql', verify0013],
   ['0014_tighten_certifier_organization_id.sql', verify0014],
   ['0015_add_capmint_app_role.sql', verify0015],
-  ['0016_enable_identity_table_rls.sql', verify0016]
+  ['0016_enable_identity_table_rls.sql', verify0016],
+  ['0017_enable_provenance_chain_rls.sql', verify0017]
 ]);
 
 async function readMetadata(client) {
@@ -1928,6 +2179,7 @@ module.exports = {
   CERTIFIER_NOT_NULL_STATE,
   APP_ROLE_STATE,
   IDENTITY_RLS_STATE,
+  PROVENANCE_RLS_STATE,
   PROFILE_ORGANIZATION_STATE,
   TENANCY_TIGHTENING_STATE,
   TOOL_VERSION,
@@ -1948,5 +2200,6 @@ module.exports = {
   verify0013,
   verify0014,
   verify0015,
-  verify0016
+  verify0016,
+  verify0017
 };
