@@ -180,7 +180,7 @@ server.post('/api/v1/budgets', {
     effective_end_date
   } = request.body as any;
 
-  if (!producer_id || !certifier_id || !source_unit_type || !approved_quantity || !yield_assumptions || !signature_bundle || !effective_start_date || !effective_end_date) {
+  if (!certifier_id || !source_unit_type || !approved_quantity || !yield_assumptions || !signature_bundle || !effective_start_date || !effective_end_date) {
     return reply.status(400).send({
       success: false,
       error: {
@@ -192,17 +192,32 @@ server.post('/api/v1/budgets', {
   }
 
   const user = request.user as any;
-  // Legacy producer_id remains accepted only when it names a profile owned by
-  // the caller. Profile IDs and organization IDs are independent key spaces.
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (producer_id && !uuidPattern.test(producer_id)) {
+    return reply.status(400).send({
+      success: false,
+      error: {
+        statusCode: 400,
+        code: 'BAD_REQUEST',
+        message: 'producer_id must be a valid UUID when provided.'
+      }
+    });
+  }
+
+  // Resolve the caller's only producer profile when the compatibility field is
+  // omitted. A supplied legacy profile ID remains accepted only when owned by
+  // the caller; profile and organization IDs are independent key spaces.
   const producerProfile = await pgPool.query(
     `SELECT p.id
      FROM producers p
      JOIN organizations o ON o.id = p.organization_id
-     WHERE p.id = $1
-       AND p.organization_id = $2
+     WHERE p.organization_id = $1
+       AND ($2::uuid IS NULL OR p.id = $2)
        AND o.type = 'PRODUCER'
-       AND o.status = 'ACTIVATED'`,
-    [producer_id, user.orgId]
+       AND o.status = 'ACTIVATED'
+     ORDER BY p.id
+     LIMIT 2`,
+    [user.orgId, producer_id || null]
   );
   if (producerProfile.rowCount === 0) {
     return reply.status(404).send({
@@ -211,6 +226,16 @@ server.post('/api/v1/budgets', {
         statusCode: 404,
         code: 'NOT_FOUND',
         message: 'Producer profile not found.'
+      }
+    });
+  }
+  if (!producer_id && producerProfile.rowCount !== 1) {
+    return reply.status(409).send({
+      success: false,
+      error: {
+        statusCode: 409,
+        code: 'AMBIGUOUS_PRODUCER_PROFILE',
+        message: 'The producer profile could not be resolved unambiguously.'
       }
     });
   }
@@ -236,7 +261,7 @@ server.post('/api/v1/budgets', {
     });
   }
 
-  const canonicalProducerId = producer_id;
+  const canonicalProducerId = producerProfile.rows[0].id;
   const quantity = parseFloat(approved_quantity);
   if (isNaN(quantity) || quantity <= 0) {
     return reply.status(400).send({

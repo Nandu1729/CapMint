@@ -2585,12 +2585,20 @@
         const response = await fetch(`${API_BASE_URL}/api/v1/lots/${lotId}/export/pdf`, {
           headers: { 'Authorization': 'Bearer ' + AUTH_TOKEN }
         });
-        const res = await response.json();
-        if (res.success && res.data) {
-          alert(`Print-Ready Sheet Export:\n\nFormat: ${res.data.sheet_format}\nTotal Codes: ${res.data.total_codes}\nFirst item: ${res.data.print_ready_codes[0]?.label || 'None'}`);
+        if (!response.ok) {
+          const error = await response.json();
+          alert('PDF export failed: ' + (error.error?.message || 'Not authorized.'));
+          return;
         }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `lot_export_${lotId}.pdf`;
+        link.click();
+        URL.revokeObjectURL(url);
       } catch (err) {
-        console.error(err);
+        console.error('PDF export failed:', err);
       }
     }
 
@@ -4112,7 +4120,6 @@
 
       try {
         const payload = {
-          producer_id: CURRENT_USER.orgId,
           certifier_id: '00000000-0000-0000-0000-000000000001',
           source_unit_type: unit,
           approved_quantity: qty,
