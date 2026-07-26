@@ -923,7 +923,7 @@ server.post('/api/v1/lots/:id/assign-laboratory', {
   preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
-  const { laboratory_organization_id } = request.body as any;
+  const { laboratory_organization_id } = (request.body || {}) as any;
   const user = request.user as any;
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -1863,7 +1863,7 @@ server.post('/api/v1/verify/lab-results', {
     report_hash,
     report_reference,
     pdf_content
-  } = request.body as any;
+  } = (request.body || {}) as any;
   const user = request.user as any;
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
