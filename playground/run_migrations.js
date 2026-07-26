@@ -25,6 +25,18 @@ const OLD_INVESTIGATION_STATUSES = [
   'REVOKED',
   'UNDER_REVIEW'
 ];
+const PROFILE_ORGANIZATION_STATE = [
+  {
+    table: 'producers',
+    constraint: 'producers_organization_id_fkey',
+    index: 'idx_producers_organization_id'
+  },
+  {
+    table: 'certifiers',
+    constraint: 'certifiers_organization_id_fkey',
+    index: 'idx_certifiers_organization_id'
+  }
+];
 const CORE_TABLES = [
   'organizations',
   'users',
@@ -350,9 +362,143 @@ async function verify0009(client) {
   return { status: 'incompatible', summary: `Unexpected investigation status set: ${constraint.values.join(', ')}.`, evidence, fingerprint: evidenceFingerprint(evidence) };
 }
 
+async function readProfileOrganizationState(client, expected) {
+  const columnResult = await client.query(
+    `SELECT a.attnum AS position,
+            format_type(a.atttypid, a.atttypmod) AS type,
+            a.attnotnull AS not_null,
+            pg_get_expr(d.adbin, d.adrelid) AS default_expr
+     FROM pg_attribute a
+     LEFT JOIN pg_attrdef d
+       ON d.adrelid = a.attrelid
+      AND d.adnum = a.attnum
+     WHERE a.attrelid = $1::regclass
+       AND a.attname = 'organization_id'
+       AND NOT a.attisdropped`,
+    [expected.table]
+  );
+  const column = columnResult.rows[0] || null;
+  const constraints = column
+    ? (await client.query(
+        `SELECT c.conname AS name,
+                c.contype AS type,
+                c.convalidated AS validated,
+                pg_get_constraintdef(c.oid, true) AS definition
+         FROM pg_constraint c
+         WHERE c.conrelid = $1::regclass
+           AND c.contype = 'f'
+           AND c.conkey @> ARRAY[$2::smallint]
+         ORDER BY c.conname`,
+        [expected.table, column.position]
+      )).rows
+    : [];
+  const indexes = (await client.query(
+    `SELECT index_relation.relname AS name,
+            table_relation.relname AS table_name,
+            access_method.amname AS access_method,
+            index_state.indisunique AS unique,
+            index_state.indisvalid AS valid,
+            index_state.indisready AS ready,
+            index_state.indpred IS NULL AS unfiltered,
+            index_state.indexprs IS NULL AS plain_columns,
+            index_state.indnkeyatts AS key_columns,
+            index_state.indnatts AS total_columns,
+            ARRAY(
+              SELECT pg_get_indexdef(index_state.indexrelid, position, true)
+              FROM generate_series(1, index_state.indnatts) AS position
+              ORDER BY position
+            ) AS columns
+     FROM pg_class index_relation
+     JOIN pg_namespace namespace
+       ON namespace.oid = index_relation.relnamespace
+     JOIN pg_index index_state
+       ON index_state.indexrelid = index_relation.oid
+     JOIN pg_class table_relation
+       ON table_relation.oid = index_state.indrelid
+     JOIN pg_am access_method
+       ON access_method.oid = index_relation.relam
+     WHERE namespace.nspname = 'public'
+       AND index_relation.relname = $1`,
+    [expected.index]
+  )).rows;
+  return { column, constraints, indexes };
+}
+
+async function verify0011(client) {
+  const evidence = {};
+  for (const expected of PROFILE_ORGANIZATION_STATE) {
+    if (!(await tableExists(client, expected.table))) {
+      evidence[expected.table] = { table: false, column: null, constraints: [], indexes: [] };
+      continue;
+    }
+    evidence[expected.table] = {
+      table: true,
+      ...(await readProfileOrganizationState(client, expected))
+    };
+  }
+
+  const completelyAbsent = PROFILE_ORGANIZATION_STATE.every(expected => {
+    const actual = evidence[expected.table];
+    return actual.table && actual.column === null && actual.constraints.length === 0 && actual.indexes.length === 0;
+  });
+  if (completelyAbsent) {
+    return {
+      status: 'absent',
+      summary: 'Profile organization columns, foreign keys, and indexes are absent.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  const exact = PROFILE_ORGANIZATION_STATE.every(expected => {
+    const actual = evidence[expected.table];
+    if (!actual.table
+      || !actual.column
+      || actual.column.type !== 'uuid'
+      || actual.column.not_null
+      || actual.column.default_expr !== null
+      || actual.constraints.length !== 1
+      || actual.indexes.length !== 1) {
+      return false;
+    }
+    const constraint = actual.constraints[0];
+    const index = actual.indexes[0];
+    return constraint.name === expected.constraint
+      && constraint.type === 'f'
+      && constraint.validated
+      && constraint.definition === 'FOREIGN KEY (organization_id) REFERENCES organizations(id)'
+      && index.name === expected.index
+      && index.table_name === expected.table
+      && index.access_method === 'btree'
+      && !index.unique
+      && index.valid
+      && index.ready
+      && index.unfiltered
+      && index.plain_columns
+      && Number(index.key_columns) === 1
+      && Number(index.total_columns) === 1
+      && stableJson(index.columns) === stableJson(['organization_id']);
+  });
+  if (exact) {
+    return {
+      status: 'exact',
+      summary: 'Nullable profile organization columns, validated foreign keys, and indexes are exact.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+  return {
+    status: 'incompatible',
+    summary: 'Profile organization ownership is partially present or incompatible.',
+    evidence,
+    fingerprint: evidenceFingerprint(evidence)
+  };
+}
+
 const STATE_VERIFIERS = new Map([
   ['0007_add_producer_brandings_table.sql', verify0007],
-  ['0009_widen_investigations_status_check.sql', verify0009]
+  ['0009_widen_investigations_status_check.sql', verify0009],
+  ['0011_add_profile_organization_id.sql', verify0011]
 ]);
 
 async function readMetadata(client) {
@@ -796,6 +942,7 @@ module.exports = {
   EXPECTED_INVESTIGATION_STATUSES,
   LOCK_KEY_1,
   LOCK_KEY_2,
+  PROFILE_ORGANIZATION_STATE,
   TOOL_VERSION,
   evidenceFingerprint,
   extractStatusValues,
@@ -808,5 +955,6 @@ module.exports = {
   stableJson,
   validateMigrationOrdering,
   verify0007,
-  verify0009
+  verify0009,
+  verify0011
 };
