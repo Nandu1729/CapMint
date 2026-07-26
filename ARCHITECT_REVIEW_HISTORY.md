@@ -169,6 +169,60 @@ not ground truth, until reconciled.
 
 ---
 
+## Reviews #5–#13 — Post-DM-03 batch: certifier NOT NULL · DM-04 RLS (D1–D3c) · M1 hygiene · capacity/over-issuance
+
+Four separately-gated items were built on sub-branches off the integration branch **A**
+(`feat/post-dm03-integration`, based at `b67410b`) and, after individual review, merged into A.
+Each review verified against git (migrations / RLS policies / service code read directly;
+disposable-Postgres suites accepted from Codex reports as behavioral confirmation; key DB
+states re-queried live).
+
+| # | Milestone | Branch / range | Verdict |
+|---|---|---|---|
+| #5 | **Item 1 — `certifiers.organization_id NOT NULL`** (migration `0014`; operator-approved DELETE of quarantined orphan `…0003`; successor-aware verifiers) | `feat/tenant-rls-enforcement` `b67410b..9886cbef` | APPROVED |
+| #6 | **Item 3 — M1 repo hygiene / factual-docs** (state-card reconciliation; `node_modules`/`dist` untracked; README architecture reconciled to shipped reality — gateway is a placeholder; `.env*` ignore) | `chore/repo-hygiene-m1` `b67410b..64e9094f` | APPROVED |
+| #7 | **Item 4 — capacity / over-issuance** (per-lot ceiling now enforced under row lock — the real defect; signature required; budget-status gate aligned mint↔verify; read-only overfilled report; CI integrity canary) | `fix/capacity-overissuance` `b67410b..c414f0c8` | APPROVED |
+| #8 | **DM-04 D1 — RLS foundation** (`0015`: non-owner `capmint_app` role + grants; `packages/shared/tenant-db.js` `withTenantTx` per-tx GUC lifecycle; six services routed; **no policies yet**) | `feat/tenant-rls-enforcement` `9886cbef..36a4b19c` | APPROVED |
+| #9 | **DM-04 D2 — identity-table RLS** (`0016`: ENABLE-not-FORCE fail-closed policies on `organizations`/`producers`/`certifiers`; DB-layer cross-tenant denial proven) | `36a4b19c..85eea753` | APPROVED |
+| #10 | **DM-04 D3a — provenance-chain RLS** (`0017`: `budgets`/`lots`/`unit_codes`; six boolean-only `SECURITY DEFINER` helpers break policy recursion, machine-verified in preflight; public consumer read + scan-write) | `85eea753..e284f174` | APPROVED |
+| #11 | **DM-04 D3b — supporting-table RLS** (`0018`: `lab_results`/`investigations`/`scan_events`/`plots_or_hive_clusters`/`producer_brandings`; public inserts tied to registered codes) | `e284f174..dd97c0ab` | APPROVED |
+| #12 | **DM-04 D3c — users + ledger RLS** (`0019`: completes all 13 tables; ledger immutable — no UPDATE/DELETE policy) | `dd97c0ab..894eeadb` | **CONDITIONAL → APPROVED** |
+| #13 | **Capacity ↔ RLS integration + guard dedup** (compose item 4 capacity guards inside `withTenantTx`; guards extracted to `packages/shared/capacity.js`; `/lots` ledger emission moved post-commit) | integration branch → A `7f7cd320` | APPROVED |
+
+**On #12 (CONDITIONAL → APPROVED):** the initial ledger read policy was a tautology
+(`GUC IS NULL OR GUC IS NOT NULL`) written to smuggle the required substring past the
+preflight's pattern check. Investigation confirmed the ledger is a **single global hash chain**
+whose public verify/entries endpoints must read the full chain — so global readability is
+correct *by design*. The revision made it honest `USING (true)` (documented) and made the
+preflight **non-gameable** (pinned exemption asserting exactly `USING (true)` + restored
+per-command shape checks). The runner's checksum guard was **not** weakened; `capmint_dev` was
+reprovisioned instead.
+
+**On #13 (rollback-by-construction):** verified that `reserveBudgetCapacity` writes only after
+all checks and `reserveLotIssuance` never writes, so every guard rejection is before-write
+(safe `return`) and every post-reservation failure throws (`withTenantTx` rolls back) — no
+partial-commit path. Run 2: builds pass, C0 23/23, F1 88/0/0, F2 8/8, C1 21/21, runner 14/14;
+canary exit 0 and 13 RLS tables / 0 forced / 0 overfilled verified live.
+
+**Result:** all four merged into A at `7f7cd320`. **DM-04 (PostgreSQL RLS) is COMPLETE** — all
+13 application tables enforce fail-closed, ENABLE-not-FORCE tenant RLS with owner
+(migration/bootstrap/seed) bypass; database-enforced tenant isolation is real and verified.
+Certifier tightening, M1 hygiene, and the capacity/over-issuance defect are all closed.
+
+**New tracked items (separately gated, not started):**
+1. **Transparency-ledger hardening** — the ledger is an internal global hash chain; RLS now
+   enforces app-role immutability, but true tamper-evidence needs **external anchoring** (the
+   unused `published_anchor_reference` column), plus append-identity restriction and scale (the
+   global tail-lock serializes all appends). Prioritize external anchoring.
+2. **Process fix** — stop applying unapproved feature-branch migrations to shared `capmint_dev`;
+   validate on disposable DBs until architect-approved, keep `capmint_dev` reprovisionable
+   (root cause of the D3c checksum blocker).
+
+**Next Review Starts From** `7f7cd320` (A). No further work on A without a new gated milestone;
+merging A into `main` is a separate decision.
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 

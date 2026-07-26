@@ -4,27 +4,33 @@
 > [AD-002](DECISIONS.md)). Updated at each milestone approval gate. Where this file and
 > the `state/` cards disagree, this file wins until reconciliation.
 >
-> **Last updated:** 2026-07-26 (Review #4 — DM-03 C3c approved; enforceable scope COMPLETE)
+> **Last updated:** 2026-07-26 (Reviews #5–#13 — certifier NOT NULL + DM-04 RLS COMPLETE + M1 hygiene + capacity fix; all four merged into A)
 
 ---
 
 ## Current milestone
 
-- **Milestone:** Multi-tenancy data migration — **DM-03: enforceable scope COMPLETE.**
-  C2 (Review #1) → C3a (Review #2) → C3b (Review #3) → C3c (Review #4) all APPROVED.
-  Tenancy is now *enforced* at the application layer with FK-backed ownership, fail-closed
-  lab controls, and tightened `producers.organization_id` / `investigations.unit_code_id`
-  (`NOT NULL` + unique provenance).
-- **Branch:** `feat/dm03-tenant-column`
-- **HEAD:** `cff29e6`
-- **Deferred (separately gated):** `certifiers.organization_id NOT NULL` (needs real
-  disposition of the quarantined orphan `...0003`); **DM-04** = PostgreSQL RLS.
-- **Merge-base with `main`:** `767a2f6`
-- **Phase context:** Part of a broader **Security-Hardening + Multi-Tenancy Remediation**
-  phase that post-dates (and contradicts) the previously recorded "GA / Production
-  Release complete" status.
-- **Key caveat:** Tenancy is **prepared, not enforced**. The application layer remains
-  the tenancy boundary until C3 lands.
+- **Milestone:** **DM-04 (PostgreSQL Row-Level Security) COMPLETE**, plus the post-DM-03
+  batch — all four items reviewed (#5–#13) and merged into integration branch **A**.
+  Tenancy is now enforced at **two layers**: application-layer FK-backed ownership (DM-03) and
+  **database-enforced RLS on all 13 application tables** (DM-04). RLS is ENABLE-not-FORCE
+  (owner runs migrations/bootstrap/seed unimpeded), fail-closed on empty GUC, with a per-request
+  `withTenantTx` tenant-context lifecycle as non-owner role `capmint_app`. Cross-tenant denial
+  is proven at the DB layer; the transparency ledger is immutable to the app role.
+- **Integration branch:** `feat/post-dm03-integration` (**A**)
+- **HEAD:** `7f7cd320`
+- **Integrated into A:** item 1 (`certifiers.organization_id NOT NULL`, migration `0014`) ·
+  DM-04 D1–D3c (migrations `0015`–`0019`, `packages/shared/tenant-db.js`) · M1 repo hygiene
+  (`node_modules` untracked, docs reconciled) · capacity/over-issuance fix + shared
+  `packages/shared/capacity.js` guard.
+- **Merge-base with `main`:** `767a2f6` — **merging A into `main` is a separate, un-taken decision.**
+- **Tracked follow-ups (separately gated, not started):** (1) **transparency-ledger hardening**
+  — external anchoring (the unused `published_anchor_reference`), append-identity restriction,
+  append-serialization scale; (2) **process fix** — do not apply unapproved feature-branch
+  migrations to shared `capmint_dev`.
+- **Phase context:** Completes the broader **Security-Hardening + Multi-Tenancy Remediation**
+  phase that post-dates (and contradicts) the previously recorded "GA / Production Release
+  complete" status.
 
 ---
 
