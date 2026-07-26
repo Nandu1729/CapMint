@@ -159,11 +159,12 @@ erDiagram
 
 The tenant root is `organizations`. Its nullable foreign keys on
 `producers.organization_id` and `certifiers.organization_id` permit structural
-1:N ownership while quarantining unmapped legacy profiles as `NULL`. C3a
-runtime authorization derives producer and certifier scope through those
-explicit ownership keys. The nullable laboratory relationship columns prepare
-C3b without assigning a laboratory or enabling lab writes. No RLS policy or
-`NOT NULL`/investigation-uniqueness tightening exists in C3a.
+1:N ownership while quarantining unmapped legacy profiles as `NULL`. Runtime
+authorization derives producer and certifier scope through those explicit
+ownership keys. C3b assigns laboratories through the nullable lot relationship,
+restricts laboratory lists and writes to that assignment, and records the
+authenticated submitter on new/replaced results. Legacy `NULL` submitters remain
+unknown. No RLS policy or `NOT NULL`/investigation-uniqueness tightening exists.
 
 *Note: The `log_entries` table is logically associated with all mutable entities (Budgets, Lots, Unit Codes) using polymorphic references (`entity_type` + `entity_id`) without physical foreign key constraints. This prevents cascading deletions or profile changes from breaking the historical cryptographic chain.*
 

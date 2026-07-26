@@ -24,8 +24,8 @@ The table below lists all database relationships in CapMint:
 | `producers` | `lots` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `producer_id` | `RESTRICT` | `CASCADE` | Tracks batch packaging producer. |
 | `lots` | `unit_codes` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $1..*$ (Mandatory) | `lot_id` | `RESTRICT` | `CASCADE` | Groups retail codes under batch runs. |
 | `lots` | `lab_results` | One-to-One ($1:1$) | $1$ (Mandatory) $\rightarrow$ $0..1$ (Optional) | `lot_id` | `RESTRICT` | `CASCADE` | Binds lab PDF reports to lots. |
-| `organizations` | `lots` | Laboratory assignment | $0..1$ (Optional) $\rightarrow$ $0..*$ | `assigned_laboratory_organization_id` | `RESTRICT` | `NO ACTION` | Nullable C3a relationship only; assignment behavior is deferred to C3b. |
-| `organizations` | `lab_results` | Laboratory submitter provenance | $0..1$ (Optional) $\rightarrow$ $0..*$ | `submitted_by_organization_id` | `RESTRICT` | `NO ACTION` | Legacy rows stay NULL; write enforcement is deferred to C3b. |
+| `organizations` | `lots` | Laboratory assignment | $0..1$ (Optional) $\rightarrow$ $0..*$ | `assigned_laboratory_organization_id` | `RESTRICT` | `NO ACTION` | Nullable relationship; C3b assignment is restricted to the budget-controlling certifier and an activated NABL target. |
+| `organizations` | `lab_results` | Laboratory submitter provenance | $0..1$ (Optional) $\rightarrow$ $0..*$ | `submitted_by_organization_id` | `RESTRICT` | `NO ACTION` | C3b writes persist the authenticated assigned lab; legacy rows stay NULL. |
 | `unit_codes` | `investigations` | One-to-One candidate | $1$ after C3a backfill $\rightarrow$ $0..*$ | `unit_code_id` | `RESTRICT` | `CASCADE` | Exact FK-backed investigation provenance; NOT NULL/UNIQUE tightening is deferred to C3c. |
 | `unit_codes` | `scan_events` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `unit_code_id` | `RESTRICT` | `CASCADE` | Logs telemetry query events. |
 | *Polymorphic* | `log_entries` | Polymorphic (Logical) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `entity_id` | N/A (Manual) | N/A (Manual)| decoupled ledger audit trail. |
@@ -99,11 +99,13 @@ The table below lists all database relationships in CapMint:
     ON DELETE RESTRICT ON UPDATE CASCADE`. Migration 0012 fills it only from an
     exact `public_identifier` match. It remains nullable and non-unique until
     C3c.
-*   **Laboratory preparation**:
+*   **Laboratory assignment and provenance**:
     `lots.assigned_laboratory_organization_id` and
     `lab_results.submitted_by_organization_id` reference organizations with
-    `ON DELETE RESTRICT`. Both remain nullable; C3a does not assign a lab or
-    enable laboratory mutation.
+    `ON DELETE RESTRICT`. Both remain nullable for legacy rows. C3b lets the
+    controlling certifier assign an activated NABL organization, requires that
+    assignment for laboratory reads/writes, and records the authenticated
+    organization on accepted result inserts and replacements.
 
 ---
 

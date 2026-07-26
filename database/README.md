@@ -154,9 +154,31 @@ requires zero lot/budget producer mismatches and exact investigation links.
 The corresponding application authorization resolves producer and certifier
 scope through `profile.organization_id = jwt.orgId`; JWT claims are unchanged.
 
-C3a does not enable RLS, set `NOT NULL`, add investigation uniqueness, assign
-laboratories, or authorize laboratory writes. Those changes remain behind the
-C3b/C3c and DM-04 approval gates.
+C3a does not enable RLS, set `NOT NULL`, or add investigation uniqueness.
+Laboratory assignment and write enforcement are implemented by C3b application
+code without further DDL; tightening remains behind the C3c and DM-04 approval
+gates.
+
+## Laboratory Assignment Enforcement
+
+DM-03 C3b uses the nullable 0012 relationships without changing schema:
+
+- a certifier may assign an activated `NABL_LABORATORY` only to a lot controlled
+  through its budget and `certifiers.organization_id`;
+- the lot is locked before the ownership predicate is accepted, and repeat
+  assignment to the same laboratory is an idempotent success;
+- activated laboratories list only lots whose
+  `assigned_laboratory_organization_id` matches their JWT organization;
+- lab-result inserts and replacements require that same assignment and persist
+  `submitted_by_organization_id` from the JWT, never from request data;
+- legacy lab results retain a `NULL` submitter and remain readable through their
+  lot-derived ownership;
+- denied lab writes finish before PDF processing or lot/code/provenance/ledger
+  mutation.
+
+The assignment and submitter columns remain nullable for legacy compatibility.
+C3b adds no migration, RLS policy, database role, `NOT NULL`, or uniqueness
+constraint.
 
 ## Existing Database Procedure
 
@@ -216,8 +238,10 @@ npm run seed:development
 The command refuses production, staging, unset environments, missing enablement,
 mismatched keys, the known compromised historical key, and non-empty database
 states that are not the exact versioned fixture set. It stores only the public
-key and creates a correctly signed, non-active demo budget. An exact rerun is a
-no-op; it never overwrites credentials or uses blind conflict suppression.
+key and creates a correctly signed, non-active demo budget, two activated
+laboratory identities, and one explicitly assigned demonstration lot. An exact
+rerun is a no-op; it never overwrites credentials or uses blind conflict
+suppression.
 
 Legacy migration `0006` remains unchanged for historical integrity but is not
 part of baseline bootstrap. The former `database/seed/seed.sql` duplicated its

@@ -149,8 +149,18 @@ This document records the key architectural decisions (ADRs) made during the des
 
 ## D-016: Derived Tenant Enforcement and Relationship Integrity
 
-*   **Status:** IMPLEMENTED — PENDING ARCHITECT C3a REVIEW
+*   **Status:** APPROVED AND IMPLEMENTED
 *   **Context:** C2 made producer/certifier ownership explicit but runtime authorization still compared JWT organization IDs with independent profile primary keys. Investigation provenance remained a logical UUID match, and duplicated lot/budget producer keys could drift.
 *   **Decision:** DM-03 C3a adds nullable investigation, laboratory-submitter, and laboratory-assignment relationship columns through forward migration 0012. It deterministically links investigations to exact unit codes, validates the new restrictive FKs, and enforces lot/budget producer consistency with a composite FK. Producer and certifier routes now authorize with `profile.organization_id = jwt.orgId` in the same scoped SQL reads/locks as protected resources. JWT claims remain unchanged; request `producer_id` is accepted only when it identifies a caller-owned producer profile.
 *   **Consequences:** Equal UUIDs no longer carry authorization meaning. Independent profile IDs work across budgets, minting, registration, lots, exports, certification/revocation, lists, and investigations. Laboratory provenance and assignment columns remain nullable and no laboratory behavior is enabled. RLS, profile/investigation `NOT NULL` or uniqueness tightening, orphan resolution, and all C3b/C3c work remain unimplemented.
 *   **Verification:** Migration reconciliation passes 11/11, including exact/absent/incompatible state, adoption, idempotency, drift refusal, FK rejection, deterministic backfill, and baseline/snapshot parity. An independent-profile tenant suite passes 8/8 with denied operations preserving capacity, code count, lot/case state, and ledger state. F2 passes 8/8 and two compliance iterations each report exactly 83 PASS / 5 PENDING / 0 FAIL.
+
+---
+
+## D-017: Assigned Laboratory Enforcement and Compatibility
+
+*   **Status:** IMPLEMENTED — PENDING ARCHITECT C3b REVIEW
+*   **Context:** C3a created nullable laboratory assignment and submitter relationships but intentionally left laboratory mutation disabled. Operational lab lists, integration lookup actors, frontend authenticated exports, and producer-profile resolution still needed the approved C3b behavior.
+*   **Decision:** A budget-controlling certifier may assign an activated NABL laboratory while locking the scoped lot and ownership profile. Assigned activated laboratories alone may list that lot or insert/replace its lab result; accepted writes persist the JWT organization as submitter and commit state before ledger emission. Legacy `NULL` submitters remain unknown and readable through the lot. Public investigation automation writes its resolved `unit_code_id`. Integration lookups explicitly allow producer, certifier, and system-admin actors. Budget proposals may omit the legacy producer profile ID and fail closed if server-side resolution is ambiguous.
+*   **Consequences:** Lab A/lab B isolation is enforceable without tightening the nullable 0012 columns. Unassigned and forged FAILED reports cannot change lot/code/investigation/provenance/ledger state. JWT shape and public response identity exposure remain unchanged. No C3b migration exists. RLS, `NOT NULL`/uniqueness tightening, orphan resolution, and C3c/DM-04 remain separately gated.
+*   **Verification:** Verification, CPQ, and integration service type checks pass. The combined independent-profile tenant matrix passes 14/14, F2 passes 8/8, and two disposable compliance iterations each report 88 PASS / 0 PENDING / 0 FAIL. All owned disposable databases were removed and the tracked Vitest cache blob remained at its preflight hash.

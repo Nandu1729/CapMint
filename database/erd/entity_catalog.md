@@ -149,12 +149,12 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | `revocation_status` | `VARCHAR(32)` | `NOT NULL` | Default `'ACTIVE'`, Check: `ACTIVE`, `REVOKED` | Invalidation state. |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL` | Default `NOW()` | Ingestion timestamp. |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL` | Default `NOW()` | Update timestamp. |
-| `assigned_laboratory_organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Trusted laboratory assignment relationship prepared in C3a; assignment behavior is deferred to C3b. |
+| `assigned_laboratory_organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Certifier-managed activated NABL assignment enforced by C3b; legacy lots may remain unassigned. |
 
 *   **Indexing Targets**:
     *   `idx_lots_budget` ON (`budget_id`) — Optimizes quota consumption audits.
     *   `idx_lots_revocation` ON (`revocation_status`) — Optimizes status checks during scan resolution.
-    *   `idx_lots_assigned_laboratory_organization_id` ON (`assigned_laboratory_organization_id`) — Supports future assigned-lab checks.
+    *   `idx_lots_assigned_laboratory_organization_id` ON (`assigned_laboratory_organization_id`) — Supports assigned-laboratory list and write checks.
 *   **Domain Events**:
     *   Created: `LotCreated` (deducts budget quota).
     *   Revoked: `LotRevoked` (triggers cascade revocation of unit codes).
@@ -206,11 +206,11 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | `report_reference` | `VARCHAR(500)` | `NOT NULL` | None | Secure object store URL of the PDF. |
 | `decision_impact` | `JSONB` | `NULL` | None | Extracted chemical residue limit trace details. |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL` | Default `NOW()` | Ingestion date. |
-| `submitted_by_organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Submitting laboratory provenance; legacy rows remain unknown in C3a. |
+| `submitted_by_organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Authenticated submitting laboratory persisted on C3b inserts/replacements; legacy rows remain unknown. |
 
 *   **Indexing Targets**:
     *   `idx_lab_results_lot` ON (`lot_id`) — Optimizes verification lookup details.
-    *   `idx_lab_results_submitted_by_organization_id` ON (`submitted_by_organization_id`) — Supports future laboratory provenance queries.
+    *   `idx_lab_results_submitted_by_organization_id` ON (`submitted_by_organization_id`) — Supports laboratory provenance queries.
 *   **Domain Events**:
     *   Uploaded: `LabResultUploaded` (causes lot update and potential revocation cascade).
 *   **Ledger Anchored**: Yes.
