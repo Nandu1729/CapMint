@@ -1,7 +1,7 @@
 -- CapMint PostgreSQL schema snapshot
--- Snapshot version: 2026-07-25-pre-DM03
--- Generated: 2026-07-25
--- Authoritative migration cutoff: 0010_reconcile_pre_dm03_schema.sql
+-- Snapshot version: 2026-07-26-DM03-C2
+-- Generated: 2026-07-26
+-- Authoritative migration cutoff: 0011_add_profile_organization_id.sql
 -- Intended use: inspection and disposable-database schema comparison only.
 -- DO NOT apply this snapshot to an existing database. Forward migrations are
 -- the authoritative schema evolution path.
@@ -53,6 +53,7 @@ CREATE TABLE certifiers (
     key_rotation_metadata JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    organization_id UUID REFERENCES organizations(id),
     CONSTRAINT chk_certifiers_key_status CHECK (key_status IN ('ACTIVE', 'ROTATED', 'REVOKED'))
 );
 
@@ -65,6 +66,7 @@ CREATE TABLE producers (
     contact_metadata JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    organization_id UUID REFERENCES organizations(id),
     CONSTRAINT chk_producers_type CHECK (type IN ('FARMER', 'FPO', 'BRAND', 'HIVE_OPERATOR'))
 );
 
@@ -218,9 +220,11 @@ CREATE TABLE producer_brandings (
 
 -- Index to optimize key status verification checks (Identity Service)
 CREATE INDEX idx_certifiers_key_status ON certifiers(key_status);
+CREATE INDEX idx_certifiers_organization_id ON certifiers(organization_id);
 
 -- Index to optimize producer categories search
 CREATE INDEX idx_producers_type ON producers(type);
+CREATE INDEX idx_producers_organization_id ON producers(organization_id);
 
 -- Index to optimize site lookup by owner and crop type
 CREATE INDEX idx_plots_producer ON plots_or_hive_clusters(producer_id);
