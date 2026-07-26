@@ -1,72 +1,45 @@
-# CapMint — Quick Reference (AI Agent State Card)
+# CapMint — Current State
 
-> **Last Updated:** 2026-07-24  
-> ⚡ This file is the **single entry point** for AI agents resuming work on CapMint.
+> **Last updated:** 2026-07-26
+>
+> [Architecture Status](../docs/architecture/ARCHITECTURE_STATUS.md) is the
+> authoritative status record under AD-002.
 
----
+## Current phase
 
-## At a Glance
+CapMint is in an active **security-hardening and multi-tenancy remediation**
+phase. Earlier state cards describing the platform as 100% complete or
+production-ready are not verified release assessments.
 
-| Property            | Value                                      |
-|---------------------|--------------------------------------------|
-| **Target Phase**    | Product Workflow Gap Closures & Real-world Finalization |
-| **Branch**          | `feature/workflow-gaps`                    |
-| **Next Task**       | Verification validation / User validation |
-| **Blockers**        | None                                        |
-| **Overall Progress**| 100% Core Gaps Addressed & Passed Test Suite 🚀 |
-
----
-
-## Before You Start — Checklist
-
-1. ☐ Read this file (you're doing it now ✅)
-2. ☐ Review active API specifications in the [api/](file:///Users/nandyyy/project/CapMint/api) folder
-3. ☐ Check database structures and migrations in [database/migrations/](file:///Users/nandyyy/project/CapMint/database/migrations)
-4. ☐ Verify system health locally using `npm run dev` and `node playground/test_runner.js`
-
----
-
-## Document Map
-
-### Core State & Project Specs
-
-| Document | What It Tells You |
+| Property | Current state |
 |---|---|
-| [PROGRESS.md](PROGRESS.md) | Progress metrics for End-to-End core capabilities |
-| [ROADMAP.md](ROADMAP.md) | Capability-based phased milestones |
-| [ACTIVE_BRANCH.md](ACTIVE_BRANCH.md) | Branch strategy & current branch |
-| [BLOCKERS.md](BLOCKERS.md) | Active blockers & escalation policies |
-| [CapMint_Commercialization_Pipeline.md](../../.gemini/antigravity-cli/brain/a4692173-ddd7-4c90-a713-4ee7a9e5255f/CapMint_Commercialization_Pipeline.md) | Product architectural roadmap and monetization stages |
+| Baseline branch | `feat/dm03-tenant-column` |
+| Current milestone | DM-03 — enforceable scope **COMPLETE** |
+| Next tenancy milestone | DM-04 — PostgreSQL Row-Level Security **OPEN** |
+| Open security defect | Capacity / over-issuance enforcement **OPEN** pending bounded verification and closure |
+| Overall status | Remediation in progress; production readiness is not established |
 
----
+## Approved DM-03 scope
 
-## Quick Commands
+DM-03 C2, C3a, C3b, and C3c passed architect review. The approved scope
+establishes FK-backed tenant ownership and application-layer enforcement,
+including fail-closed lab controls and tightened ownership constraints.
 
-```bash
-# Check current branch
-git branch --show-current
+DM-03 does not provide database-enforced tenant isolation. PostgreSQL RLS is
+separately gated as DM-04.
 
-# Spin up local microservices
-npm run dev
+## Immediate priorities
 
-# Run database migrations
-node playground/run_migrations.js
+1. Design and implement DM-04 PostgreSQL RLS through its architect gate.
+2. Verify and close the capacity / over-issuance defect on the primary
+   issuance path.
+3. Continue bounded verification of previously asserted security closures.
+4. Treat production-release claims as unverified until an architect-approved
+   release assessment establishes them.
 
-# Execute 52-case compliance test suite
-node playground/test_runner.js
-```
+## Resume checklist
 
----
-
-## Emergency Procedures
-
-| Situation | Action |
-|---|---|
-| Blocker found | Add to [BLOCKERS.md](BLOCKERS.md), update state |
-| Wrong branch | `git stash` → switch → `git stash pop` |
-| Merge conflict | Resolve, document in commit message |
-| Lost context | Re-read this file from the top |
-
----
-
-> 💡 **Tip:** Bookmark this file. It's your compass for the CapMint project.
+1. Read [Architecture Status](../docs/architecture/ARCHITECTURE_STATUS.md).
+2. Confirm the checked-out branch and review boundary.
+3. Read the relevant architect decision and handoff before implementation.
+4. Run the repository's documented setup and test commands.
