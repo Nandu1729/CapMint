@@ -82,6 +82,34 @@ not ground truth, until reconciled.
 
 ---
 
+## Review #2 — DM-03 C3a: Additive Schema + Derived-Ownership Authorization
+
+| Field | Value |
+|---|---|
+| **Review Number** | #2 |
+| **Milestone** | DM-03 C3a (first sub-phase of HO-001) |
+| **Branch** | `feat/dm03-tenant-column` |
+| **Commit Range Reviewed** | `15cf956..a87dfa4` (7 commits: `ed8e59f`, `b1e7722`, `bb8022d`, `bd6a083`, `dd38eca`, `1549d6b`, `a87dfa4`) |
+| **Architecture Status** | PASS |
+| **Security Status** | PASS |
+| **Migration Status** | PASS |
+| **Testing Status** | PASS (unit re-run 7/7 independently; integration 8/8 tenant + C1 11/11 + F2 8/8 + F1 83/5/0 accepted from Codex report, not re-executed — need disposable Postgres) |
+| **Approved Decisions** | (covered by `AD-003`/`AD-004`; no new AD) |
+| **Outstanding Items** | 1. Orphan certifier still 1 `NULL` — blocks C3c only. 2. Pre-existing F2 TS typing errors in `bootstrap-seed.test.ts` (`ChildProcessByStdio` vs `ChildProcessWithoutNullStreams`) — NOT introduced by C3a (file not in range); worth a future chore. 3. Lab submitter/assignment columns remain `NULL` (behavioral wiring is C3b). |
+| **Next Review Starts From** | `a87dfa4` (Review #3 = DM-03 C3b, once its lab-assignment API contract is approved). |
+
+### Findings (delta only)
+- **Migration `0012` is high quality.** Additive nullable UUID columns (asserted nullable/no-default); composite `budgets(id, producer_id)` uniqueness + composite `lots(budget_id, producer_id)→budgets` FK; investigation/lab FKs all `NOT VALID`→separate `VALIDATE`; plain non-unique indexes with a rigorous btree/unique/valid/ready/unfiltered verifier. **Fail-closed data preflight** rejects lot/budget producer drift, unmatched, ambiguous, and conflicting investigation links *before* backfill. Backfill is exact-`public_identifier`-only (38/38). Idempotent, catalog-guarded. No RLS, no `NOT NULL`.
+- **Authorization rewrites are genuine ownership joins.** Verified predicate + lock co-located in one statement, e.g. `WHERE producer.organization_id = $2 ... FOR UPDATE OF budget FOR SHARE OF producer` (no fetch-then-check race; profile org pinned via `FOR SHARE`). `organization_id` join usage across cpq(10)/mint(2)/verification(15). No equal-ID authorization remnants (the lone `organizations WHERE id = orgId` hit is a legitimate caller-identity/NABL-lab check). Cross-tenant identifiers return non-disclosing 404; lab mutation fails closed; system-admin global is explicit.
+- **Scope discipline held.** No transparency-service, integration-service, or frontend changes; no capacity/ceiling/`FOR UPDATE`/Ed25519/ledger-ordering changes; no RLS; no `NOT NULL`. Exactly the C3a boundary.
+- **Tests are substantive.** `tenant-authorization.test.ts` asserts cross-tenant denial (403 unauth actors, 404 non-disclosing on A-resources/exports), investigation scoping, lab fail-closed, capacity-reservation denial, **and** a positive same-tenant + public-workflow preservation case.
+- **Hygiene.** Atomic conventional commits, explicit path staging, no attribution, no push/PR; vitest cache blob unchanged; `.codex/` untracked.
+
+### Approval
+`APPROVED` — C3a complete and correct. Boundary advances to `a87dfa4`. This does **not** approve C3b or C3c. C3b requires an approved lab-assignment API contract; C3c requires operator orphan resolution.
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 

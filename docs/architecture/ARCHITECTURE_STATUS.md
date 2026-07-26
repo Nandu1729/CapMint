@@ -4,18 +4,20 @@
 > [AD-002](DECISIONS.md)). Updated at each milestone approval gate. Where this file and
 > the `state/` cards disagree, this file wins until reconciliation.
 >
-> **Last updated:** 2026-07-26 (Review #1 — DM-03 C2 approved)
+> **Last updated:** 2026-07-26 (Review #2 — DM-03 C3a approved)
 
 ---
 
 ## Current milestone
 
-- **Milestone:** Multi-tenancy data migration — **DM-03**. Stage **C2 (tenant-profile
-  ownership) is APPROVED & complete** (Review #1). Next stage **C3 (enforcement:
-  predicate joins, `NOT NULL`, RLS policies, orphan resolution, laboratory assignment)
-  is NOT started and NOT approved.**
+- **Milestone:** Multi-tenancy data migration — **DM-03**. **C2** (tenant-profile
+  ownership) APPROVED (Review #1). **C3a** (additive schema + derived-ownership
+  authorization joins) APPROVED (Review #2). Next: **C3b** (lab assignment + investigation
+  FK behavior + integration allowlists + frontend) — needs an approved lab-assignment API
+  contract before starting. **C3c** (`NOT NULL` tightening) remains hard-gated on operator
+  orphan resolution.
 - **Branch:** `feat/dm03-tenant-column`
-- **HEAD:** `9070970`
+- **HEAD:** `a87dfa4`
 - **Merge-base with `main`:** `767a2f6`
 - **Phase context:** Part of a broader **Security-Hardening + Multi-Tenancy Remediation**
   phase that post-dates (and contradicts) the previously recorded "GA / Production
@@ -31,6 +33,8 @@
 - **Review #1 — DM-03 C2** (`fd6ba35..9070970`): APPROVED. See
   [ARCHITECT_REVIEW_HISTORY.md](../../ARCHITECT_REVIEW_HISTORY.md) and
   [AD-003](DECISIONS.md).
+- **Review #2 — DM-03 C3a** (`15cf956..a87dfa4`): APPROVED. Additive migration `0012` +
+  derived-ownership authorization joins across cpq/mint/verification services.
 
 **Pre-governance history (assumed built, not architect-verified):** the CP-000…CP-023
 series recorded in `state/MILESTONES.md`, plus the security-hardening series on the
