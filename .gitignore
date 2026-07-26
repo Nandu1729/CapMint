@@ -1,5 +1,8 @@
 node_modules/
 dist/
+build/
+coverage/
+**/.vitest/
 docker_nginx_backup.tar.gz
 .env
 *.log
