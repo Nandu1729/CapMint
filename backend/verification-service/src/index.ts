@@ -948,8 +948,7 @@ server.post('/api/v1/lots/:id/assign-laboratory', {
        FROM organizations
        WHERE id = $1
          AND type = 'NABL_LABORATORY'
-         AND status = 'ACTIVATED'
-       FOR SHARE`,
+         AND status = 'ACTIVATED'`,
       [laboratory_organization_id]
     );
     if (laboratoryResult.rowCount === 0) {
