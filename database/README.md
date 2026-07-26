@@ -260,10 +260,10 @@ client, starts a transaction, sets transaction-local
 `app.current_organization_id` and `app.actor_is_system_admin`, runs the query
 callback on that client, and commits or rolls back before release.
 Authenticated actors without an organization fail before checkout unless the
-existing JWT claims identify a system administrator. Public resolver,
-transparency-read, and consumer-verification paths select an explicit public
-context. D3 must define their RLS policies before public enforcement is
-enabled.
+existing JWT claims identify a system administrator. Public registration,
+login, resolver, transparency-read, and consumer-verification paths select an
+explicit public context. D3 must define their RLS policies before public
+enforcement is enabled.
 
 Migration 0015 intentionally cannot provision a login secret. After applying
 and verifying the migration, an operator must inject a generated credential
