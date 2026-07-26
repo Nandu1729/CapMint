@@ -4,7 +4,8 @@ build/
 coverage/
 **/.vitest/
 docker_nginx_backup.tar.gz
-.env
+.env*
+!.env.example
 *.log
 .DS_Store
 git_branches/
