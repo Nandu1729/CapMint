@@ -141,6 +141,48 @@ reviewable/rollback-safe and the irreversible step is isolated behind a human ac
 
 ---
 
+## AD-005: Empty-database exception for the 0013 certifier-orphan preflight
+
+| Field | Value |
+|---|---|
+| **Decision ID** | AD-005 |
+| **Title** | Migration 0013 certifier-orphan preflight tolerates the empty-bootstrap state |
+| **Date** | 2026-07-26 |
+| **Status** | APPROVED |
+
+**Context.** The C3c prompt specified a fail-closed preflight requiring *exactly one* orphan
+certifier. But the immutable pre-DM03 baseline `database/baselines/capmint-baseline-20260725.json`
+has `includes_seed_data: false`, and the known orphan (`00000000-0000-0000-0000-000000000003`)
+is seeded only by migration `0006`, which the baseline excludes. A fresh `--bootstrap` therefore
+reaches `0013` with **zero** certifiers, so a literal "exactly one orphan" rule would abort and
+break the verified fresh-baseline and schema-parity paths. (Verified 2026-07-26: baseline flag,
+orphan seed id in `0006`, and `key_status` CHECK allowing `REVOKED`.)
+
+**Decision.** `0013`'s certifier-orphan preflight tolerates exactly two states, else RAISE
+`0013_UNEXPECTED_CERTIFIER_ORPHANS`:
+- **State A:** zero `NULL`-org certifiers (fresh bootstrap, or fully-resolved legacy); and
+- **State B:** exactly one `NULL`-org certifier whose id = `00000000-0000-0000-0000-000000000003`
+  with zero budget references (legacy environments).
+Quarantine (`key_status → 'REVOKED'`, reversible) is idempotent and a no-op when the orphan is
+absent. This does **not** change the deferral of `certifiers.organization_id NOT NULL`.
+
+**Alternatives considered.**
+- *Exactly-one-orphan* — rejected: breaks empty bootstrap / schema-parity.
+- *Skip the check on empty tables only* — rejected: weaker; the explicit two-state assertion
+  keeps fail-closed detection of unexpected orphans.
+- *Gate on the baseline `includes_seed_data` flag* — rejected: couples the migration to baseline
+  metadata; a self-contained data assertion is simpler and more robust.
+
+**Consequences.** `0013` runs on legacy, fresh-baseline, and snapshot paths; any unexpected
+certifier drift still fails closed. `key_status='REVOKED'` used as an administrative tenancy
+quarantine must be documented so it is not misread as a cryptographic key-compromise revocation
+(separate incident track).
+
+**Related Commits.** _pre-implementation ruling (C3c not yet built)_
+**Related Documents.** [CODEX_HANDOFF.md](CODEX_HANDOFF.md) (HO-001), `.codex/brain/DM03_PROPOSAL.md` §20/§25, `database/baselines/capmint-baseline-20260725.json`
+
+---
+
 <!--
 ## AD-NNN: <Title> (template)
 
