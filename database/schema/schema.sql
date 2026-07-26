@@ -1,7 +1,7 @@
 -- CapMint PostgreSQL schema snapshot
--- Snapshot version: 2026-07-26-DM03-C2
+-- Snapshot version: 2026-07-26-DM03-C3a
 -- Generated: 2026-07-26
--- Authoritative migration cutoff: 0011_add_profile_organization_id.sql
+-- Authoritative migration cutoff: 0012_add_derived_tenant_relationships.sql
 -- Intended use: inspection and disposable-database schema comparison only.
 -- DO NOT apply this snapshot to an existing database. Forward migrations are
 -- the authoritative schema evolution path.
@@ -99,6 +99,7 @@ CREATE TABLE budgets (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     rejection_reason TEXT,
     status_history JSONB DEFAULT '[]'::jsonb,
+    CONSTRAINT budgets_id_producer_id_key UNIQUE (id, producer_id),
     CONSTRAINT chk_budgets_status CHECK (status IN ('DRAFT', 'PENDING_APPROVAL', 'REVIEWING', 'APPROVED', 'ACTIVE', 'EXHAUSTED', 'REVOKED', 'REJECTED', 'REVISION_REQUESTED')),
     CONSTRAINT chk_budgets_remaining CHECK (consumed_quantity <= approved_quantity),
     CONSTRAINT chk_budgets_source_unit_type CHECK (source_unit_type IN ('WEIGHT_KG', 'VOLUME_L', 'UNIT_COUNT'))
@@ -117,6 +118,8 @@ CREATE TABLE lots (
     certification_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    assigned_laboratory_organization_id UUID REFERENCES organizations(id) ON DELETE RESTRICT,
+    CONSTRAINT lots_budget_id_producer_id_fkey FOREIGN KEY (budget_id, producer_id) REFERENCES budgets(id, producer_id) ON DELETE RESTRICT,
     CONSTRAINT chk_lots_lab_status CHECK (lab_status IN ('PENDING', 'PASSED', 'FAILED')),
     CONSTRAINT chk_lots_revocation_status CHECK (revocation_status IN ('ACTIVE', 'REVOKED')),
     CONSTRAINT chk_lots_certification_status CHECK (certification_status IN ('PENDING', 'CERTIFIED', 'REVOKED'))
@@ -151,6 +154,7 @@ CREATE TABLE lab_results (
     decision_impact JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    submitted_by_organization_id UUID REFERENCES organizations(id) ON DELETE RESTRICT,
     CONSTRAINT chk_lab_results_summary CHECK (result_summary IN ('PASS', 'FAIL'))
 );
 
@@ -196,6 +200,7 @@ CREATE TABLE investigations (
     assigned_to UUID,
     case_notes JSONB DEFAULT '[]'::jsonb,
     evidence_timeline JSONB DEFAULT '[]'::jsonb,
+    unit_code_id UUID REFERENCES unit_codes(id) ON DELETE RESTRICT ON UPDATE CASCADE,
     CONSTRAINT chk_investigations_status CHECK (status IN ('OPEN', 'UNDER_REVIEW', 'ESCALATED', 'RESOLVED', 'REVOKED', 'DISMISSED', 'CLOSED'))
 );
 
@@ -239,6 +244,7 @@ CREATE INDEX idx_lots_budget ON lots(budget_id);
 CREATE INDEX idx_lots_revocation ON lots(revocation_status);
 CREATE INDEX idx_lots_producer_id ON lots(producer_id);
 CREATE INDEX idx_lots_certification_status ON lots(certification_status);
+CREATE INDEX idx_lots_assigned_laboratory_organization_id ON lots(assigned_laboratory_organization_id);
 
 -- CRITICAL INDEX: Compound index to guarantee low latency verification lookups (<300ms SLA)
 CREATE INDEX idx_unit_codes_gtin_serial ON unit_codes(gtin, serial);
@@ -247,6 +253,7 @@ CREATE INDEX idx_unit_codes_current_state ON unit_codes(current_state);
 
 -- Index for lab evidence queries
 CREATE INDEX idx_lab_results_lot ON lab_results(lot_id);
+CREATE INDEX idx_lab_results_submitted_by_organization_id ON lab_results(submitted_by_organization_id);
 
 -- CRITICAL INDEX: Compound key with DESC sorting to optimize spatial-temporal geovelocity clone checks
 CREATE INDEX idx_scan_events_unit_code_timestamp ON scan_events(unit_code_id, timestamp DESC);
@@ -264,6 +271,7 @@ CREATE INDEX idx_users_organization_id ON users(organization_id);
 -- Index to optimize clone investigations search
 CREATE INDEX idx_investigations_public_identifier ON investigations(public_identifier);
 CREATE INDEX idx_investigations_status ON investigations(status);
+CREATE INDEX idx_investigations_unit_code_id ON investigations(unit_code_id);
 
 -- =========================================================================
 -- DATABASE FUNCTIONS AND AUTO-UPDATE TRIGGERS

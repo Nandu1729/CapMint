@@ -37,6 +37,62 @@ const PROFILE_ORGANIZATION_STATE = [
     index: 'idx_certifiers_organization_id'
   }
 ];
+const DERIVED_TENANCY_STATE = {
+  columns: [
+    { table: 'investigations', column: 'unit_code_id' },
+    { table: 'lab_results', column: 'submitted_by_organization_id' },
+    { table: 'lots', column: 'assigned_laboratory_organization_id' }
+  ],
+  constraints: [
+    {
+      table: 'budgets',
+      name: 'budgets_id_producer_id_key',
+      type: 'u',
+      definition: 'UNIQUE (id, producer_id)'
+    },
+    {
+      table: 'lots',
+      name: 'lots_budget_id_producer_id_fkey',
+      type: 'f',
+      definition: 'FOREIGN KEY (budget_id, producer_id) REFERENCES budgets(id, producer_id) ON DELETE RESTRICT'
+    },
+    {
+      table: 'investigations',
+      name: 'investigations_unit_code_id_fkey',
+      type: 'f',
+      definition: 'FOREIGN KEY (unit_code_id) REFERENCES unit_codes(id) ON UPDATE CASCADE ON DELETE RESTRICT'
+    },
+    {
+      table: 'lab_results',
+      name: 'lab_results_submitted_by_organization_id_fkey',
+      type: 'f',
+      definition: 'FOREIGN KEY (submitted_by_organization_id) REFERENCES organizations(id) ON DELETE RESTRICT'
+    },
+    {
+      table: 'lots',
+      name: 'lots_assigned_laboratory_organization_id_fkey',
+      type: 'f',
+      definition: 'FOREIGN KEY (assigned_laboratory_organization_id) REFERENCES organizations(id) ON DELETE RESTRICT'
+    }
+  ],
+  indexes: [
+    {
+      table: 'investigations',
+      name: 'idx_investigations_unit_code_id',
+      columns: ['unit_code_id']
+    },
+    {
+      table: 'lab_results',
+      name: 'idx_lab_results_submitted_by_organization_id',
+      columns: ['submitted_by_organization_id']
+    },
+    {
+      table: 'lots',
+      name: 'idx_lots_assigned_laboratory_organization_id',
+      columns: ['assigned_laboratory_organization_id']
+    }
+  ]
+};
 const CORE_TABLES = [
   'organizations',
   'users',
@@ -495,10 +551,182 @@ async function verify0011(client) {
   };
 }
 
+async function readDerivedTenancyColumn(client, expected) {
+  const result = await client.query(
+    `SELECT format_type(attribute.atttypid, attribute.atttypmod) AS type,
+            attribute.attnotnull AS not_null,
+            pg_get_expr(attribute_default.adbin, attribute_default.adrelid) AS default_expr
+     FROM pg_attribute AS attribute
+     LEFT JOIN pg_attrdef AS attribute_default
+       ON attribute_default.adrelid = attribute.attrelid
+      AND attribute_default.adnum = attribute.attnum
+     WHERE attribute.attrelid = $1::regclass
+       AND attribute.attname = $2
+       AND NOT attribute.attisdropped`,
+    [expected.table, expected.column]
+  );
+  return result.rows[0] || null;
+}
+
+async function readDerivedTenancyConstraint(client, expected) {
+  const result = await client.query(
+    `SELECT table_relation.relname AS table_name,
+            constraint_record.contype AS type,
+            constraint_record.convalidated AS validated,
+            pg_get_constraintdef(constraint_record.oid, true) AS definition
+     FROM pg_constraint AS constraint_record
+     JOIN pg_class AS table_relation
+       ON table_relation.oid = constraint_record.conrelid
+     JOIN pg_namespace AS namespace
+       ON namespace.oid = table_relation.relnamespace
+     WHERE namespace.nspname = 'public'
+       AND constraint_record.conname = $1`,
+    [expected.name]
+  );
+  return result.rows;
+}
+
+async function readDerivedTenancyIndex(client, expected) {
+  return (await client.query(
+    `SELECT table_relation.relname AS table_name,
+            access_method.amname AS access_method,
+            index_state.indisunique AS unique,
+            index_state.indisvalid AS valid,
+            index_state.indisready AS ready,
+            index_state.indpred IS NULL AS unfiltered,
+            index_state.indexprs IS NULL AS plain_columns,
+            index_state.indnkeyatts AS key_columns,
+            index_state.indnatts AS total_columns,
+            ARRAY(
+              SELECT pg_get_indexdef(index_state.indexrelid, position, true)
+              FROM generate_series(1, index_state.indnatts) AS position
+              ORDER BY position
+            ) AS columns
+     FROM pg_class AS index_relation
+     JOIN pg_namespace AS namespace
+       ON namespace.oid = index_relation.relnamespace
+     JOIN pg_index AS index_state
+       ON index_state.indexrelid = index_relation.oid
+     JOIN pg_class AS table_relation
+       ON table_relation.oid = index_state.indrelid
+     JOIN pg_am AS access_method
+       ON access_method.oid = index_relation.relam
+     WHERE namespace.nspname = 'public'
+       AND index_relation.relname = $1`,
+    [expected.name]
+  )).rows;
+}
+
+async function verify0012(client) {
+  const evidence = {
+    columns: {},
+    constraints: {},
+    indexes: {},
+    data: null
+  };
+
+  for (const expected of DERIVED_TENANCY_STATE.columns) {
+    if (!(await tableExists(client, expected.table))) {
+      evidence.columns[`${expected.table}.${expected.column}`] = { table: false, column: null };
+      continue;
+    }
+    evidence.columns[`${expected.table}.${expected.column}`] = {
+      table: true,
+      column: await readDerivedTenancyColumn(client, expected)
+    };
+  }
+  for (const expected of DERIVED_TENANCY_STATE.constraints) {
+    evidence.constraints[expected.name] = await readDerivedTenancyConstraint(client, expected);
+  }
+  for (const expected of DERIVED_TENANCY_STATE.indexes) {
+    evidence.indexes[expected.name] = await readDerivedTenancyIndex(client, expected);
+  }
+
+  const completelyAbsent = DERIVED_TENANCY_STATE.columns.every(expected => {
+    const actual = evidence.columns[`${expected.table}.${expected.column}`];
+    return actual.table && actual.column === null;
+  })
+    && DERIVED_TENANCY_STATE.constraints.every(expected => evidence.constraints[expected.name].length === 0)
+    && DERIVED_TENANCY_STATE.indexes.every(expected => evidence.indexes[expected.name].length === 0);
+  if (completelyAbsent) {
+    return {
+      status: 'absent',
+      summary: 'C3a relationship columns, constraints, and indexes are absent.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  const columnsExact = DERIVED_TENANCY_STATE.columns.every(expected => {
+    const actual = evidence.columns[`${expected.table}.${expected.column}`];
+    return actual.table
+      && actual.column
+      && actual.column.type === 'uuid'
+      && !actual.column.not_null
+      && actual.column.default_expr === null;
+  });
+  const constraintsExact = DERIVED_TENANCY_STATE.constraints.every(expected => {
+    const rows = evidence.constraints[expected.name];
+    return rows.length === 1
+      && rows[0].table_name === expected.table
+      && rows[0].type === expected.type
+      && rows[0].validated
+      && rows[0].definition === expected.definition;
+  });
+  const indexesExact = DERIVED_TENANCY_STATE.indexes.every(expected => {
+    const rows = evidence.indexes[expected.name];
+    if (rows.length !== 1) return false;
+    const actual = rows[0];
+    return actual.table_name === expected.table
+      && actual.access_method === 'btree'
+      && !actual.unique
+      && actual.valid
+      && actual.ready
+      && actual.unfiltered
+      && actual.plain_columns
+      && Number(actual.key_columns) === expected.columns.length
+      && Number(actual.total_columns) === expected.columns.length
+      && stableJson(actual.columns) === stableJson(expected.columns);
+  });
+
+  if (columnsExact && constraintsExact && indexesExact) {
+    evidence.data = (await client.query(
+      `SELECT
+         (SELECT count(*)::int
+          FROM lots AS lot
+          JOIN budgets AS budget ON budget.id = lot.budget_id
+          WHERE lot.producer_id <> budget.producer_id) AS lot_budget_producer_mismatches,
+         (SELECT count(*)::int
+          FROM investigations AS investigation
+          LEFT JOIN unit_codes AS unit_code ON unit_code.id = investigation.unit_code_id
+          WHERE investigation.unit_code_id IS NULL
+             OR unit_code.public_identifier IS DISTINCT FROM investigation.public_identifier) AS investigation_link_mismatches`
+    )).rows[0];
+
+    if (Number(evidence.data.lot_budget_producer_mismatches) === 0
+      && Number(evidence.data.investigation_link_mismatches) === 0) {
+      return {
+        status: 'exact',
+        summary: 'C3a nullable relationship columns, validated constraints, plain indexes, and deterministic links are exact.',
+        evidence,
+        fingerprint: evidenceFingerprint(evidence)
+      };
+    }
+  }
+
+  return {
+    status: 'incompatible',
+    summary: 'C3a relationship ownership is partially present, incompatible, or contains data drift.',
+    evidence,
+    fingerprint: evidenceFingerprint(evidence)
+  };
+}
+
 const STATE_VERIFIERS = new Map([
   ['0007_add_producer_brandings_table.sql', verify0007],
   ['0009_widen_investigations_status_check.sql', verify0009],
-  ['0011_add_profile_organization_id.sql', verify0011]
+  ['0011_add_profile_organization_id.sql', verify0011],
+  ['0012_add_derived_tenant_relationships.sql', verify0012]
 ]);
 
 async function readMetadata(client) {
@@ -942,6 +1170,7 @@ module.exports = {
   EXPECTED_INVESTIGATION_STATUSES,
   LOCK_KEY_1,
   LOCK_KEY_2,
+  DERIVED_TENANCY_STATE,
   PROFILE_ORGANIZATION_STATE,
   TOOL_VERSION,
   evidenceFingerprint,
@@ -956,5 +1185,6 @@ module.exports = {
   validateMigrationOrdering,
   verify0007,
   verify0009,
-  verify0011
+  verify0011,
+  verify0012
 };
