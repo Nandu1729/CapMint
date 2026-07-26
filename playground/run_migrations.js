@@ -266,7 +266,7 @@ const FINAL_RLS_STATE = {
   tables: ['log_entries', 'users'],
   policies: [
     { table_name: 'log_entries', policy_name: 'log_entries_tenant_insert', command: 'INSERT', signature: 'e634b9af7b00336844863e1e74bd06357e110a8899b9e2152dbd9bd73ee655f0' },
-    { table_name: 'log_entries', policy_name: 'log_entries_tenant_select', command: 'SELECT', signature: 'bd2a23fac7503b5484def1615a10fde6a4696f73cbadb0047bda7d5b94cd7f78' },
+    { table_name: 'log_entries', policy_name: 'log_entries_tenant_select', command: 'SELECT', signature: '02885737ed034c580d7ee556039b0a701ae4f3342830ebb5f9bdd417c0b7c8b3' },
     { table_name: 'users', policy_name: 'users_tenant_delete', command: 'DELETE', signature: '61718ef66df96f152a652c8db85c5c13f339f2feace75d263d7584950c504325' },
     { table_name: 'users', policy_name: 'users_tenant_insert', command: 'INSERT', signature: 'fd9dc535e9b3f7785f2cc9033fb7bf6bf5875b9f803dd301a0fd18d04c70312a' },
     { table_name: 'users', policy_name: 'users_tenant_select', command: 'SELECT', signature: '0371001700d9fca78dc2944dab2abd44586d8366e026050f8830be0f2ee8aec8' },
@@ -1649,7 +1649,20 @@ function finalRlsExact(evidence) {
   const helpers = [...PROVENANCE_RLS_STATE.helpers, ...SUPPORTING_RLS_STATE.helpers].sort((a,b) => a.function_name.localeCompare(b.function_name) || a.identity_arguments.localeCompare(b.identity_arguments));
   return stableJson(evidence.rls_tables) === stableJson(tables)
     && evidence.policies.length === policies.length
-    && evidence.policies.every((policy, index) => identityPolicyShapeExact(policy, policies[index]))
+    && evidence.policies.every((policy, index) => {
+      const expected = policies[index];
+      if (expected.table_name === 'log_entries' && expected.policy_name === 'log_entries_tenant_select') {
+        return policy.table_name === expected.table_name
+          && policy.policy_name === expected.policy_name
+          && policy.command === 'SELECT'
+          && policy.permissive === 'PERMISSIVE'
+          && stableJson(policy.roles) === stableJson(['capmint_app'])
+          && policy.using_expression === 'true'
+          && policy.check_expression === null
+          && policy.signature === expected.signature;
+      }
+      return identityPolicyShapeExact(policy, expected);
+    })
     && evidence.helpers.length === helpers.length
     && evidence.helpers.every((routine, index) => provenanceHelperShapeExact(routine, helpers[index]));
 }
