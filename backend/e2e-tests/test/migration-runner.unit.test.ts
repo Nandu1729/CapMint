@@ -29,12 +29,12 @@ describe('migration runner metadata and planning primitives', () => {
     expect(() => runner.parseArgs(['--adopt'])).toThrow(/requires one or more/);
   });
 
-  it('loads a monotonic migration set ending in certifier-tightening migration 0014', () => {
+  it('loads a monotonic migration set ending in RLS-foundation migration 0015', () => {
     const result = runner.loadMigrations();
     expect(result.errors).toEqual([]);
-    expect(result.migrations.at(-1)?.filename).toBe('0014_tighten_certifier_organization_id.sql');
+    expect(result.migrations.at(-1)?.filename).toBe('0015_add_capmint_app_role.sql');
     expect(result.migrations.map((migration: { version: number }) => migration.version))
-      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
     for (const migration of result.migrations) {
       expect(migration.checksum).toMatch(/^[a-f0-9]{64}$/);
     }
@@ -142,5 +142,29 @@ describe('migration runner metadata and planning primitives', () => {
       orphanId: '00000000-0000-0000-0000-000000000003'
     });
     expect(runner.verify0014).toBeTypeOf('function');
+  });
+
+  it('defines the exact capmint_app D1 grant surface', () => {
+    expect(runner.APP_ROLE_STATE).toEqual({
+      role: 'capmint_app',
+      tables: [
+        'organizations',
+        'users',
+        'certifiers',
+        'producers',
+        'plots_or_hive_clusters',
+        'budgets',
+        'lots',
+        'unit_codes',
+        'lab_results',
+        'scan_events',
+        'log_entries',
+        'investigations',
+        'producer_brandings'
+      ],
+      tablePrivileges: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+      sequencePrivileges: ['SELECT', 'USAGE']
+    });
+    expect(runner.verify0015).toBeTypeOf('function');
   });
 });

@@ -16,6 +16,7 @@ const schemaPath = path.join(ROOT, 'database/schema/schema.sql');
 const baselinePath = path.join(ROOT, 'database/baselines/capmint-baseline-20260725.sql');
 const tighteningMigrationPath = path.join(ROOT, 'database/migrations/0013_tighten_tenant_constraints.sql');
 const certifierTighteningMigrationPath = path.join(ROOT, 'database/migrations/0014_tighten_certifier_organization_id.sql');
+const appRoleMigrationPath = path.join(ROOT, 'database/migrations/0015_add_capmint_app_role.sql');
 const allLegacyFiles = [
   '0001_add_certification_status_and_updated_at.sql',
   '0002_add_investigations_table.sql',
@@ -241,7 +242,7 @@ suite('C1 migration reconciliation', () => {
     if (adminPool) await adminPool.end();
   }, 60_000);
 
-  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0014, and becomes a no-op', async () => {
+  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0015, and becomes a no-op', async () => {
     const name = databaseName('bootstrap');
     await createDatabase(name);
     try {
@@ -260,7 +261,7 @@ suite('C1 migration reconciliation', () => {
          FROM migrations_log
          ORDER BY id`
       ).then(result => result.rows));
-      expect(rows).toHaveLength(6);
+      expect(rows).toHaveLength(7);
       expect(rows[0]).toMatchObject({
         filename: 'capmint-baseline-20260725.sql',
         application_mode: 'BASELINE',
@@ -289,6 +290,10 @@ suite('C1 migration reconciliation', () => {
         filename: '0014_tighten_certifier_organization_id.sql',
         application_mode: 'EXECUTED'
       });
+      expect(rows[6]).toMatchObject({
+        filename: '0015_add_capmint_app_role.sql',
+        application_mode: 'EXECUTED'
+      });
       const baselineState = await withPool(name, pool => pool.query(
         `SELECT
            EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'uuid-ossp') AS has_uuid_ossp,
@@ -305,7 +310,7 @@ suite('C1 migration reconciliation', () => {
       expect(bootstrapNoOpApply.status, bootstrapNoOpApply.stderr).toBe(0);
       expect(runRunner(name, ['--check']).status).toBe(0);
       const count = await withPool(name, pool => pool.query('SELECT count(*)::int AS count FROM migrations_log').then(result => result.rows[0].count));
-      expect(count).toBe(6);
+      expect(count).toBe(7);
     } finally {
       await dropDatabase(name);
     }
@@ -1187,6 +1192,58 @@ suite('C1 migration reconciliation', () => {
       await dropDatabase(name);
     }
   }, 60_000);
+
+  it('creates the non-owner app role idempotently and classifies 0015 exact, absent, and incompatible states', async () => {
+    const absentName = databaseName('app_role_absent');
+    const exactName = databaseName('app_role_exact');
+    const partialName = databaseName('app_role_partial');
+    const rlsName = databaseName('app_role_rls');
+    for (const name of [absentName, exactName, partialName, rlsName]) {
+      await createDatabase(name);
+      await applySqlFile(name, schemaPath);
+    }
+    try {
+      const absent = await withPool(absentName, pool => migrationRunner.verify0015(pool));
+      expect(absent.status).toBe('absent');
+
+      await applySqlFile(exactName, appRoleMigrationPath);
+      const exact = await withPool(exactName, pool => migrationRunner.verify0015(pool));
+      expect(exact.status).toBe('exact');
+      expect(exact.evidence.role).toMatchObject({
+        superuser: false,
+        inherit: false,
+        create_role: false,
+        create_database: false,
+        replication: false,
+        bypass_rls: false
+      });
+      expect(exact.evidence.role.can_login).toBe(false);
+      expect(exact.evidence.table_privileges).toHaveLength(13 * 4);
+      expect(exact.evidence.rls_enabled_tables).toEqual([]);
+      expect(exact.evidence.policies).toEqual([]);
+
+      const beforeRerun = await schemaFingerprint(exactName);
+      await applySqlFile(exactName, appRoleMigrationPath);
+      expect(await schemaFingerprint(exactName)).toBe(beforeRerun);
+      expect((await withPool(exactName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('exact');
+
+      await withPool(partialName, pool =>
+        pool.query('GRANT USAGE ON SCHEMA public TO capmint_app').then(() => undefined));
+      expect((await withPool(partialName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(rlsName, pool =>
+        pool.query('ALTER TABLE organizations ENABLE ROW LEVEL SECURITY').then(() => undefined));
+      expect((await withPool(rlsName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('incompatible');
+    } finally {
+      await dropDatabase(absentName);
+      await dropDatabase(exactName);
+      await dropDatabase(partialName);
+      await dropDatabase(rlsName);
+    }
+  }, 90_000);
 
   it('produces identical normalized schemas from baseline and snapshot paths', async () => {
     const baseline = databaseName('compare_baseline');

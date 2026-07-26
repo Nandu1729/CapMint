@@ -104,6 +104,25 @@ async function bootstrapDatabase(name: string): Promise<void> {
   expect(result.status, result.stderr).toBe(0);
 }
 
+async function provisionAppRole(name: string): Promise<string> {
+  const roleState = await adminPool.query(
+    `SELECT rolcanlogin FROM pg_roles WHERE rolname = 'capmint_app'`
+  );
+  if (roleState.rows[0]?.rolcanlogin) {
+    throw new Error('capmint_app already has LOGIN; refusing to replace an operator-managed credential.');
+  }
+  const password = crypto.randomBytes(36).toString('base64url');
+  await adminPool.query(`ALTER ROLE capmint_app LOGIN PASSWORD '${password}'`);
+  const url = new URL(databaseUrl(name));
+  url.username = 'capmint_app';
+  url.password = password;
+  return url.toString();
+}
+
+async function deprovisionAppRole(): Promise<void> {
+  await adminPool.query('ALTER ROLE capmint_app NOLOGIN PASSWORD NULL');
+}
+
 function generateKeyPair() {
   return crypto.generateKeyPairSync('ed25519', {
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
@@ -548,16 +567,19 @@ suite('F2 secure bootstrap and development seed', () => {
     await bootstrapDatabase(name);
     const authPort = await freePort();
     const cpqPort = await freePort();
-    const commonEnvironment = {
-      NODE_ENV: 'production',
-      CAPMINT_ALLOW_DEVELOPMENT_SEED: '1',
-      DATABASE_URL: databaseUrl(name),
-      REDIS_URL: process.env.REDIS_URL!,
-      JWT_SECRET: crypto.randomBytes(48).toString('base64url')
-    };
     let auth: ChildProcessWithoutNullStreams | undefined;
     let cpq: ChildProcessWithoutNullStreams | undefined;
+    let appRoleProvisioned = false;
     try {
+      const appDatabaseUrl = await provisionAppRole(name);
+      appRoleProvisioned = true;
+      const commonEnvironment = {
+        NODE_ENV: 'production',
+        CAPMINT_ALLOW_DEVELOPMENT_SEED: '1',
+        DATABASE_URL: appDatabaseUrl,
+        REDIS_URL: process.env.REDIS_URL!,
+        JWT_SECRET: crypto.randomBytes(48).toString('base64url')
+      };
       auth = await startService('backend/auth-service/src/index.ts', authPort, commonEnvironment);
       cpq = await startService('backend/cpq-service/src/index.ts', cpqPort, commonEnvironment);
       expect(await rowCounts(name)).toMatchObject({
@@ -646,6 +668,7 @@ suite('F2 secure bootstrap and development seed', () => {
     } finally {
       if (cpq) await stopService(cpq);
       if (auth) await stopService(auth);
+      if (appRoleProvisioned) await deprovisionAppRole();
       await dropDatabase(name);
     }
   }, 60_000);

@@ -73,6 +73,8 @@ const values = {
 let adminPool: pg.Pool;
 let testPool: pg.Pool;
 let testDatabaseUrl: string;
+let appDatabaseUrl: string;
+let appRoleProvisioned = false;
 let jwtSecret: string;
 let certifierPrivateKey: string;
 let certifierPublicKey: string;
@@ -146,7 +148,7 @@ async function startService(name: keyof typeof PORTS, sourcePath: string): Promi
       ...process.env,
       NODE_ENV: 'integration',
       PORT: String(PORTS[name]),
-      DATABASE_URL: testDatabaseUrl,
+      DATABASE_URL: name === 'integration' ? testDatabaseUrl : appDatabaseUrl,
       REDIS_URL: process.env.REDIS_URL || '',
       JWT_SECRET: jwtSecret,
       CERTIFIER_PRIVATE_KEY: certifierPrivateKey,
@@ -377,6 +379,24 @@ suite('C0 tenant authorization containment', () => {
     testPool = new pg.Pool({ connectionString: testDatabaseUrl });
     const schema = await fs.readFile(path.join(ROOT, 'database/schema/schema.sql'), 'utf8');
     await testPool.query(schema);
+    const roleMigration = await fs.readFile(
+      path.join(ROOT, 'database/migrations/0015_add_capmint_app_role.sql'),
+      'utf8'
+    );
+    await testPool.query(roleMigration);
+    const roleState = await adminPool.query(
+      `SELECT rolcanlogin FROM pg_roles WHERE rolname = 'capmint_app'`
+    );
+    if (roleState.rows[0]?.rolcanlogin) {
+      throw new Error('capmint_app already has LOGIN; refusing to replace an operator-managed credential.');
+    }
+    const appPassword = crypto.randomBytes(36).toString('base64url');
+    await adminPool.query(`ALTER ROLE capmint_app LOGIN PASSWORD '${appPassword}'`);
+    appRoleProvisioned = true;
+    const appUrl = new URL(testDatabaseUrl);
+    appUrl.username = 'capmint_app';
+    appUrl.password = appPassword;
+    appDatabaseUrl = appUrl.toString();
 
     jwtSecret = crypto.randomBytes(48).toString('base64url');
     const keyPair = crypto.generateKeyPairSync('ed25519', {
@@ -412,6 +432,9 @@ suite('C0 tenant authorization containment', () => {
     }
     await new Promise(resolve => setTimeout(resolve, 500));
     if (testPool) await testPool.end();
+    if (appRoleProvisioned && adminPool) {
+      await adminPool.query('ALTER ROLE capmint_app NOLOGIN PASSWORD NULL');
+    }
     if (databaseCreated && adminPool) {
       await adminPool.query(`DROP DATABASE ${quoteIdentifier(TEST_DATABASE_NAME)} WITH (FORCE)`);
     }

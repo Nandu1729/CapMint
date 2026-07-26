@@ -119,6 +119,11 @@ async function runTests() {
       body: JSON.stringify({ username: 'admin', password: DEVELOPMENT_ADMIN_PASSWORD })
     });
     const adminLoginData = await adminLogin.json();
+    if (!adminLogin.ok || !adminLoginData.data?.token) {
+      throw new Error(
+        `Admin login failed (${adminLogin.status}): ${JSON.stringify(adminLoginData)}`
+      );
+    }
     const adminToken = adminLoginData.data.token;
 
     for (const org of orgs) {
@@ -140,11 +145,16 @@ async function runTests() {
       orgIds[org.type] = orgId;
 
       // Activate Org
-      await fetch(`${BASE_URL}/api/v1/auth/organizations/${orgId}/status`, {
+      const activation = await fetch(`${BASE_URL}/api/v1/auth/organizations/${orgId}/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${adminToken}` },
         body: JSON.stringify({ status: 'ACTIVATED' })
       });
+      if (!activation.ok) {
+        throw new Error(
+          `${org.type} activation failed (${activation.status}): ${await activation.text()}`
+        );
+      }
 
       // Update Certifier public key in database
       if (org.type === 'CERTIFICATION_BODY') {
@@ -158,6 +168,11 @@ async function runTests() {
         body: JSON.stringify({ username: org.username, password: 'password123' })
       });
       const logData = await log.json();
+      if (!log.ok || !logData.data?.token) {
+        throw new Error(
+          `${org.type} login failed (${log.status}): ${JSON.stringify(logData)}`
+        );
+      }
       tokens[org.type] = logData.data.token;
     }
 
