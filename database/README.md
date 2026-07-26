@@ -331,6 +331,63 @@ to use the owner URL. The six PostgreSQL-backed services continue to use the
 operator-provisioned `capmint_app` URL. RLS on transactional and join-scoped
 tables remains deferred to D3.
 
+## Provenance-Chain RLS Enforcement 0017
+
+`0017_enable_provenance_chain_rls.sql` implements DM-04 D3a for only the core
+join-scoped provenance chain:
+
+- enables, but does not force, row-level security on `budgets`, `lots`, and
+  `unit_codes`;
+- derives producer ownership and controlling-certifier access through the
+  existing producer, budget, lot, and certifier relationships;
+- permits an assigned laboratory to read and update its assigned lot and
+  related unit-code state;
+- permits public reads only for a fully registered unit code and the linked lot
+  and budget required by consumer verification or GS1 resolution;
+- permits public UPDATE only on a registered, non-revoked unit-code row with no
+  revocation timestamp, preserving clone-state writes from the consumer scan
+  path;
+- permits producer INSERT only when the new budget/lot/unit is linked to the
+  authenticated producer organization;
+- permits mapped producer, controlling-certifier, or assigned-laboratory
+  updates where the service workflow requires them;
+- creates no DELETE policy because no application flow deletes provenance
+  rows, leaving DELETE at PostgreSQL's default deny for `capmint_app`.
+
+Every policy contains the system-administrator branch and uses
+`NULLIF(current_setting('app.current_organization_id', true), '')::uuid` for
+tenant comparisons. Public branches require the normalized empty tenant
+setting and never cast the empty string.
+
+The D2 producer policy already traverses `budgets` to support a controlling
+certifier's producer read. A new budget policy that directly traversed the RLS
+protected producer table would create a policy dependency cycle. Migration
+0017 therefore installs six owner-executed, boolean-only relationship helpers.
+They return no row data, use a fixed `pg_catalog, public` search path, revoke
+EXECUTE from PUBLIC, and grant it only to `capmint_app`. The helpers evaluate
+the same foreign-key joins while the owner bypass prevents transitive RLS
+recursion. The runner verifies their definitions, security mode, owner,
+language, search path, privileges, volatility, arguments, and result type.
+
+RLS is row-scoped rather than column-scoped. The public unit-code UPDATE policy
+cannot independently restrict the update to `clone_flag`; the public
+verification handler remains responsible for issuing only that scan-state
+write. The policy narrows the eligible row as far as the current schema
+permits: it must be a fully registered code, must not be `REVOKED`, and must
+have no `revoked_at` value.
+
+Migration 0017 fails closed unless 0016 is recorded, the exact D2 identity
+surface is present, `capmint_app` remains non-elevated, and the D3a surface is
+either absent or exact. `verify0017` classifies exact, absent, and incompatible
+states. `verify0015` and `verify0016` accept the D3a successor only when 0017
+is recorded and its combined six-table policy/helper state is exact.
+
+The owner `capmint_admin` remains exempt because no table uses FORCE.
+Migration bootstrap, first-administrator bootstrap, and development seed
+continue to use the owner URL. RLS on `lab_results`, `investigations`,
+`scan_events`, `plots_or_hive_clusters`, `producer_brandings`, `users`, and
+`log_entries` remains deferred to D3b/D3c.
+
 ## Existing Database Procedure
 
 1. Run `--check`.
