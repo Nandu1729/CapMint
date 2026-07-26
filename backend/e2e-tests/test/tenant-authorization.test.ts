@@ -7,7 +7,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import pg from 'pg';
-import { withTenantTx } from '../../../packages/shared/tenant-db.js';
+import {
+  PUBLIC_TENANT_CONTEXT,
+  withTenantTx
+} from '../../../packages/shared/tenant-db.js';
 
 const RUN_INTEGRATION = process.env.RUN_C0_INTEGRATION === '1';
 const TEST_DATABASE_NAME = process.env.C0_TEST_DATABASE_NAME || '';
@@ -412,6 +415,15 @@ suite('C0 tenant authorization containment', () => {
       `INSERT INTO migrations_log (filename)
        VALUES ('0016_enable_identity_table_rls.sql')`
     );
+    const provenanceRlsMigration = await fs.readFile(
+      path.join(ROOT, 'database/migrations/0017_enable_provenance_chain_rls.sql'),
+      'utf8'
+    );
+    await testPool.query(provenanceRlsMigration);
+    await testPool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0017_enable_provenance_chain_rls.sql')`
+    );
     const roleState = await adminPool.query(
       `SELECT rolcanlogin FROM pg_roles WHERE rolname = 'capmint_app'`
     );
@@ -612,6 +624,207 @@ suite('C0 tenant authorization containment', () => {
         organizations: 7,
         producers: 2,
         certifiers: 3
+      });
+    } finally {
+      await appPool.end();
+    }
+  });
+
+  it('enforces provenance-chain isolation and preserves transitive actor access', async () => {
+    const appPool = new pg.Pool({ connectionString: appDatabaseUrl, max: 1 });
+    const producerContext = {
+      access: 'authenticated' as const,
+      orgId: ids.producerOrgA,
+      isSystemAdmin: false
+    };
+    try {
+      await withTenantTx(appPool, producerContext, async client => {
+        expect((await client.query(
+          'SELECT id FROM budgets WHERE id = $1',
+          [ids.budgetB]
+        )).rowCount).toBe(0);
+        expect((await client.query(
+          'UPDATE budgets SET status = status WHERE id = $1 RETURNING id',
+          [ids.budgetB]
+        )).rowCount).toBe(0);
+        expect((await client.query(
+          'DELETE FROM budgets WHERE id = $1 RETURNING id',
+          [ids.budgetB]
+        )).rowCount).toBe(0);
+
+        expect((await client.query(
+          'SELECT id FROM lots WHERE id = $1',
+          [ids.lotB]
+        )).rowCount).toBe(0);
+        expect((await client.query(
+          'UPDATE lots SET lab_status = lab_status WHERE id = $1 RETURNING id',
+          [ids.lotB]
+        )).rowCount).toBe(0);
+        expect((await client.query(
+          'DELETE FROM lots WHERE id = $1 RETURNING id',
+          [ids.lotB]
+        )).rowCount).toBe(0);
+
+        expect((await client.query(
+          'SELECT id FROM unit_codes WHERE id = $1',
+          [ids.codeB]
+        )).rowCount).toBe(0);
+        expect((await client.query(
+          'UPDATE unit_codes SET clone_flag = clone_flag WHERE id = $1 RETURNING id',
+          [ids.codeB]
+        )).rowCount).toBe(0);
+        expect((await client.query(
+          'DELETE FROM unit_codes WHERE id = $1 RETURNING id',
+          [ids.codeB]
+        )).rowCount).toBe(0);
+
+        const ownRows = await client.query(
+          `SELECT
+             (SELECT count(*)::int
+              FROM budgets
+              WHERE id = ANY($1::uuid[])) AS budgets,
+             (SELECT count(*)::int
+              FROM lots
+              WHERE id = ANY($2::uuid[])) AS lots,
+             (SELECT count(*)::int
+              FROM unit_codes
+              WHERE id = ANY($3::uuid[])) AS unit_codes`,
+          [
+            [ids.budgetA, ids.budgetActivateA, ids.budgetB],
+            [ids.lotA, ids.lotRevokeA, ids.lotB],
+            [ids.codeA, ids.codeRevokeA, ids.codeB]
+          ]
+        );
+        expect(ownRows.rows[0]).toEqual({
+          budgets: 2,
+          lots: 2,
+          unit_codes: 2
+        });
+      });
+
+      await expect(withTenantTx(
+        appPool,
+        producerContext,
+        client => client.query(
+          `INSERT INTO budgets
+             (id, producer_id, certifier_id, source_unit_type,
+              approved_quantity, yield_assumptions, signature_bundle,
+              effective_start_date, effective_end_date, status)
+           VALUES
+             ($1, $2, $3, 'UNIT_COUNT', 1, '{}', 'denied',
+              CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 day', 'DRAFT')`,
+          [crypto.randomUUID(), ids.producerB, ids.certifierB]
+        )
+      )).rejects.toMatchObject({ code: '42501' });
+      await expect(withTenantTx(
+        appPool,
+        producerContext,
+        client => client.query(
+          `INSERT INTO lots
+             (id, producer_id, budget_id, product_metadata, batch_size,
+              processing_dates, lab_status)
+           VALUES ($1, $2, $3, '{}', 1, '{}', 'PENDING')`,
+          [crypto.randomUUID(), ids.producerB, ids.budgetB]
+        )
+      )).rejects.toMatchObject({ code: '42501' });
+      await expect(withTenantTx(
+        appPool,
+        producerContext,
+        client => client.query(
+          `INSERT INTO unit_codes
+             (id, lot_id, serial, gtin, digital_link_uri, public_identifier,
+              verification_url, current_state)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, 'MINTED')`,
+          [
+            crypto.randomUUID(),
+            ids.lotB,
+            `D${crypto.randomBytes(6).toString('hex')}`,
+            values.gtinB,
+            `https://id.c0/denied/${crypto.randomUUID()}`,
+            crypto.randomUUID(),
+            `https://verify.c0/denied/${crypto.randomUUID()}`
+          ]
+        )
+      )).rejects.toMatchObject({ code: '42501' });
+
+      await withTenantTx(
+        appPool,
+        {
+          access: 'authenticated',
+          orgId: ids.certifierOrgA,
+          isSystemAdmin: false
+        },
+        async client => {
+          expect((await client.query(
+            'SELECT id FROM budgets WHERE id = $1',
+            [ids.budgetA]
+          )).rowCount).toBe(1);
+          expect((await client.query(
+            'SELECT id FROM lots WHERE id = $1',
+            [ids.lotA]
+          )).rowCount).toBe(1);
+          expect((await client.query(
+            'SELECT id FROM unit_codes WHERE id = $1',
+            [ids.codeA]
+          )).rowCount).toBe(1);
+          expect((await client.query(
+            'SELECT id FROM budgets WHERE id = $1',
+            [ids.budgetB]
+          )).rowCount).toBe(0);
+        }
+      );
+
+      await withTenantTx(
+        appPool,
+        PUBLIC_TENANT_CONTEXT,
+        async client => {
+          expect((await client.query(
+            `SELECT unit_code.id
+             FROM unit_codes AS unit_code
+             JOIN lots AS lot ON lot.id = unit_code.lot_id
+             JOIN budgets AS budget ON budget.id = lot.budget_id
+             WHERE unit_code.public_identifier = $1`,
+            [ids.codeA]
+          )).rowCount).toBe(1);
+          expect((await client.query(
+            `UPDATE unit_codes
+             SET clone_flag = true
+             WHERE id = $1
+             RETURNING clone_flag`,
+            [ids.codeA]
+          )).rows[0].clone_flag).toBe(true);
+          expect((await client.query(
+            `UPDATE unit_codes
+             SET clone_flag = false
+             WHERE id = $1
+             RETURNING clone_flag`,
+            [ids.codeA]
+          )).rows[0].clone_flag).toBe(false);
+          expect((await client.query(
+            'UPDATE lots SET lab_status = lab_status WHERE id = $1 RETURNING id',
+            [ids.lotA]
+          )).rowCount).toBe(0);
+          expect((await client.query(
+            'UPDATE budgets SET status = status WHERE id = $1 RETURNING id',
+            [ids.budgetA]
+          )).rowCount).toBe(0);
+        }
+      );
+
+      const adminRows = await withTenantTx(
+        appPool,
+        { access: 'authenticated', orgId: null, isSystemAdmin: true },
+        async client => client.query(
+          `SELECT
+             (SELECT count(*)::int FROM budgets) AS budgets,
+             (SELECT count(*)::int FROM lots) AS lots,
+             (SELECT count(*)::int FROM unit_codes) AS unit_codes`
+        )
+      );
+      expect(adminRows.rows[0]).toEqual({
+        budgets: 3,
+        lots: 3,
+        unit_codes: 4
       });
     } finally {
       await appPool.end();

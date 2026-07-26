@@ -355,14 +355,32 @@ suite('F2 secure bootstrap and development seed', () => {
           const sql = await fs.readFile(legacySeedPath, 'utf8');
           await withPool(name, async pool => {
             await pool.query(
-              `DROP POLICY IF EXISTS producers_tenant_select ON producers;
+              `DROP POLICY IF EXISTS budgets_tenant_select ON budgets;
+               DROP POLICY IF EXISTS budgets_tenant_insert ON budgets;
+               DROP POLICY IF EXISTS budgets_tenant_update ON budgets;
+               DROP POLICY IF EXISTS lots_tenant_select ON lots;
+               DROP POLICY IF EXISTS lots_tenant_insert ON lots;
+               DROP POLICY IF EXISTS lots_tenant_update ON lots;
+               DROP POLICY IF EXISTS unit_codes_tenant_select ON unit_codes;
+               DROP POLICY IF EXISTS unit_codes_tenant_insert ON unit_codes;
+               DROP POLICY IF EXISTS unit_codes_tenant_update ON unit_codes;
+               DROP FUNCTION IF EXISTS capmint_rls_unit_actor(uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_lot_producer(uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_lot_actor(uuid, uuid, uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_has_public_code(uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_budget_actor(uuid, uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_producer_owns(uuid, uuid);
+               DROP POLICY IF EXISTS producers_tenant_select ON producers;
                DROP POLICY IF EXISTS certifiers_tenant_select ON certifiers;
                DROP POLICY IF EXISTS certifiers_tenant_insert ON certifiers;
                DROP POLICY IF EXISTS certifiers_tenant_update ON certifiers;
                DROP POLICY IF EXISTS certifiers_tenant_delete ON certifiers;
                ALTER TABLE organizations DISABLE ROW LEVEL SECURITY;
                ALTER TABLE producers DISABLE ROW LEVEL SECURITY;
-               ALTER TABLE certifiers DISABLE ROW LEVEL SECURITY`
+               ALTER TABLE certifiers DISABLE ROW LEVEL SECURITY;
+               ALTER TABLE budgets DISABLE ROW LEVEL SECURITY;
+               ALTER TABLE lots DISABLE ROW LEVEL SECURITY;
+               ALTER TABLE unit_codes DISABLE ROW LEVEL SECURITY`
             );
             await pool.query(
               'ALTER TABLE certifiers DROP COLUMN organization_id'

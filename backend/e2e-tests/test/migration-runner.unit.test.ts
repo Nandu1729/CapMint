@@ -29,12 +29,12 @@ describe('migration runner metadata and planning primitives', () => {
     expect(() => runner.parseArgs(['--adopt'])).toThrow(/requires one or more/);
   });
 
-  it('loads a monotonic migration set ending in identity-table RLS migration 0016', () => {
+  it('loads a monotonic migration set ending in provenance-chain RLS migration 0017', () => {
     const result = runner.loadMigrations();
     expect(result.errors).toEqual([]);
-    expect(result.migrations.at(-1)?.filename).toBe('0016_enable_identity_table_rls.sql');
+    expect(result.migrations.at(-1)?.filename).toBe('0017_enable_provenance_chain_rls.sql');
     expect(result.migrations.map((migration: { version: number }) => migration.version))
-      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]);
+      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
     for (const migration of result.migrations) {
       expect(migration.checksum).toMatch(/^[a-f0-9]{64}$/);
     }
@@ -179,5 +179,22 @@ describe('migration runner metadata and planning primitives', () => {
       (policy: { signature: string }) => /^[a-f0-9]{64}$/.test(policy.signature)
     )).toBe(true);
     expect(runner.verify0016).toBeTypeOf('function');
+  });
+
+  it('defines the exact D3a provenance-chain RLS surface', () => {
+    expect(runner.PROVENANCE_RLS_STATE.tables).toEqual([
+      'budgets',
+      'lots',
+      'unit_codes'
+    ]);
+    expect(runner.PROVENANCE_RLS_STATE.policies).toHaveLength(9);
+    expect(runner.PROVENANCE_RLS_STATE.helpers).toHaveLength(6);
+    expect(runner.PROVENANCE_RLS_STATE.policies.every(
+      (policy: { signature: string }) => /^[a-f0-9]{64}$/.test(policy.signature)
+    )).toBe(true);
+    expect(runner.PROVENANCE_RLS_STATE.helpers.every(
+      (routine: { signature: string }) => /^[a-f0-9]{64}$/.test(routine.signature)
+    )).toBe(true);
+    expect(runner.verify0017).toBeTypeOf('function');
   });
 });
