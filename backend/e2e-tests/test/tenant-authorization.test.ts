@@ -19,7 +19,8 @@ const PORTS = {
   mint: 28183,
   resolver: 28184,
   transparency: 28185,
-  verification: 28186
+  verification: 28186,
+  integration: 28187
 };
 
 const BASE = {
@@ -27,7 +28,8 @@ const BASE = {
   mint: `http://127.0.0.1:${PORTS.mint}`,
   resolver: `http://127.0.0.1:${PORTS.resolver}`,
   transparency: `http://127.0.0.1:${PORTS.transparency}`,
-  verification: `http://127.0.0.1:${PORTS.verification}`
+  verification: `http://127.0.0.1:${PORTS.verification}`,
+  integration: `http://127.0.0.1:${PORTS.integration}`
 };
 
 const ids = {
@@ -41,6 +43,7 @@ const ids = {
   certifierB: crypto.randomUUID(),
   labA: crypto.randomUUID(),
   labB: crypto.randomUUID(),
+  exporter: crypto.randomUUID(),
   systemAdmin: crypto.randomUUID(),
   assigneeA: crypto.randomUUID(),
   budgetA: crypto.randomUUID(),
@@ -52,6 +55,7 @@ const ids = {
   codeA: crypto.randomUUID(),
   codeB: crypto.randomUUID(),
   codeRevokeA: crypto.randomUUID(),
+  codeAutomation: crypto.randomUUID(),
   investigationA: crypto.randomUUID(),
   investigationB: crypto.randomUUID()
 };
@@ -62,6 +66,7 @@ const values = {
   serialA: `A${crypto.randomBytes(6).toString('hex').toUpperCase()}`,
   serialB: `B${crypto.randomBytes(6).toString('hex').toUpperCase()}`,
   serialRevokeA: `R${crypto.randomBytes(6).toString('hex').toUpperCase()}`,
+  serialAutomation: `I${crypto.randomBytes(6).toString('hex').toUpperCase()}`,
   batchA: `batch-a-${crypto.randomUUID()}`
 };
 
@@ -286,6 +291,20 @@ async function insertFixtures(): Promise<void> {
       ]
     );
     await client.query(
+      `INSERT INTO unit_codes
+         (id, lot_id, serial, gtin, digital_link_uri, public_identifier,
+          verification_url, current_state)
+       VALUES ($1, $2, $3, $4, $5, $1, $6, 'MINTED')`,
+      [
+        ids.codeAutomation,
+        ids.lotB,
+        values.serialAutomation,
+        values.gtinB,
+        `https://id.c0/01/${values.gtinB}/21/${values.serialAutomation}`,
+        `https://verify.c0/v/${ids.codeAutomation}`
+      ]
+    );
+    await client.query(
       `INSERT INTO lab_results
          (lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
        VALUES ($1, 'Legacy Test Lab', 'Purity', 'PASS', $2, 'c0-a.pdf')`,
@@ -317,6 +336,9 @@ async function mutationSnapshot() {
        (SELECT count(*)::int FROM unit_codes WHERE lot_id = $2) AS lot_a_codes,
        (SELECT jsonb_build_object('lab', lab_status, 'revocation', revocation_status, 'certification', certification_status)
           FROM lots WHERE id = $2) AS lot_a,
+       (SELECT assigned_laboratory_organization_id FROM lots WHERE id = $2) AS assigned_laboratory,
+       (SELECT jsonb_agg(jsonb_build_object('id', id, 'state', current_state) ORDER BY id)
+          FROM unit_codes WHERE lot_id = $2) AS lot_a_code_states,
        (SELECT jsonb_build_object('status', status, 'notes', case_notes, 'timeline', evidence_timeline)
           FROM investigations WHERE id = $3) AS investigation_a,
        (SELECT count(*)::int FROM lab_results WHERE lot_id = $2) AS lab_results,
@@ -369,6 +391,7 @@ suite('C0 tenant authorization containment', () => {
     await startService('mint', 'backend/mint-service/src/index.ts');
     await startService('verification', 'backend/verification-service/src/index.ts');
     await startService('resolver', 'backend/resolver-service/src/index.ts');
+    await startService('integration', 'backend/integration-service/src/index.ts');
     await insertFixtures();
 
     tokens.producerA = signToken(ids.producerOrgA, 'PRODUCER');
@@ -377,6 +400,7 @@ suite('C0 tenant authorization containment', () => {
     tokens.certifierB = signToken(ids.certifierOrgB, 'CERTIFICATION_BODY');
     tokens.labA = signToken(ids.labA, 'NABL_LABORATORY');
     tokens.labB = signToken(ids.labB, 'NABL_LABORATORY');
+    tokens.exporter = signToken(ids.exporter, 'EXPORTER');
     tokens.systemAdmin = signToken(ids.systemAdmin, 'SYSTEM_ADMINISTRATOR');
     tokens.systemAdminMember = signToken(ids.systemAdmin, 'SYSTEM_ADMINISTRATOR', 'MEMBER');
     tokens.invalidRole = signToken(ids.producerOrgA, 'PRODUCER', 'VIEWER');
@@ -396,7 +420,14 @@ suite('C0 tenant authorization containment', () => {
 
   it('rejects unauthenticated and unsupported operational actors', async () => {
     expect((await requestJson(BASE.verification, '/api/v1/verify/lots')).status).toBe(401);
-    expect((await requestJson(BASE.verification, '/api/v1/verify/lots', { token: tokens.labA })).status).toBe(403);
+    const unassignedLabLots = await requestJson(
+      BASE.verification,
+      '/api/v1/verify/lots',
+      { token: tokens.labA }
+    );
+    expect(unassignedLabLots.status).toBe(200);
+    expect(JSON.stringify(unassignedLabLots.data)).not.toContain(ids.lotA);
+    expect(JSON.stringify(unassignedLabLots.data)).not.toContain(ids.lotB);
     expect((await requestJson(BASE.verification, '/api/v1/verify/lots', { token: tokens.invalidRole })).status).toBe(403);
     expect((await requestJson(BASE.verification, '/api/v1/verify/lots', { token: tokens.systemAdminMember })).status).toBe(403);
 
@@ -404,6 +435,39 @@ suite('C0 tenant authorization containment', () => {
     expect(systemLots.status).toBe(200);
     expect(JSON.stringify(systemLots.data)).toContain(ids.lotA);
     expect(JSON.stringify(systemLots.data)).toContain(ids.lotB);
+  });
+
+  it('enforces explicit integration lookup role allowlists', async () => {
+    expect((await requestJson(
+      BASE.integration,
+      '/api/v1/integrations/agristack/farmers/FARMER-901'
+    )).status).toBe(401);
+
+    for (const token of [tokens.producerA, tokens.certifierA, tokens.systemAdmin]) {
+      expect((await requestJson(
+        BASE.integration,
+        '/api/v1/integrations/agristack/farmers/FARMER-901',
+        { token }
+      )).status).toBe(200);
+      expect((await requestJson(
+        BASE.integration,
+        '/api/v1/integrations/tracenet/certificates/NPOP-IN-90812',
+        { token }
+      )).status).toBe(200);
+    }
+
+    for (const token of [tokens.labA, tokens.labB, tokens.exporter, tokens.systemAdminMember]) {
+      expect((await requestJson(
+        BASE.integration,
+        '/api/v1/integrations/agristack/farmers/FARMER-901',
+        { token }
+      )).status).toBe(403);
+      expect((await requestJson(
+        BASE.integration,
+        '/api/v1/integrations/tracenet/certificates/NPOP-IN-90812',
+        { token }
+      )).status).toBe(403);
+    }
   });
 
   it('prevents producer B from mutating producer A resources', async () => {
@@ -524,29 +588,179 @@ suite('C0 tenant authorization containment', () => {
     expect((await requestJson(BASE.verification, `/api/v1/lots/${ids.lotA}/export/pdf`, { token: tokens.certifierB })).status).toBe(404);
   });
 
-  it('fails laboratory mutations closed before report or provenance changes', async () => {
+  it('prevents an unrelated certifier from assigning a laboratory', async () => {
     const before = await mutationSnapshot();
-    for (const token of [tokens.labA, tokens.labB]) {
-      const result = await requestJson(BASE.verification, '/api/v1/verify/lab-results', {
+    const denied = await requestJson(
+      BASE.verification,
+      `/api/v1/lots/${ids.lotA}/assign-laboratory`,
+      {
         method: 'POST',
-        token,
-        body: {
-          lot_id: ids.lotA,
-          lab_name: 'Untrusted request value',
-          pdf_content: 'not-a-pdf'
+        token: tokens.certifierB,
+        body: { laboratory_organization_id: ids.labA }
+      }
+    );
+    expect(denied.status).toBe(404);
+    expect(await mutationSnapshot()).toEqual(before);
+  });
+
+  it('allows the controlling certifier to assign an activated laboratory idempotently', async () => {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const assigned = await requestJson(
+        BASE.verification,
+        `/api/v1/lots/${ids.lotA}/assign-laboratory`,
+        {
+          method: 'POST',
+          token: tokens.certifierA,
+          body: { laboratory_organization_id: ids.labA }
         }
-      });
-      expect(result.status).toBe(403);
-      expect(result.data).toEqual({
-        success: false,
-        error: {
-          statusCode: 403,
-          code: 'LAB_ASSIGNMENT_REQUIRED',
-          message: 'This lot has no trusted laboratory assignment.'
+      );
+      expect(assigned.status).toBe(200);
+      expect(assigned.data).toEqual({
+        success: true,
+        data: {
+          lot: {
+            id: ids.lotA,
+            assigned_laboratory_organization_id: ids.labA
+          }
         }
       });
     }
+
+    const assignment = await testPool.query(
+      'SELECT assigned_laboratory_organization_id FROM lots WHERE id = $1',
+      [ids.lotA]
+    );
+    expect(assignment.rows[0].assigned_laboratory_organization_id).toBe(ids.labA);
+
+    const labAList = await requestJson(
+      BASE.verification,
+      '/api/v1/verify/lots',
+      { token: tokens.labA }
+    );
+    const labBList = await requestJson(
+      BASE.verification,
+      '/api/v1/verify/lots',
+      { token: tokens.labB }
+    );
+    expect(labAList.status).toBe(200);
+    expect(JSON.stringify(labAList.data)).toContain(ids.lotA);
+    expect(JSON.stringify(labAList.data)).not.toContain(ids.lotB);
+    expect(labBList.status).toBe(200);
+    expect(JSON.stringify(labBList.data)).not.toContain(ids.lotA);
+  });
+
+  it('keeps legacy null-submitter evidence readable without fabricating identity', async () => {
+    const legacy = await testPool.query(
+      'SELECT submitted_by_organization_id FROM lab_results WHERE lot_id = $1',
+      [ids.lotA]
+    );
+    expect(legacy.rows[0].submitted_by_organization_id).toBeNull();
+
+    const publicVerification = await requestJson(
+      BASE.verification,
+      `/api/v1/verify/${values.gtinA}/${values.serialA}`,
+      { method: 'POST', body: { device_metadata: { c3b: 'legacy-read' } } }
+    );
+    expect(publicVerification.status).toBe(200);
+    expect((publicVerification.data as any).data.labResult.status).toBe('PASS');
+    expect(JSON.stringify(publicVerification.data)).not.toContain(ids.labA);
+    expect(JSON.stringify(publicVerification.data)).not.toContain(ids.labB);
+  });
+
+  it('denies an unassigned laboratory FAILED report without state or ledger changes', async () => {
+    const before = await mutationSnapshot();
+    const failedPdf = Buffer.from('%PDF-1.4 denied failed report');
+    const denied = await requestJson(BASE.verification, '/api/v1/verify/lab-results', {
+      method: 'POST',
+      token: tokens.labB,
+      body: {
+        lot_id: ids.lotA,
+        lab_name: 'Unassigned Laboratory',
+        test_type: 'Purity',
+        result_summary: 'FAILED',
+        report_hash: crypto.createHash('sha256').update(failedPdf).digest('hex'),
+        report_reference: 'denied.pdf',
+        pdf_content: failedPdf.toString('base64')
+      }
+    });
+    expect(denied.status).toBe(403);
+    expect(denied.data).toEqual({
+      success: false,
+      error: {
+        statusCode: 403,
+        code: 'LAB_ASSIGNMENT_REQUIRED',
+        message: 'This lot has no trusted laboratory assignment.'
+      }
+    });
     expect(await mutationSnapshot()).toEqual(before);
+  });
+
+  it('allows the assigned laboratory to submit and replace results with actor provenance', async () => {
+    const assignment = await requestJson(
+      BASE.verification,
+      `/api/v1/lots/${ids.lotRevokeA}/assign-laboratory`,
+      {
+        method: 'POST',
+        token: tokens.certifierA,
+        body: { laboratory_organization_id: ids.labA }
+      }
+    );
+    expect(assignment.status).toBe(200);
+
+    const firstPdf = Buffer.from('%PDF-1.4 assigned laboratory report one');
+    const firstHash = crypto.createHash('sha256').update(firstPdf).digest('hex');
+    const inserted = await requestJson(BASE.verification, '/api/v1/verify/lab-results', {
+      method: 'POST',
+      token: tokens.labA,
+      body: {
+        lot_id: ids.lotRevokeA,
+        lab_name: 'Assigned Laboratory A',
+        test_type: 'Purity',
+        result_summary: 'PASSED',
+        report_hash: firstHash,
+        report_reference: 'assigned-one.pdf',
+        pdf_content: firstPdf.toString('base64')
+      }
+    });
+    expect(inserted.status).toBe(200);
+    expect(JSON.stringify(inserted.data)).not.toContain(ids.labA);
+
+    const secondPdf = Buffer.from('%PDF-1.4 assigned laboratory report two');
+    const secondHash = crypto.createHash('sha256').update(secondPdf).digest('hex');
+    const replaced = await requestJson(BASE.verification, '/api/v1/verify/lab-results', {
+      method: 'POST',
+      token: tokens.labA,
+      body: {
+        lot_id: ids.lotRevokeA,
+        lab_name: 'Assigned Laboratory A',
+        test_type: 'Purity and residue',
+        result_summary: 'PASSED',
+        report_hash: secondHash,
+        report_reference: 'assigned-two.pdf',
+        pdf_content: secondPdf.toString('base64')
+      }
+    });
+    expect(replaced.status).toBe(200);
+
+    const stored = await testPool.query(
+      `SELECT result_summary, report_hash, submitted_by_organization_id
+       FROM lab_results
+       WHERE lot_id = $1`,
+      [ids.lotRevokeA]
+    );
+    expect(stored.rows[0]).toEqual({
+      result_summary: 'PASS',
+      report_hash: secondHash,
+      submitted_by_organization_id: ids.labA
+    });
+    const replacementEvents = await testPool.query(
+      `SELECT count(*)::int AS count
+       FROM log_entries
+       WHERE entity_id = $1
+         AND event_type = 'LOT_LAB_TEST_REPLACED'`,
+      [ids.lotRevokeA]
+    );
+    expect(replacementEvents.rows[0].count).toBe(1);
   });
 
   it('rejects lot capacity reservation when budget authority is unverifiable', async () => {
@@ -649,5 +863,27 @@ suite('C0 tenant authorization containment', () => {
     })).status).toBe(200);
     expect((await requestJson(BASE.transparency, '/api/v1/log/entries')).status).toBe(200);
     expect((await requestJson(BASE.transparency, '/api/v1/log/verify')).status).toBe(200);
+  });
+
+  it('persists unit_code_id when public verification automation creates an investigation', async () => {
+    expect((await requestJson(
+      BASE.verification,
+      `/api/v1/verify/v/${ids.codeAutomation}`,
+      { method: 'POST', body: { lat: 0, lon: 0, device_metadata: { c3b: 1 } } }
+    )).status).toBe(200);
+    expect((await requestJson(
+      BASE.verification,
+      `/api/v1/verify/v/${ids.codeAutomation}`,
+      { method: 'POST', body: { lat: 20, lon: 20, device_metadata: { c3b: 2 } } }
+    )).status).toBe(200);
+
+    const investigation = await testPool.query(
+      `SELECT unit_code_id
+       FROM investigations
+       WHERE public_identifier = $1`,
+      [ids.codeAutomation]
+    );
+    expect(investigation.rowCount).toBe(1);
+    expect(investigation.rows[0].unit_code_id).toBe(ids.codeAutomation);
   });
 });
