@@ -110,6 +110,37 @@ not ground truth, until reconciled.
 
 ---
 
+## Review #3 — DM-03 C3b: Lab Assignment + Investigation Write-Path + Integration Allowlists + Frontend
+
+| Field | Value |
+|---|---|
+| **Review Number** | #3 |
+| **Milestone** | DM-03 C3b (second sub-phase of HO-001) |
+| **Branch** | `feat/dm03-tenant-column` |
+| **Commit Range Reviewed** | `ee9bccb..f0b8b9a` (10 commits: `b27d82d`, `c8a7454`, `59ff2e6`, `fc673d6`, `060e346`, `2875219`, `61f764d`, `ebb871f`, `c1915e2`, `f0b8b9a`) |
+| **Architecture Status** | PASS |
+| **Security Status** | PASS |
+| **Migration Status** | N/A (no migration — correct; columns exist from 0012) |
+| **Testing Status** | PASS (unit re-run 7/7 independently; integration/compliance suites accepted from Codex report, not re-executed — need disposable Postgres) |
+| **Approved Decisions** | (lab-assignment API contract from HO-001/C3b prompt ratified; no new AD) |
+| **Outstanding Items** | 1. Orphan certifier still 1 `NULL` — blocks C3c only. 2. Pre-existing F2 TS typing errors in `bootstrap-seed.test.ts` still open (unrelated). 3. Re-assigning a lot to a new lab leaves the prior lab's result replaceable — acceptable per model; note for C3c/audit. |
+| **Next Review Starts From** | `f0b8b9a` (Review #4 = DM-03 C3c, once operator resolves the orphan certifier). |
+
+### Findings (delta only)
+- **Lab-assignment endpoint** `POST /api/v1/lots/:id/assign-laboratory` (verification-service): certifier-scoped via a locked lot→certifier ownership join (`FOR UPDATE OF l FOR SHARE OF c`), 404 non-disclosing when not owned; target validated as `type='NABL_LABORATORY' AND status='ACTIVATED'` (`FOR SHARE`); idempotent; transactional. Matches the approved contract exactly.
+- **Lab-result write enforcement** `POST /api/v1/verify/lab-results`: the scoped-lot check (`assigned_laboratory_organization_id = jwt.orgId` + activated NABL, `FOR UPDATE OF l`) runs **before** field inspection and returns `403 LAB_ASSIGNMENT_REQUIRED` with rollback — a denied/FAILED report changes no lot/code/ledger state. `submitted_by_organization_id` persisted on both insert and replacement. Legacy NULL-submitter results remain readable; PDF-hash + signature/capacity logic unchanged.
+- **Lab list scope** `GET /verify/lots`: NABL actor sees only lots assigned to its org (test confirms empty for unassigned).
+- **Investigation creation** now writes `unit_code_id` (and re-populates on upsert).
+- **Integration allowlists** (integration-service): explicit `orgType:role` allowlist, 403 for unlisted actors (labs/exporters); authenticated lookup preserved.
+- **Frontend/cpq compatibility**: frontend adds Bearer/authenticated CSV/certify-revoke; budget proposal `producer_id` made non-authoritative (backend resolves server-side; `signature_bundle` still required — no capacity/signature change).
+- **Scope discipline**: no migration, no `NOT NULL`/UNIQUE, no RLS, no capacity/ceiling/Ed25519/ledger-ordering changes, transparency-service untouched. Atomic conventional commits, explicit paths, no attribution, no push.
+- **Tests substantive**: unassigned-lab empty list, integration allowlist 403, certifier-B-cannot-assign (404), controlling-certifier idempotent assign, legacy-null-submitter readable, unassigned FAILED denied without state/ledger change, assigned lab submit+replace with provenance, investigation `unit_code_id` on automation, capacity denial, same-tenant + public preservation.
+
+### Approval
+`APPROVED` — C3b complete and correct. Boundary advances to `f0b8b9a`. This does **not** approve C3c, which remains hard-gated on operator resolution of the orphan certifier.
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 

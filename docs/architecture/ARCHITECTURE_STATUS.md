@@ -4,20 +4,19 @@
 > [AD-002](DECISIONS.md)). Updated at each milestone approval gate. Where this file and
 > the `state/` cards disagree, this file wins until reconciliation.
 >
-> **Last updated:** 2026-07-26 (Review #2 — DM-03 C3a approved)
+> **Last updated:** 2026-07-26 (Review #3 — DM-03 C3b approved)
 
 ---
 
 ## Current milestone
 
-- **Milestone:** Multi-tenancy data migration — **DM-03**. **C2** (tenant-profile
-  ownership) APPROVED (Review #1). **C3a** (additive schema + derived-ownership
-  authorization joins) APPROVED (Review #2). Next: **C3b** (lab assignment + investigation
-  FK behavior + integration allowlists + frontend) — needs an approved lab-assignment API
-  contract before starting. **C3c** (`NOT NULL` tightening) remains hard-gated on operator
-  orphan resolution.
+- **Milestone:** Multi-tenancy data migration — **DM-03**. **C2** APPROVED (Review #1).
+  **C3a** (additive schema + derived-ownership joins) APPROVED (Review #2). **C3b** (lab
+  assignment + lab-result enforcement + investigation write-path + integration allowlists +
+  frontend auth) APPROVED (Review #3). Next: **C3c** (`NOT NULL`/UNIQUE tightening) — the
+  final DM-03 step, **hard-gated on operator resolution of the orphan certifier**.
 - **Branch:** `feat/dm03-tenant-column`
-- **HEAD:** `a87dfa4`
+- **HEAD:** `f0b8b9a`
 - **Merge-base with `main`:** `767a2f6`
 - **Phase context:** Part of a broader **Security-Hardening + Multi-Tenancy Remediation**
   phase that post-dates (and contradicts) the previously recorded "GA / Production
@@ -35,6 +34,9 @@
   [AD-003](DECISIONS.md).
 - **Review #2 — DM-03 C3a** (`15cf956..a87dfa4`): APPROVED. Additive migration `0012` +
   derived-ownership authorization joins across cpq/mint/verification services.
+- **Review #3 — DM-03 C3b** (`ee9bccb..f0b8b9a`): APPROVED. Certifier-scoped lab-assignment
+  endpoint, fail-closed lab-result enforcement with actor provenance, investigation
+  write-path, integration allowlists, frontend auth compatibility.
 
 **Pre-governance history (assumed built, not architect-verified):** the CP-000…CP-023
 series recorded in `state/MILESTONES.md`, plus the security-hardening series on the
