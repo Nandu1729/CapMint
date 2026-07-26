@@ -1,7 +1,6 @@
 title: ProposeBudgetRequest
 type: object
 required:
-- producer_id
 - certifier_id
 - source_unit_type
 - approved_quantity
@@ -13,7 +12,7 @@ properties:
   producer_id:
     type: string
     format: uuid
-    description: Unique identifier referencing the producer organization.
+    description: Legacy producer profile identifier. When omitted, the backend resolves the caller's single owned producer profile; when supplied, it must resolve to that caller.
     example: 00000000-0000-0000-0000-000000000002
   certifier_id:
     type: string

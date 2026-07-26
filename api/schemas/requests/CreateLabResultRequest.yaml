@@ -35,7 +35,10 @@ properties:
     type: string
     description: The report_reference attribute.
     example: string
-description: CreateLabResultRequest data schema.
+description: >-
+  CreateLabResultRequest data schema. The authenticated activated NABL
+  laboratory must be assigned to the lot. The backend records the authenticated
+  organization as the submitter for both new and replacement results.
 example:
   lot_id: 00000000-0000-0000-0000-000000000050
   lab_name: string

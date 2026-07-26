@@ -482,7 +482,7 @@ paths:
   /api/v1/budgets:
     post:
       summary: Propose a crop yield quota budget
-      description: The authenticated producer organization is authoritative; producer_id is accepted only for compatibility and must match the caller.
+      description: The authenticated producer organization is authoritative. The backend resolves its single producer profile when producer_id is omitted; a legacy producer_id is accepted only when it names a caller-owned profile, and ambiguous ownership fails closed.
       tags:
         - Quota & Budgets (CPQ)
       security:
@@ -495,7 +495,6 @@ paths:
               title: ProposeBudgetRequest
               type: object
               required:
-                - producer_id
                 - certifier_id
                 - source_unit_type
                 - approved_quantity
@@ -507,7 +506,7 @@ paths:
                 producer_id:
                   type: string
                   format: uuid
-                  description: Unique identifier referencing the producer organization.
+                  description: Legacy producer profile identifier. When omitted, the backend resolves the caller's single owned producer profile; when supplied, it must resolve to that caller.
                   example: 00000000-0000-0000-0000-000000000002
                 certifier_id:
                   type: string
@@ -569,7 +568,6 @@ paths:
                 effective_start_date: '2026-07-17T00:00:00Z'
                 effective_end_date: '2027-07-17T00:00:00Z'
             example:
-              producer_id: 00000000-0000-0000-0000-000000000002
               certifier_id: 00000000-0000-0000-0000-000000000001
               source_unit_type: WEIGHT_KG
               approved_quantity: 5000
@@ -2003,6 +2001,81 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
         '500':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  '/api/v1/lots/{id}/assign-laboratory':
+    post:
+      summary: Assign an activated NABL laboratory to a certifier-controlled lot
+      description: The authenticated certifier must control the lot's budget. Ownership is checked while the lot is locked; assigning the same laboratory again succeeds without changing the assignment.
+      tags:
+        - Verification & Clones
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the batch lot run
+          schema:
+            type: string
+          example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              title: AssignLaboratoryRequest
+              type: object
+              required:
+                - laboratory_organization_id
+              additionalProperties: false
+              properties:
+                laboratory_organization_id:
+                  type: string
+                  format: uuid
+                  description: Activated NABL laboratory organization to assign to the lot.
+                  example: 00000000-0000-0000-0000-000000000004
+              description: Certifier-authorized laboratory assignment for a controlled lot.
+              example:
+                laboratory_organization_id: 00000000-0000-0000-0000-000000000004
+      responses:
+        '200':
+          description: Laboratory assignment updated successfully
+          content:
+            application/json:
+              schema:
+                title: LaboratoryAssignmentResponse
+                type: object
+                required:
+                  - lot
+                properties:
+                  lot:
+                    type: object
+                    required:
+                      - id
+                      - assigned_laboratory_organization_id
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                        description: Assigned lot identifier.
+                      assigned_laboratory_organization_id:
+                        type: string
+                        format: uuid
+                        description: Activated NABL laboratory organization assigned to the lot.
+                description: Updated lot laboratory assignment.
+                example:
+                  lot:
+                    id: 00000000-0000-0000-0000-000000000050
+                    assigned_laboratory_organization_id: 00000000-0000-0000-0000-000000000004
+        '400':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
+        '404':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '422':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
   /api/v1/verify/unit-codes:
     get:
       summary: Get tenant-scoped operational unit codes
@@ -2102,6 +2175,7 @@ paths:
   /api/v1/verify/lots:
     get:
       summary: Get tenant-scoped operational lots
+      description: Producers and certifiers see lots derived through their owned profiles; activated NABL laboratories see only assigned lots; system-administrator access is explicit.
       tags:
         - Verification & Clones
       security:
@@ -2174,7 +2248,7 @@ paths:
   /api/v1/verify/lab-results:
     post:
       summary: Upload laboratory results for an assigned lot
-      description: C0 fails closed with LAB_ASSIGNMENT_REQUIRED until a trusted lot-to-laboratory assignment relationship is available.
+      description: Only the activated NABL laboratory assigned to the lot may create or replace its result. The authenticated organization is persisted as the submitter; denied writes cannot change lot, code, investigation, provenance, or ledger state.
       tags:
         - Verification & Clones
       security:
@@ -2221,7 +2295,7 @@ paths:
                   type: string
                   description: The report_reference attribute.
                   example: string
-              description: CreateLabResultRequest data schema.
+              description: CreateLabResultRequest data schema. The authenticated activated NABL laboratory must be assigned to the lot. The backend records the authenticated organization as the submitter for both new and replacement results.
               example:
                 lot_id: 00000000-0000-0000-0000-000000000050
                 lab_name: string
@@ -2508,8 +2582,11 @@ paths:
   '/api/v1/integrations/tracenet/certificates/{licenseId}':
     get:
       summary: Fetch NPOP organic farmer certification status by license ID
+      description: Authenticated lookup restricted to producer, certification-body, and system-administrator actors.
       tags:
         - External Integrations
+      security:
+        - BearerAuth: []
       parameters:
         - name: licenseId
           in: path
@@ -2570,11 +2647,18 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
         '500':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
   '/api/v1/integrations/agristack/farmers/{id}':
     get:
       summary: Fetch AgriStack verified land coordinates bounds by farmer ID
+      description: Authenticated lookup restricted to producer, certification-body, and system-administrator actors.
       tags:
         - External Integrations
+      security:
+        - BearerAuth: []
       parameters:
         - name: id
           in: path
@@ -2652,6 +2736,10 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
         '500':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
+        '403':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/403'
 components:
   securitySchemes:
     BearerAuth:

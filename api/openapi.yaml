@@ -184,7 +184,7 @@ paths:
   /api/v1/budgets:
     post:
       summary: Propose a crop yield quota budget
-      description: The authenticated producer organization is authoritative; producer_id is accepted only for compatibility and must match the caller.
+      description: The authenticated producer organization is authoritative. The backend resolves its single producer profile when producer_id is omitted; a legacy producer_id is accepted only when it names a caller-owned profile, and ambiguous ownership fails closed.
       tags:
       - Quota & Budgets (CPQ)
       security:
@@ -196,7 +196,6 @@ paths:
             schema:
               $ref: ./schemas/requests/ProposeBudgetRequest.yaml
             example:
-              producer_id: 00000000-0000-0000-0000-000000000002
               certifier_id: 00000000-0000-0000-0000-000000000001
               source_unit_type: WEIGHT_KG
               approved_quantity: 5000.0
@@ -610,6 +609,35 @@ paths:
           $ref: ./components/responses/ConflictError.yaml
         '422':
           $ref: ./components/responses/ValidationErrorResponse.yaml
+  /api/v1/lots/{id}/assign-laboratory:
+    post:
+      summary: Assign an activated NABL laboratory to a certifier-controlled lot
+      description: The authenticated certifier must control the lot's budget. Ownership is checked while the lot is locked; assigning the same laboratory again succeeds without changing the assignment.
+      tags:
+      - Verification & Clones
+      security:
+      - BearerAuth: []
+      parameters:
+      - $ref: ./components/parameters/LotId.yaml
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ./schemas/requests/AssignLaboratoryRequest.yaml
+      responses:
+        '200':
+          $ref: ./components/responses/LaboratoryAssignmentResponse.yaml
+        '400':
+          $ref: ./components/responses/BadRequestError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
+        '404':
+          $ref: ./components/responses/NotFoundError.yaml
+        '422':
+          $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/verify/unit-codes:
     get:
       summary: Get tenant-scoped operational unit codes
@@ -635,6 +663,7 @@ paths:
   /api/v1/verify/lots:
     get:
       summary: Get tenant-scoped operational lots
+      description: Producers and certifiers see lots derived through their owned profiles; activated NABL laboratories see only assigned lots; system-administrator access is explicit.
       tags:
       - Verification & Clones
       security:
@@ -657,7 +686,7 @@ paths:
   /api/v1/verify/lab-results:
     post:
       summary: Upload laboratory results for an assigned lot
-      description: C0 fails closed with LAB_ASSIGNMENT_REQUIRED until a trusted lot-to-laboratory assignment relationship is available.
+      description: Only the activated NABL laboratory assigned to the lot may create or replace its result. The authenticated organization is persisted as the submitter; denied writes cannot change lot, code, investigation, provenance, or ledger state.
       tags:
       - Verification & Clones
       security:
@@ -787,8 +816,11 @@ paths:
   /api/v1/integrations/tracenet/certificates/{licenseId}:
     get:
       summary: Fetch NPOP organic farmer certification status by license ID
+      description: Authenticated lookup restricted to producer, certification-body, and system-administrator actors.
       tags:
       - External Integrations
+      security:
+      - BearerAuth: []
       parameters:
       - name: licenseId
         in: path
@@ -805,13 +837,20 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
         '422':
           $ref: ./components/responses/ValidationErrorResponse.yaml
   /api/v1/integrations/agristack/farmers/{id}:
     get:
       summary: Fetch AgriStack verified land coordinates bounds by farmer ID
+      description: Authenticated lookup restricted to producer, certification-body, and system-administrator actors.
       tags:
       - External Integrations
+      security:
+      - BearerAuth: []
       parameters:
       - name: id
         in: path
@@ -828,6 +867,10 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '403':
+          $ref: ./components/responses/ForbiddenError.yaml
         '422':
           $ref: ./components/responses/ValidationErrorResponse.yaml
 components:

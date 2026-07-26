@@ -1,0 +1,14 @@
+title: AssignLaboratoryRequest
+type: object
+required:
+- laboratory_organization_id
+additionalProperties: false
+properties:
+  laboratory_organization_id:
+    type: string
+    format: uuid
+    description: Activated NABL laboratory organization to assign to the lot.
+    example: 00000000-0000-0000-0000-000000000004
+description: Certifier-authorized laboratory assignment for a controlled lot.
+example:
+  laboratory_organization_id: 00000000-0000-0000-0000-000000000004
