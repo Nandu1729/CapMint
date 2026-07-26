@@ -29,12 +29,12 @@ describe('migration runner metadata and planning primitives', () => {
     expect(() => runner.parseArgs(['--adopt'])).toThrow(/requires one or more/);
   });
 
-  it('loads a monotonic migration set ending in tenant migration 0011', () => {
+  it('loads a monotonic migration set ending in derived-tenancy migration 0012', () => {
     const result = runner.loadMigrations();
     expect(result.errors).toEqual([]);
-    expect(result.migrations.at(-1)?.filename).toBe('0011_add_profile_organization_id.sql');
+    expect(result.migrations.at(-1)?.filename).toBe('0012_add_derived_tenant_relationships.sql');
     expect(result.migrations.map((migration: { version: number }) => migration.version))
-      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
     for (const migration of result.migrations) {
       expect(migration.checksum).toMatch(/^[a-f0-9]{64}$/);
     }
@@ -86,5 +86,27 @@ describe('migration runner metadata and planning primitives', () => {
         index: 'idx_certifiers_organization_id'
       }
     ]);
+  });
+
+  it('defines one canonical expected shape for C3a derived tenancy', () => {
+    expect(runner.DERIVED_TENANCY_STATE.columns).toEqual([
+      { table: 'investigations', column: 'unit_code_id' },
+      { table: 'lab_results', column: 'submitted_by_organization_id' },
+      { table: 'lots', column: 'assigned_laboratory_organization_id' }
+    ]);
+    expect(runner.DERIVED_TENANCY_STATE.constraints.map((constraint: { name: string }) => constraint.name))
+      .toEqual([
+        'budgets_id_producer_id_key',
+        'lots_budget_id_producer_id_fkey',
+        'investigations_unit_code_id_fkey',
+        'lab_results_submitted_by_organization_id_fkey',
+        'lots_assigned_laboratory_organization_id_fkey'
+      ]);
+    expect(runner.DERIVED_TENANCY_STATE.indexes.map((index: { name: string }) => index.name))
+      .toEqual([
+        'idx_investigations_unit_code_id',
+        'idx_lab_results_submitted_by_organization_id',
+        'idx_lots_assigned_laboratory_organization_id'
+      ]);
   });
 });
