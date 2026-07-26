@@ -214,16 +214,16 @@ server.post('/api/v1/mint', {
     // Start Database Transaction to handle capacity checks and generation atomically
     await client.query('BEGIN');
 
-    // C0 temporary containment: producer profile IDs currently equal organization
-    // IDs. Replace these predicates with explicit profile ownership joins in C3.
     const lotRes = await client.query(
       `SELECT l.*
        FROM lots l
        JOIN budgets b ON b.id = l.budget_id
+       JOIN producers p ON p.id = l.producer_id
        WHERE l.id = $1
-         AND l.producer_id = $2
-         AND b.producer_id = $2
-       FOR UPDATE OF l`,
+         AND b.producer_id = l.producer_id
+         AND p.organization_id = $2
+       FOR UPDATE OF l
+       FOR SHARE OF p`,
       [lot_id, user.orgId]
     );
     if (lotRes.rowCount === 0) {
@@ -250,7 +250,13 @@ server.post('/api/v1/mint', {
 
     // Lock budget row to prevent double-mint race conditions
     const budgetRes = await client.query(
-      'SELECT * FROM budgets WHERE id = $1 AND producer_id = $2 FOR UPDATE',
+      `SELECT b.*
+       FROM budgets b
+       JOIN producers p ON p.id = b.producer_id
+       WHERE b.id = $1
+         AND p.organization_id = $2
+       FOR UPDATE OF b
+       FOR SHARE OF p`,
       [budgetId, user.orgId]
     );
     if (budgetRes.rowCount === 0) {
