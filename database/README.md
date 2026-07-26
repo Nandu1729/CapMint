@@ -113,8 +113,9 @@ while current activation continues to create one equal-ID profile.
 
 JWTs continue to carry only `orgId`. C3a replaced the temporary equal-ID
 authorization predicates with explicit profile ownership joins. C3c makes
-producer ownership mandatory while retaining the known quarantined certifier
-exception. RLS enforcement remains separately gated work.
+producer ownership mandatory, and migration 0014 makes certifier ownership
+mandatory after deleting the operator-approved zero-reference orphan. RLS
+enforcement remains separately gated work.
 
 The reserved tenant-session convention for future RLS policies is the
 transaction-local PostgreSQL GUC `app.current_org`. A future application
@@ -124,10 +125,11 @@ Migration 0011 does not set the GUC, create policies, enable RLS, or change
 database roles.
 
 `verify0011` is the adoption authority for out-of-band exact state. It accepts
-the original nullable C2 shape and the approved 0013 successor shape, while
-requiring both named validated foreign keys and both named single-column btree
-indexes. A completely absent shape returns `absent`; partial or incompatible
-state fails closed.
+the original nullable C2 shape, the approved 0013 successor shape, and the
+post-0014 certifier tightening only when 0014 is recorded in `migrations_log`.
+It requires both named validated foreign keys and both named single-column
+btree indexes. A completely absent shape returns `absent`; partial or
+incompatible state fails closed.
 
 ## Derived Tenant Relationships 0012
 
@@ -208,6 +210,255 @@ tightening and quarantine together as exact, absent, or incompatible; the
 partial tightening. After an empty bootstrap has recorded 0013, the verifier
 also accepts a later all-mapped certifier population with zero orphans; the
 same non-empty zero-orphan state remains incompatible before 0013 execution.
+
+## Certifier Organization Tightening 0014
+
+`0014_tighten_certifier_organization_id.sql` completes the operator-approved
+certifier disposition and constraint follow-up:
+
+- shape preflight requires the complete 0013 state, keeps both laboratory
+  relationship columns nullable, and accepts only stable pre-0014 or fully
+  tightened certifier nullability;
+- the exact certifier `00000000-0000-0000-0000-000000000003` is deleted only
+  while locked, `REVOKED`, and referenced by zero budgets;
+- a non-revoked or referenced approved row fails closed, as does any other
+  certifier with `NULL organization_id`;
+- a temporary `NOT VALID` CHECK is validated before
+  `certifiers.organization_id` is set `NOT NULL`, then the redundant CHECK is
+  removed;
+- empty schema-only bootstrap and direct re-execution are no-ops for orphan
+  deletion and remain idempotent.
+
+`verify0014` classifies exact, absent, and incompatible physical states.
+`verify0011`, `verify0012`, and `verify0013` recognize the post-0014 successor
+only when the 0014 migration record exists, so raw over-tightening is not
+silently accepted. `lab_results.submitted_by_organization_id` and
+`lots.assigned_laboratory_organization_id` remain nullable. No RLS role,
+policy, tenant GUC enforcement, service behavior, or authorization predicate is
+changed by 0014.
+
+## Non-Owner Runtime Foundation 0015
+
+`0015_add_capmint_app_role.sql` establishes the DM-04 D1 runtime foundation
+without enabling row-level security:
+
+- creates the global `capmint_app` role as `NOLOGIN`, non-owner,
+  `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT`,
+  `NOREPLICATION`, and `NOBYPASSRLS`;
+- grants only database `CONNECT`, public-schema `USAGE`, application-table
+  `SELECT`/`INSERT`/`UPDATE`/`DELETE`, and public-sequence
+  `USAGE`/`SELECT`;
+- adds owner-scoped default privileges for future public tables and sequences;
+- rejects role membership, object ownership, unexpected privileges, any
+  existing policy, and any table with enabled or forced RLS;
+- records 0015 as `EXECUTED`; `verify0015` classifies the database-local
+  effects as exact, absent, or incompatible.
+
+All six PostgreSQL-backed services use the single
+`packages/shared/tenant-db.js` helper. `withTenantTx` checks out one pooled
+client, starts a transaction, sets transaction-local
+`app.current_organization_id` and `app.actor_is_system_admin`, runs the query
+callback on that client, and commits or rolls back before release.
+Authenticated actors without an organization fail before checkout unless the
+existing JWT claims identify a system administrator. Public registration,
+login, resolver, transparency-read, and consumer-verification paths select an
+explicit public context. D3 must define their RLS policies before public
+enforcement is enabled.
+
+Migration 0015 intentionally cannot provision a login secret. After applying
+and verifying the migration, an operator must inject a generated credential
+from the deployment secret manager:
+
+```sql
+ALTER ROLE capmint_app LOGIN PASSWORD '<operator-injected secret>';
+```
+
+Rotate `DATABASE_URL` independently for auth, CPQ, mint, resolver,
+transparency, and verification so its username is `capmint_app`. Do not place
+the password in source, migration SQL, images, or committed environment files.
+Migration, first-admin bootstrap, and development-seed commands must continue
+to receive a separate owner `DATABASE_URL` for `capmint_admin`. Integration
+service has no PostgreSQL pool and requires no database-role rotation.
+
+No policy is created and no table has RLS enabled or forced in D1. Consequently
+the runtime result set and authorization behavior remain unchanged. D2/D3 are
+separate approval gates.
+
+## Identity-Table RLS Enforcement 0016
+
+`0016_enable_identity_table_rls.sql` implements DM-04 D2 for only the three
+tables with direct organization identity:
+
+- enables, but does not force, row-level security on `organizations`,
+  `producers`, and `certifiers`;
+- gives `capmint_app` owner-scoped SELECT/INSERT/UPDATE/DELETE policies using
+  `NULLIF(current_setting('app.current_organization_id', true), '')::uuid`;
+- includes the system-administrator branch
+  `current_setting('app.actor_is_system_admin', true) = 'on'` in every policy;
+- permits public organization reads needed by registration duplicate checks
+  and login, while public inserts are limited to `PENDING` registrations of
+  the four registrable organization types;
+- permits authenticated reads of activated certification-body and laboratory
+  organizations for cross-organization workflow validation;
+- permits public producer reads only when the producer has a registered unit
+  code, and permits a certifier to read only producers attached to budgets it
+  controls;
+- permits authenticated cross-organization reads of only `ACTIVE` certifier
+  rows so signature-verification paths can obtain the certifier public key.
+
+PostgreSQL RLS controls rows rather than projected columns. The login and
+registration queries therefore make public organization rows visible, and an
+active cross-organization certifier row is visible rather than only its
+`public_key` field. Those exceptions are read-only; all UPDATE and DELETE
+policies remain owner-or-system-administrator only.
+
+The certifier laboratory-assignment flow validates an activated laboratory
+with an ordinary SELECT. A cross-organization `SELECT ... FOR SHARE` also
+requires the UPDATE policy in PostgreSQL and would therefore hide the row under
+the owner-only write rule. Removing that read lock preserves the legitimate
+validation without granting cross-organization writes.
+
+Migration 0016 fails closed unless 0015 is recorded, `capmint_app` remains
+non-elevated, and the database is in either the pre-D2 state or the exact D2
+successor state. `verify0016` classifies exact, absent, and incompatible
+states, including policy definitions, roles, commands, enabled-versus-forced
+RLS, and unexpected policy surfaces. `verify0015` accepts the successor only
+when 0016 is recorded and its physical policy state is exact.
+
+The owner `capmint_admin` remains exempt because no table uses FORCE. Migration
+bootstrap, first-administrator bootstrap, and development seed must continue
+to use the owner URL. The six PostgreSQL-backed services continue to use the
+operator-provisioned `capmint_app` URL. RLS on transactional and join-scoped
+tables remains deferred to D3.
+
+## Provenance-Chain RLS Enforcement 0017
+
+`0017_enable_provenance_chain_rls.sql` implements DM-04 D3a for only the core
+join-scoped provenance chain:
+
+- enables, but does not force, row-level security on `budgets`, `lots`, and
+  `unit_codes`;
+- derives producer ownership and controlling-certifier access through the
+  existing producer, budget, lot, and certifier relationships;
+- permits an assigned laboratory to read and update its assigned lot and
+  related unit-code state;
+- permits public reads only for a fully registered unit code and the linked lot
+  and budget required by consumer verification or GS1 resolution;
+- permits public UPDATE only on a registered, non-revoked unit-code row with no
+  revocation timestamp, preserving clone-state writes from the consumer scan
+  path;
+- permits producer INSERT only when the new budget/lot/unit is linked to the
+  authenticated producer organization;
+- permits mapped producer, controlling-certifier, or assigned-laboratory
+  updates where the service workflow requires them;
+- creates no DELETE policy because no application flow deletes provenance
+  rows, leaving DELETE at PostgreSQL's default deny for `capmint_app`.
+
+Every policy contains the system-administrator branch and uses
+`NULLIF(current_setting('app.current_organization_id', true), '')::uuid` for
+tenant comparisons. Public branches require the normalized empty tenant
+setting and never cast the empty string.
+
+The D2 producer policy already traverses `budgets` to support a controlling
+certifier's producer read. A new budget policy that directly traversed the RLS
+protected producer table would create a policy dependency cycle. Migration
+0017 therefore installs six owner-executed, boolean-only relationship helpers.
+They return no row data, use a fixed `pg_catalog, public` search path, revoke
+EXECUTE from PUBLIC, and grant it only to `capmint_app`. The helpers evaluate
+the same foreign-key joins while the owner bypass prevents transitive RLS
+recursion. The runner verifies their definitions, security mode, owner,
+language, search path, privileges, volatility, arguments, and result type.
+
+RLS is row-scoped rather than column-scoped. The public unit-code UPDATE policy
+cannot independently restrict the update to `clone_flag`; the public
+verification handler remains responsible for issuing only that scan-state
+write. The policy narrows the eligible row as far as the current schema
+permits: it must be a fully registered code, must not be `REVOKED`, and must
+have no `revoked_at` value.
+
+Migration 0017 fails closed unless 0016 is recorded, the exact D2 identity
+surface is present, `capmint_app` remains non-elevated, and the D3a surface is
+either absent or exact. `verify0017` classifies exact, absent, and incompatible
+states. `verify0015` and `verify0016` accept the D3a successor only when 0017
+is recorded and its combined six-table policy/helper state is exact.
+
+The owner `capmint_admin` remains exempt because no table uses FORCE.
+Migration bootstrap, first-administrator bootstrap, and development seed
+continue to use the owner URL.
+
+## DM-04 D3b Supporting-Table RLS
+
+Migration `0018_enable_supporting_table_rls.sql` enables, but does not force,
+RLS on `lab_results`, `investigations`, `scan_events`,
+`plots_or_hive_clusters`, and `producer_brandings`. It requires the recorded
+and physically exact D2/D3a surface before making changes. The preflight
+rejects partial or forced target state, unexpected RLS/policies/helpers,
+elevated `capmint_app` attributes, and unsafe helper definitions.
+
+The exact policy surface contains 14 policies:
+
+- `lab_results`: relationship-scoped/public SELECT plus producer-or-assigned-lab
+  INSERT and assigned-actor UPDATE. Access derives from `lot_id`, so legacy
+  rows with `submitted_by_organization_id IS NULL` remain readable.
+- `investigations`: controlling-certifier/public SELECT, registered-code public
+  INSERT, and controlling-certifier/public-conflict UPDATE.
+- `scan_events`: provenance-actor/public SELECT and registered-code public
+  INSERT.
+- `plots_or_hive_clusters`: producer-owner SELECT, INSERT, and UPDATE.
+- `producer_brandings`: producer-owner or registered-producer public SELECT,
+  plus producer-owner INSERT and UPDATE.
+
+Every policy includes the system-administrator branch. Authenticated tenant
+branches cast only
+`NULLIF(current_setting('app.current_organization_id', true), '')`, and public
+branches require that same safe expression to resolve to NULL. There are no
+D3b DELETE policies.
+
+Five new owner-executed boolean helpers resolve joins without policy
+recursion: `capmint_rls_registered_unit_code`,
+`capmint_rls_unit_certifier`, `capmint_rls_unit_code_actor`,
+`capmint_rls_lab_result_writer`, and
+`capmint_rls_producer_has_public_code`. Each is SQL, STABLE, SECURITY DEFINER,
+owned by `capmint_admin`, fixed to the `pg_catalog, public` search path,
+non-executable by PUBLIC, and executable by `capmint_app` in addition to its
+owner.
+
+Public scan and investigation writes are row-bounded to a fully registered
+unit code. Investigation inserts also require `public_identifier` to match the
+linked code. PostgreSQL RLS cannot constrain which columns a permitted INSERT
+or UPDATE supplies, so the public verification handler remains responsible
+for scan-event values and the investigation conflict update. Public lab and
+branding reads are limited to provenance that has a fully registered public
+code.
+
+`verify0018` classifies exact, absent, and incompatible states using exact
+policy and helper signatures. `verify0015`, `verify0016`, and `verify0017`
+accept the D3b successor surface only when migration 0018 is recorded.
+`capmint_admin` continues to bypass these policies because the migration never
+uses FORCE; migrations, bootstrap, and seed remain owner operations.
+
+RLS on `users` and `log_entries` remains deferred to D3c.
+
+## DM-04 D3c Completion
+
+Migration `0019_enable_users_and_ledger_rls.sql` completes RLS coverage on all
+13 application tables. `users` has tenant SELECT/INSERT/UPDATE/DELETE policies
+with system-admin bypass; the public SELECT branch preserves pre-auth login and
+the public INSERT branch is limited to active ADMIN registration rows. Because
+RLS is row-scoped, the auth handler's username predicate remains the backstop
+for password-hash exposure and credential lookup.
+
+`log_entries` has SELECT and INSERT policies only. There is deliberately no
+UPDATE or DELETE policy for `capmint_app`, enforcing append-only ledger
+immutability at the database layer. Public reads preserve transparency
+integrity/entry endpoints. Public inserts are limited to genesis, login audit,
+and registration audit shapes required by existing public auth/genesis flows;
+authenticated and system-admin contexts append normally.
+
+`verify0019` validates the complete 13-table/41-policy RLS surface. Earlier
+D1–D3b verifiers accept it only after the recorded 0019 successor migration.
+No table uses FORCE, so owner-run migrations, bootstrap, and seed still bypass
+RLS.
 
 ## Existing Database Procedure
 

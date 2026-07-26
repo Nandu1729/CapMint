@@ -31,7 +31,7 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | Column Name | Database Data Type | Nullability | Constraints / Keys | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `NOT NULL` | `PRIMARY KEY` | Unique identifier. |
-| `organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Explicit tenant owner. The sole NULL profile is exact-ID quarantined as `REVOKED` pending separate disposition. |
+| `organization_id` | `UUID` | `NOT NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Explicit tenant owner, mandatory after migration 0014 deleted the approved zero-reference orphan. |
 | `name` | `VARCHAR(255)` | `NOT NULL` | `UNIQUE` | Registered name of the certifier. |
 | `accreditation_details`| `JSONB` | `NOT NULL` | None | Accreditation agency IDs, licenses, validity dates. |
 | `public_key` | `VARCHAR(128)` | `NOT NULL` | None | Ed25519 cryptographic public key in Hex. |

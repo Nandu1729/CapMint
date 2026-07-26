@@ -15,7 +15,7 @@ The table below lists all database relationships in CapMint:
 | Parent Table | Child Table | Relationship Type | Cardinality | FK Column | Delete Rule | Update Rule | Purpose |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | `organizations` | `producers` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ | `organization_id` | `NO ACTION` | `NO ACTION` | Explicit tenant owner; mandatory after C3c. |
-| `organizations` | `certifiers` | One-to-Many ($1:N$) | $0..1$ $\rightarrow$ $0..*$ | `organization_id` | `NO ACTION` | `NO ACTION` | Explicit tenant owner; nullable only for the exact quarantined legacy certifier pending disposition. |
+| `organizations` | `certifiers` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ | `organization_id` | `NO ACTION` | `NO ACTION` | Explicit tenant owner; mandatory after the approved zero-reference orphan was deleted in 0014. |
 | `producers` | `plots_or_hive_clusters` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `producer_id` | `RESTRICT` | `CASCADE` | Maps locations to owning producer. |
 | `certifiers` | `budgets` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `certifier_id` | `RESTRICT` | `CASCADE` | Tracks certifier signing budget quota. |
 | `producers` | `budgets` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `producer_id` | `RESTRICT` | `CASCADE` | Tracks capacity allocation to producer. |
@@ -36,9 +36,9 @@ The table below lists all database relationships in CapMint:
 
 ### 3.1 Organization $\rightarrow$ Producer/Certifier Profiles ($1:N$)
 *   **Business Rationale**: JWT `orgId` identifies `organizations.id`, while producer and certifier primary keys remain independent domain identifiers. Explicit foreign keys make tenant ownership expressible without changing existing provenance identifiers.
-*   **Cardinality**: The schema permits one organization to own multiple profiles. Current activation provisions at most one equal-ID profile. C3c requires every producer to have an owner; only the exact revoked legacy certifier remains `NULL` pending separately approved disposition.
+*   **Cardinality**: The schema permits one organization to own multiple profiles. Current activation provisions at most one equal-ID profile. C3c requires every producer to have an owner, and 0014 requires every surviving certifier to have one.
 *   **Constraints**: `FOREIGN KEY (organization_id) REFERENCES organizations(id)` on both profile tables.
-*   **Enforcement rationale**: Every non-`NULL` tenant key is validated. C3a authorization derives ownership through these keys; C3c enforces producer ownership and quarantines the sole zero-reference orphan. Certifier `NOT NULL` and RLS remain separately gated.
+*   **Enforcement rationale**: C3a authorization derives ownership through validated profile keys; C3c enforces producer ownership, and 0014 deletes the approved zero-reference orphan before enforcing certifier ownership. RLS remains separately gated.
 
 ### 3.2 Producer $\rightarrow$ Plots or Hive Clusters ($1:N$)
 *   **Business Rationale**: A producer owns the land plots or apiary clusters where raw commodities are grown. 

@@ -104,6 +104,25 @@ async function bootstrapDatabase(name: string): Promise<void> {
   expect(result.status, result.stderr).toBe(0);
 }
 
+async function provisionAppRole(name: string): Promise<string> {
+  const roleState = await adminPool.query(
+    `SELECT rolcanlogin FROM pg_roles WHERE rolname = 'capmint_app'`
+  );
+  if (roleState.rows[0]?.rolcanlogin) {
+    throw new Error('capmint_app already has LOGIN; refusing to replace an operator-managed credential.');
+  }
+  const password = crypto.randomBytes(36).toString('base64url');
+  await adminPool.query(`ALTER ROLE capmint_app LOGIN PASSWORD '${password}'`);
+  const url = new URL(databaseUrl(name));
+  url.username = 'capmint_app';
+  url.password = password;
+  return url.toString();
+}
+
+async function deprovisionAppRole(): Promise<void> {
+  await adminPool.query('ALTER ROLE capmint_app NOLOGIN PASSWORD NULL');
+}
+
 function generateKeyPair() {
   return crypto.generateKeyPairSync('ed25519', {
     privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
@@ -334,7 +353,59 @@ suite('F2 secure bootstrap and development seed', () => {
       try {
         if (scenario === 'legacy') {
           const sql = await fs.readFile(legacySeedPath, 'utf8');
-          await withPool(name, pool => pool.query(sql).then(() => undefined));
+          await withPool(name, async pool => {
+            await pool.query(
+              `DROP POLICY IF EXISTS lab_results_tenant_select ON lab_results;
+               DROP POLICY IF EXISTS lab_results_tenant_insert ON lab_results;
+               DROP POLICY IF EXISTS lab_results_tenant_update ON lab_results;
+               DROP POLICY IF EXISTS investigations_tenant_select ON investigations;
+               DROP POLICY IF EXISTS investigations_tenant_insert ON investigations;
+               DROP POLICY IF EXISTS investigations_tenant_update ON investigations;
+               DROP POLICY IF EXISTS scan_events_tenant_select ON scan_events;
+               DROP POLICY IF EXISTS scan_events_tenant_insert ON scan_events;
+               DROP POLICY IF EXISTS plots_or_hive_clusters_tenant_select ON plots_or_hive_clusters;
+               DROP POLICY IF EXISTS plots_or_hive_clusters_tenant_insert ON plots_or_hive_clusters;
+               DROP POLICY IF EXISTS plots_or_hive_clusters_tenant_update ON plots_or_hive_clusters;
+               DROP POLICY IF EXISTS producer_brandings_tenant_select ON producer_brandings;
+               DROP POLICY IF EXISTS producer_brandings_tenant_insert ON producer_brandings;
+               DROP POLICY IF EXISTS producer_brandings_tenant_update ON producer_brandings;
+               DROP FUNCTION IF EXISTS capmint_rls_unit_code_actor(uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_unit_certifier(uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_registered_unit_code(uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_producer_has_public_code(uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_lab_result_writer(uuid, uuid, uuid);
+               DROP POLICY IF EXISTS budgets_tenant_select ON budgets;
+               DROP POLICY IF EXISTS budgets_tenant_insert ON budgets;
+               DROP POLICY IF EXISTS budgets_tenant_update ON budgets;
+               DROP POLICY IF EXISTS lots_tenant_select ON lots;
+               DROP POLICY IF EXISTS lots_tenant_insert ON lots;
+               DROP POLICY IF EXISTS lots_tenant_update ON lots;
+               DROP POLICY IF EXISTS unit_codes_tenant_select ON unit_codes;
+               DROP POLICY IF EXISTS unit_codes_tenant_insert ON unit_codes;
+               DROP POLICY IF EXISTS unit_codes_tenant_update ON unit_codes;
+               DROP FUNCTION IF EXISTS capmint_rls_unit_actor(uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_lot_producer(uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_lot_actor(uuid, uuid, uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_has_public_code(uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_budget_actor(uuid, uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_producer_owns(uuid, uuid);
+               DROP POLICY IF EXISTS producers_tenant_select ON producers;
+               DROP POLICY IF EXISTS certifiers_tenant_select ON certifiers;
+               DROP POLICY IF EXISTS certifiers_tenant_insert ON certifiers;
+               DROP POLICY IF EXISTS certifiers_tenant_update ON certifiers;
+               DROP POLICY IF EXISTS certifiers_tenant_delete ON certifiers;
+               ALTER TABLE organizations DISABLE ROW LEVEL SECURITY;
+               ALTER TABLE producers DISABLE ROW LEVEL SECURITY;
+               ALTER TABLE certifiers DISABLE ROW LEVEL SECURITY;
+               ALTER TABLE budgets DISABLE ROW LEVEL SECURITY;
+               ALTER TABLE lots DISABLE ROW LEVEL SECURITY;
+               ALTER TABLE unit_codes DISABLE ROW LEVEL SECURITY`
+            );
+            await pool.query(
+              'ALTER TABLE certifiers DROP COLUMN organization_id'
+            );
+            await pool.query(sql);
+          });
         } else if (scenario === 'mixed') {
           await withPool(name, async pool => {
             await pool.query(
@@ -543,16 +614,19 @@ suite('F2 secure bootstrap and development seed', () => {
     await bootstrapDatabase(name);
     const authPort = await freePort();
     const cpqPort = await freePort();
-    const commonEnvironment = {
-      NODE_ENV: 'production',
-      CAPMINT_ALLOW_DEVELOPMENT_SEED: '1',
-      DATABASE_URL: databaseUrl(name),
-      REDIS_URL: process.env.REDIS_URL!,
-      JWT_SECRET: crypto.randomBytes(48).toString('base64url')
-    };
     let auth: ChildProcessWithoutNullStreams | undefined;
     let cpq: ChildProcessWithoutNullStreams | undefined;
+    let appRoleProvisioned = false;
     try {
+      const appDatabaseUrl = await provisionAppRole(name);
+      appRoleProvisioned = true;
+      const commonEnvironment = {
+        NODE_ENV: 'production',
+        CAPMINT_ALLOW_DEVELOPMENT_SEED: '1',
+        DATABASE_URL: appDatabaseUrl,
+        REDIS_URL: process.env.REDIS_URL!,
+        JWT_SECRET: crypto.randomBytes(48).toString('base64url')
+      };
       auth = await startService('backend/auth-service/src/index.ts', authPort, commonEnvironment);
       cpq = await startService('backend/cpq-service/src/index.ts', cpqPort, commonEnvironment);
       expect(await rowCounts(name)).toMatchObject({
@@ -641,6 +715,7 @@ suite('F2 secure bootstrap and development seed', () => {
     } finally {
       if (cpq) await stopService(cpq);
       if (auth) await stopService(auth);
+      if (appRoleProvisioned) await deprovisionAppRole();
       await dropDatabase(name);
     }
   }, 60_000);

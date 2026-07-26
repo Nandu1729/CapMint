@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -14,6 +15,11 @@ const runnerPath = path.join(ROOT, 'playground/run_migrations.js');
 const schemaPath = path.join(ROOT, 'database/schema/schema.sql');
 const baselinePath = path.join(ROOT, 'database/baselines/capmint-baseline-20260725.sql');
 const tighteningMigrationPath = path.join(ROOT, 'database/migrations/0013_tighten_tenant_constraints.sql');
+const certifierTighteningMigrationPath = path.join(ROOT, 'database/migrations/0014_tighten_certifier_organization_id.sql');
+const appRoleMigrationPath = path.join(ROOT, 'database/migrations/0015_add_capmint_app_role.sql');
+const identityRlsMigrationPath = path.join(ROOT, 'database/migrations/0016_enable_identity_table_rls.sql');
+const provenanceRlsMigrationPath = path.join(ROOT, 'database/migrations/0017_enable_provenance_chain_rls.sql');
+const supportingRlsMigrationPath = path.join(ROOT, 'database/migrations/0018_enable_supporting_table_rls.sql');
 const allLegacyFiles = [
   '0001_add_certification_status_and_updated_at.sql',
   '0002_add_investigations_table.sql',
@@ -28,6 +34,8 @@ const allLegacyFiles = [
 const preBrandingFiles = allLegacyFiles.filter(filename => !filename.startsWith('0007') && !filename.startsWith('0009'));
 
 dotenv.config({ path: path.join(ROOT, '.env') });
+const require = createRequire(import.meta.url);
+const migrationRunner = require('../../../playground/run_migrations.js');
 
 let adminPool: pg.Pool;
 let sourceUrl: URL;
@@ -104,8 +112,14 @@ async function applySqlFile(name: string, filename: string): Promise<void> {
   await withPool(name, pool => pool.query(sql).then(() => undefined));
 }
 
-async function preparePre0013Snapshot(name: string): Promise<void> {
+async function applyPre0014SchemaSnapshot(name: string): Promise<void> {
   await applySqlFile(name, schemaPath);
+  await withPool(name, pool =>
+    pool.query('ALTER TABLE certifiers ALTER COLUMN organization_id DROP NOT NULL').then(() => undefined));
+}
+
+async function preparePre0013Snapshot(name: string): Promise<void> {
+  await applyPre0014SchemaSnapshot(name);
   await withPool(name, async pool => {
     await pool.query('ALTER TABLE producers ALTER COLUMN organization_id DROP NOT NULL');
     await pool.query('ALTER TABLE investigations ALTER COLUMN unit_code_id DROP NOT NULL');
@@ -126,6 +140,32 @@ async function createLegacyLog(name: string, filenames: string[]): Promise<void>
     for (const filename of filenames) {
       await pool.query('INSERT INTO migrations_log (filename) VALUES ($1)', [filename]);
     }
+  });
+}
+
+async function preparePre0018State(name: string): Promise<void> {
+  await applySqlFile(name, schemaPath);
+  await createLegacyLog(name, []);
+  await applySqlFile(name, appRoleMigrationPath);
+  await withPool(name, async pool => {
+    await pool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0015_add_capmint_app_role.sql')`
+    );
+  });
+  await applySqlFile(name, identityRlsMigrationPath);
+  await withPool(name, async pool => {
+    await pool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0016_enable_identity_table_rls.sql')`
+    );
+  });
+  await applySqlFile(name, provenanceRlsMigrationPath);
+  await withPool(name, async pool => {
+    await pool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0017_enable_provenance_chain_rls.sql')`
+    );
   });
 }
 
@@ -231,7 +271,7 @@ suite('C1 migration reconciliation', () => {
     if (adminPool) await adminPool.end();
   }, 60_000);
 
-  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0013, and becomes a no-op', async () => {
+  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0019, and becomes a no-op', async () => {
     const name = databaseName('bootstrap');
     await createDatabase(name);
     try {
@@ -250,7 +290,7 @@ suite('C1 migration reconciliation', () => {
          FROM migrations_log
          ORDER BY id`
       ).then(result => result.rows));
-      expect(rows).toHaveLength(5);
+      expect(rows).toHaveLength(11);
       expect(rows[0]).toMatchObject({
         filename: 'capmint-baseline-20260725.sql',
         application_mode: 'BASELINE',
@@ -275,6 +315,30 @@ suite('C1 migration reconciliation', () => {
         filename: '0013_tighten_tenant_constraints.sql',
         application_mode: 'EXECUTED'
       });
+      expect(rows[5]).toMatchObject({
+        filename: '0014_tighten_certifier_organization_id.sql',
+        application_mode: 'EXECUTED'
+      });
+      expect(rows[6]).toMatchObject({
+        filename: '0015_add_capmint_app_role.sql',
+        application_mode: 'EXECUTED'
+      });
+      expect(rows[7]).toMatchObject({
+        filename: '0016_enable_identity_table_rls.sql',
+        application_mode: 'EXECUTED'
+      });
+      expect(rows[8]).toMatchObject({
+        filename: '0017_enable_provenance_chain_rls.sql',
+        application_mode: 'EXECUTED'
+      });
+      expect(rows[9]).toMatchObject({
+        filename: '0018_enable_supporting_table_rls.sql',
+        application_mode: 'EXECUTED'
+      });
+      expect(rows[10]).toMatchObject({
+        filename: '0019_enable_users_and_ledger_rls.sql',
+        application_mode: 'EXECUTED'
+      });
       const baselineState = await withPool(name, pool => pool.query(
         `SELECT
            EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'uuid-ossp') AS has_uuid_ossp,
@@ -291,7 +355,7 @@ suite('C1 migration reconciliation', () => {
       expect(bootstrapNoOpApply.status, bootstrapNoOpApply.stderr).toBe(0);
       expect(runRunner(name, ['--check']).status).toBe(0);
       const count = await withPool(name, pool => pool.query('SELECT count(*)::int AS count FROM migrations_log').then(result => result.rows[0].count));
-      expect(count).toBe(5);
+      expect(count).toBe(11);
     } finally {
       await dropDatabase(name);
     }
@@ -301,7 +365,7 @@ suite('C1 migration reconciliation', () => {
     const name = databaseName('adoption');
     await createDatabase(name);
     try {
-      await applySqlFile(name, schemaPath);
+      await applyPre0014SchemaSnapshot(name);
       await createLegacyLog(name, preBrandingFiles);
       const before = await schemaFingerprint(name);
 
@@ -361,7 +425,7 @@ suite('C1 migration reconciliation', () => {
     const name = databaseName('old_0007');
     await createDatabase(name);
     try {
-      await applySqlFile(name, schemaPath);
+      await applyPre0014SchemaSnapshot(name);
       await withPool(name, pool => pool.query('DROP TRIGGER trigger_update_producer_brandings_updated_at ON producer_brandings').then(() => undefined));
       await createLegacyLog(name, allLegacyFiles);
 
@@ -414,7 +478,7 @@ suite('C1 migration reconciliation', () => {
     const name = databaseName('partial_branding');
     await createDatabase(name);
     try {
-      await applySqlFile(name, schemaPath);
+      await applyPre0014SchemaSnapshot(name);
       await withPool(name, pool => pool.query('ALTER TABLE producer_brandings DROP COLUMN cta_link').then(() => undefined));
       await createLegacyLog(name, allLegacyFiles);
 
@@ -440,7 +504,7 @@ suite('C1 migration reconciliation', () => {
     await createDatabase(incompatible);
     try {
       for (const name of [supported, incompatible]) {
-        await applySqlFile(name, schemaPath);
+        await applyPre0014SchemaSnapshot(name);
         await createLegacyLog(name, allLegacyFiles);
         expect(runRunner(name, [
           '--adopt',
@@ -474,7 +538,7 @@ suite('C1 migration reconciliation', () => {
     const name = databaseName('checksum');
     await createDatabase(name);
     try {
-      await applySqlFile(name, schemaPath);
+      await applyPre0014SchemaSnapshot(name);
       await createLegacyLog(name, preBrandingFiles);
       expect(runRunner(name, [
         '--adopt',
@@ -680,12 +744,6 @@ suite('C1 migration reconciliation', () => {
       expect(ownership).toEqual([
         {
           profile_type: 'certifier',
-          id: '00000000-0000-0000-0000-000000000003',
-          organization_id: null,
-          key_status: 'REVOKED'
-        },
-        {
-          profile_type: 'certifier',
           id: '10000000-0000-0000-0000-000000000012',
           organization_id: '10000000-0000-0000-0000-000000000012',
           key_status: 'ACTIVE'
@@ -739,7 +797,7 @@ suite('C1 migration reconciliation', () => {
       `))).rejects.toMatchObject({ code: '23503' });
 
       const beforeDirectRerun = await schemaFingerprint(name);
-      await applySqlFile(name, tighteningMigrationPath);
+      await applySqlFile(name, certifierTighteningMigrationPath);
       expect(await schemaFingerprint(name)).toBe(beforeDirectRerun);
 
       await withPool(name, pool => pool.query(
@@ -893,9 +951,9 @@ suite('C1 migration reconciliation', () => {
         relationship_indexes: 3,
         investigation_index_unique: true,
         producer_organization_not_null: true,
-        certifier_organization_not_null: false,
+        certifier_organization_not_null: true,
         investigation_unit_not_null: true,
-        orphan_key_status: 'REVOKED',
+        orphan_key_status: null,
         orphan_active_selection_count: 0,
         orphan_budget_references: 0
       });
@@ -950,7 +1008,7 @@ suite('C1 migration reconciliation', () => {
       `))).rejects.toMatchObject({ code: '23503' });
 
       const beforeDirectRerun = await schemaFingerprint(name);
-      await applySqlFile(name, tighteningMigrationPath);
+      await applySqlFile(name, certifierTighteningMigrationPath);
       expect(await schemaFingerprint(name)).toBe(beforeDirectRerun);
 
       await applySqlFile(unmatchedName, baselinePath);
@@ -979,6 +1037,516 @@ suite('C1 migration reconciliation', () => {
       await dropDatabase(unmatchedName);
     }
   }, 120_000);
+
+  it('rejects an unexpected NULL certifier and rolls back the approved orphan deletion', async () => {
+    const name = databaseName('certifier_extra_null');
+    await createDatabase(name);
+    try {
+      await applyPre0014SchemaSnapshot(name);
+      await withPool(name, pool => pool.query(`
+        INSERT INTO certifiers
+          (id, name, accreditation_details, public_key, key_status, organization_id)
+        VALUES
+          ('00000000-0000-0000-0000-000000000003',
+           'Approved Revoked Orphan', '{}'::jsonb, 'approved-orphan-key', 'REVOKED', NULL),
+          ('40000000-0000-0000-0000-000000000001',
+           'Unexpected Null Certifier', '{}'::jsonb, 'unexpected-null-key', 'REVOKED', NULL)
+      `).then(() => undefined));
+
+      await expect(applySqlFile(name, certifierTighteningMigrationPath))
+        .rejects.toThrow(/0014_CERTIFIER_NULL_ORG/);
+
+      const unchanged = await withPool(name, pool => pool.query(`
+        SELECT
+          (SELECT count(*)::int
+           FROM certifiers
+           WHERE id = '00000000-0000-0000-0000-000000000003') AS approved_orphan_rows,
+          (SELECT count(*)::int
+           FROM certifiers
+           WHERE organization_id IS NULL) AS certifier_nulls,
+          (SELECT attnotnull
+           FROM pg_attribute
+           WHERE attrelid = 'certifiers'::regclass
+             AND attname = 'organization_id'
+             AND NOT attisdropped) AS certifier_not_null
+      `).then(result => result.rows[0]));
+      expect(unchanged).toEqual({
+        approved_orphan_rows: 1,
+        certifier_nulls: 2,
+        certifier_not_null: false
+      });
+    } finally {
+      await dropDatabase(name);
+    }
+  }, 60_000);
+
+  it('refuses to delete the approved certifier unless it is revoked and unreferenced', async () => {
+    const activeName = databaseName('certifier_active_orphan');
+    const referencedName = databaseName('certifier_referenced_orphan');
+    await createDatabase(activeName);
+    await createDatabase(referencedName);
+    try {
+      await applyPre0014SchemaSnapshot(activeName);
+      await withPool(activeName, pool => pool.query(`
+        INSERT INTO certifiers
+          (id, name, accreditation_details, public_key, key_status, organization_id)
+        VALUES
+          ('00000000-0000-0000-0000-000000000003',
+           'Active Approved Orphan', '{}'::jsonb, 'active-orphan-key', 'ACTIVE', NULL)
+      `).then(() => undefined));
+      await expect(applySqlFile(activeName, certifierTighteningMigrationPath))
+        .rejects.toThrow(/0014_ORPHAN_NOT_REVOKED/);
+
+      await applyPre0014SchemaSnapshot(referencedName);
+      await withPool(referencedName, async pool => {
+        await pool.query(`
+          INSERT INTO organizations
+            (id, name, type, official_email, status)
+          VALUES
+            ('40000000-0000-0000-0000-000000000010',
+             'Referenced Orphan Producer Org', 'PRODUCER',
+             'referenced-orphan-producer@capmint.example', 'ACTIVATED')
+        `);
+        await pool.query(`
+          INSERT INTO producers
+            (id, organization_id, name, type, registry_references)
+          VALUES
+            ('40000000-0000-0000-0000-000000000011',
+             '40000000-0000-0000-0000-000000000010',
+             'Referenced Orphan Producer', 'FARMER', '{}'::jsonb)
+        `);
+        await pool.query(`
+          INSERT INTO certifiers
+            (id, name, accreditation_details, public_key, key_status, organization_id)
+          VALUES
+            ('00000000-0000-0000-0000-000000000003',
+             'Referenced Approved Orphan', '{}'::jsonb, 'referenced-orphan-key', 'REVOKED', NULL)
+        `);
+        await pool.query(`
+          INSERT INTO budgets
+            (id, producer_id, certifier_id, source_unit_type, approved_quantity,
+             yield_assumptions, signature_bundle, effective_start_date, effective_end_date, status)
+          VALUES
+            ('40000000-0000-0000-0000-000000000012',
+             '40000000-0000-0000-0000-000000000011',
+             '00000000-0000-0000-0000-000000000003',
+             'UNIT_COUNT', 1, '{}'::jsonb, 'referenced-orphan-signature',
+             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 day', 'ACTIVE')
+        `);
+      });
+      await expect(applySqlFile(referencedName, certifierTighteningMigrationPath))
+        .rejects.toThrow(/0014_ORPHAN_CERTIFIER_REFERENCED/);
+
+      for (const name of [activeName, referencedName]) {
+        const orphanRows = await withPool(name, pool => pool.query(`
+          SELECT count(*)::int AS count
+          FROM certifiers
+          WHERE id = '00000000-0000-0000-0000-000000000003'
+        `).then(result => result.rows[0].count));
+        expect(orphanRows).toBe(1);
+      }
+    } finally {
+      await dropDatabase(activeName);
+      await dropDatabase(referencedName);
+    }
+  }, 90_000);
+
+  it('rejects over-tightening of either nullable laboratory relationship', async () => {
+    const submitterName = databaseName('certifier_lab_submitter_tight');
+    const assignmentName = databaseName('certifier_lab_assignment_tight');
+    await createDatabase(submitterName);
+    await createDatabase(assignmentName);
+    try {
+      await applyPre0014SchemaSnapshot(submitterName);
+      await withPool(submitterName, pool =>
+        pool.query('ALTER TABLE lab_results ALTER COLUMN submitted_by_organization_id SET NOT NULL').then(() => undefined));
+      await expect(applySqlFile(submitterName, certifierTighteningMigrationPath))
+        .rejects.toThrow(/0014_INCOMPATIBLE_LAB_SUBMITTER/);
+
+      await applyPre0014SchemaSnapshot(assignmentName);
+      await withPool(assignmentName, pool =>
+        pool.query('ALTER TABLE lots ALTER COLUMN assigned_laboratory_organization_id SET NOT NULL').then(() => undefined));
+      await expect(applySqlFile(assignmentName, certifierTighteningMigrationPath))
+        .rejects.toThrow(/0014_INCOMPATIBLE_LAB_ASSIGNMENT/);
+    } finally {
+      await dropDatabase(submitterName);
+      await dropDatabase(assignmentName);
+    }
+  }, 60_000);
+
+  it('classifies 0014 exact, absent, and incompatible states', async () => {
+    const exactName = databaseName('certifier_verify_exact');
+    const absentName = databaseName('certifier_verify_absent');
+    const incompatibleName = databaseName('certifier_verify_incompatible');
+    await createDatabase(exactName);
+    await createDatabase(absentName);
+    await createDatabase(incompatibleName);
+    try {
+      await applySqlFile(exactName, schemaPath);
+      await applyPre0014SchemaSnapshot(absentName);
+      await applyPre0014SchemaSnapshot(incompatibleName);
+      await withPool(incompatibleName, pool => pool.query(`
+        INSERT INTO certifiers
+          (id, name, accreditation_details, public_key, key_status, organization_id)
+        VALUES
+          ('40000000-0000-0000-0000-000000000020',
+           'Verifier Unexpected Orphan', '{}'::jsonb, 'verifier-orphan-key', 'REVOKED', NULL)
+      `).then(() => undefined));
+
+      const exact = await withPool(exactName, pool => migrationRunner.verify0014(pool));
+      const absent = await withPool(absentName, pool => migrationRunner.verify0014(pool));
+      const incompatible = await withPool(incompatibleName, pool => migrationRunner.verify0014(pool));
+      expect(exact.status).toBe('exact');
+      expect(absent.status).toBe('absent');
+      expect(incompatible.status).toBe('incompatible');
+    } finally {
+      await dropDatabase(exactName);
+      await dropDatabase(absentName);
+      await dropDatabase(incompatibleName);
+    }
+  }, 90_000);
+
+  it('anchors predecessor successor-awareness on the recorded 0014 migration', async () => {
+    const name = databaseName('certifier_successor_anchor');
+    await createDatabase(name);
+    try {
+      expect(runRunner(name, ['--bootstrap']).status).toBe(0);
+      await withPool(name, async pool => {
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          await client.query(
+            `DELETE FROM migrations_log
+             WHERE filename = '0014_tighten_certifier_organization_id.sql'`
+          );
+          expect((await migrationRunner.verify0014(client)).status).toBe('exact');
+          expect((await migrationRunner.verify0011(client)).status).toBe('incompatible');
+          expect((await migrationRunner.verify0012(client)).status).toBe('incompatible');
+          expect((await migrationRunner.verify0013(client)).status).toBe('incompatible');
+          await client.query('ROLLBACK');
+        } finally {
+          client.release();
+        }
+      });
+
+      expect((await withPool(name, pool => migrationRunner.verify0011(pool))).status).toBe('exact');
+      expect((await withPool(name, pool => migrationRunner.verify0012(pool))).status).toBe('exact');
+      expect((await withPool(name, pool => migrationRunner.verify0013(pool))).status).toBe('exact');
+      expect((await withPool(name, pool => migrationRunner.verify0014(pool))).status).toBe('exact');
+    } finally {
+      await dropDatabase(name);
+    }
+  }, 60_000);
+
+  it('creates the non-owner app role idempotently and classifies 0015 exact, absent, and incompatible states', async () => {
+    const absentName = databaseName('app_role_absent');
+    const exactName = databaseName('app_role_exact');
+    const partialName = databaseName('app_role_partial');
+    const rlsName = databaseName('app_role_rls');
+    for (const name of [absentName, exactName, partialName, rlsName]) {
+      await createDatabase(name);
+      await applySqlFile(name, schemaPath);
+    }
+    try {
+      const absent = await withPool(absentName, pool => migrationRunner.verify0015(pool));
+      expect(absent.status).toBe('absent');
+
+      await applySqlFile(exactName, appRoleMigrationPath);
+      const exact = await withPool(exactName, pool => migrationRunner.verify0015(pool));
+      expect(exact.status).toBe('exact');
+      expect(exact.evidence.role).toMatchObject({
+        superuser: false,
+        inherit: false,
+        create_role: false,
+        create_database: false,
+        replication: false,
+        bypass_rls: false
+      });
+      expect(exact.evidence.role.can_login).toBe(false);
+      expect(exact.evidence.table_privileges).toHaveLength(13 * 4);
+      expect(exact.evidence.rls_enabled_tables).toEqual([]);
+      expect(exact.evidence.policies).toEqual([]);
+
+      const beforeRerun = await schemaFingerprint(exactName);
+      await applySqlFile(exactName, appRoleMigrationPath);
+      expect(await schemaFingerprint(exactName)).toBe(beforeRerun);
+      expect((await withPool(exactName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('exact');
+
+      await withPool(partialName, pool =>
+        pool.query('GRANT USAGE ON SCHEMA public TO capmint_app').then(() => undefined));
+      expect((await withPool(partialName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(rlsName, pool =>
+        pool.query('ALTER TABLE organizations ENABLE ROW LEVEL SECURITY').then(() => undefined));
+      expect((await withPool(rlsName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('incompatible');
+    } finally {
+      await dropDatabase(absentName);
+      await dropDatabase(exactName);
+      await dropDatabase(partialName);
+      await dropDatabase(rlsName);
+    }
+  }, 90_000);
+
+  it('enables only identity-table RLS idempotently and anchors the 0015 successor state on the 0016 record', async () => {
+    const absentName = databaseName('identity_rls_absent');
+    const exactName = databaseName('identity_rls_exact');
+    const partialName = databaseName('identity_rls_partial');
+    const forcedName = databaseName('identity_rls_forced');
+    for (const name of [absentName, exactName, partialName, forcedName]) {
+      await createDatabase(name);
+      await applySqlFile(name, schemaPath);
+      await createLegacyLog(name, []);
+      await applySqlFile(name, appRoleMigrationPath);
+      await withPool(name, pool =>
+        pool.query(
+          `INSERT INTO migrations_log (filename)
+           VALUES ('0015_add_capmint_app_role.sql')
+           ON CONFLICT (filename) DO NOTHING`
+        ).then(() => undefined));
+    }
+    try {
+      expect((await withPool(absentName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('absent');
+
+      await applySqlFile(exactName, identityRlsMigrationPath);
+      expect((await withPool(exactName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('exact');
+      expect((await withPool(exactName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(exactName, pool =>
+        pool.query(
+          `INSERT INTO migrations_log (filename)
+           VALUES ('0016_enable_identity_table_rls.sql')
+           ON CONFLICT (filename) DO NOTHING`
+        ).then(() => undefined));
+      expect((await withPool(exactName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('exact');
+
+      const beforeRerun = await schemaFingerprint(exactName);
+      await applySqlFile(exactName, identityRlsMigrationPath);
+      expect(await schemaFingerprint(exactName)).toBe(beforeRerun);
+      const exactState = await withPool(exactName, pool => migrationRunner.verify0016(pool));
+      expect(exactState.status).toBe('exact');
+      expect(exactState.evidence.rls_tables).toEqual([
+        { table_name: 'certifiers', enabled: true, forced: false },
+        { table_name: 'organizations', enabled: true, forced: false },
+        { table_name: 'producers', enabled: true, forced: false }
+      ]);
+      expect(exactState.evidence.policies).toHaveLength(12);
+
+      await withPool(exactName, async pool => {
+        await pool.query(
+          'DROP POLICY organizations_tenant_delete ON organizations'
+        );
+        await pool.query(
+          `CREATE POLICY organizations_tenant_delete
+           ON organizations
+           FOR DELETE
+           TO capmint_app
+           USING (true)`
+        );
+      });
+      await expect(applySqlFile(exactName, identityRlsMigrationPath))
+        .rejects.toThrow(/0016_PARTIAL_RLS_STATE/);
+      expect((await withPool(exactName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(partialName, pool =>
+        pool.query('ALTER TABLE organizations ENABLE ROW LEVEL SECURITY').then(() => undefined));
+      expect((await withPool(partialName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(forcedName, async pool => {
+        await pool.query('ALTER TABLE organizations ENABLE ROW LEVEL SECURITY');
+        await pool.query('ALTER TABLE organizations FORCE ROW LEVEL SECURITY');
+      });
+      expect((await withPool(forcedName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('incompatible');
+    } finally {
+      await dropDatabase(absentName);
+      await dropDatabase(exactName);
+      await dropDatabase(partialName);
+      await dropDatabase(forcedName);
+    }
+  }, 90_000);
+
+  it('enables only provenance-chain RLS idempotently and anchors the 0015/0016 successor states on the 0017 record', async () => {
+    const absentName = databaseName('provenance_rls_absent');
+    const exactName = databaseName('provenance_rls_exact');
+    const partialName = databaseName('provenance_rls_partial');
+    const forcedName = databaseName('provenance_rls_forced');
+    for (const name of [absentName, exactName, partialName, forcedName]) {
+      await createDatabase(name);
+      await applySqlFile(name, schemaPath);
+      await createLegacyLog(name, []);
+      await applySqlFile(name, appRoleMigrationPath);
+      await withPool(name, async pool => {
+        await pool.query(
+          `INSERT INTO migrations_log (filename)
+           VALUES ('0015_add_capmint_app_role.sql')
+           ON CONFLICT (filename) DO NOTHING`
+        );
+      });
+      await applySqlFile(name, identityRlsMigrationPath);
+      await withPool(name, async pool => {
+        await pool.query(
+          `INSERT INTO migrations_log (filename)
+           VALUES ('0016_enable_identity_table_rls.sql')
+           ON CONFLICT (filename) DO NOTHING`
+        );
+      });
+    }
+    try {
+      expect((await withPool(absentName, pool => migrationRunner.verify0017(pool))).status)
+        .toBe('absent');
+
+      await applySqlFile(exactName, provenanceRlsMigrationPath);
+      expect((await withPool(exactName, pool => migrationRunner.verify0017(pool))).status)
+        .toBe('exact');
+      expect((await withPool(exactName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('incompatible');
+      expect((await withPool(exactName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(exactName, pool =>
+        pool.query(
+          `INSERT INTO migrations_log (filename)
+           VALUES ('0017_enable_provenance_chain_rls.sql')
+           ON CONFLICT (filename) DO NOTHING`
+        ).then(() => undefined));
+      expect((await withPool(exactName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('exact');
+      expect((await withPool(exactName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('exact');
+
+      const beforeRerun = await schemaFingerprint(exactName);
+      await applySqlFile(exactName, provenanceRlsMigrationPath);
+      expect(await schemaFingerprint(exactName)).toBe(beforeRerun);
+      const exactState = await withPool(exactName, pool => migrationRunner.verify0017(pool));
+      expect(exactState.status).toBe('exact');
+      expect(exactState.evidence.rls_tables).toHaveLength(6);
+      expect(exactState.evidence.policies).toHaveLength(21);
+      expect(exactState.evidence.helpers).toHaveLength(6);
+
+      await withPool(exactName, async pool => {
+        await pool.query('DROP POLICY budgets_tenant_update ON budgets');
+        await pool.query(
+          `CREATE POLICY budgets_tenant_update
+           ON budgets
+           FOR UPDATE
+           TO capmint_app
+           USING (true)
+           WITH CHECK (true)`
+        );
+      });
+      await expect(applySqlFile(exactName, provenanceRlsMigrationPath))
+        .rejects.toThrow(/0017_PARTIAL_RLS_STATE/);
+      expect((await withPool(exactName, pool => migrationRunner.verify0017(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(partialName, pool =>
+        pool.query('ALTER TABLE budgets ENABLE ROW LEVEL SECURITY').then(() => undefined));
+      expect((await withPool(partialName, pool => migrationRunner.verify0017(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(forcedName, async pool => {
+        await pool.query('ALTER TABLE budgets ENABLE ROW LEVEL SECURITY');
+        await pool.query('ALTER TABLE budgets FORCE ROW LEVEL SECURITY');
+      });
+      expect((await withPool(forcedName, pool => migrationRunner.verify0017(pool))).status)
+        .toBe('incompatible');
+    } finally {
+      await dropDatabase(absentName);
+      await dropDatabase(exactName);
+      await dropDatabase(partialName);
+      await dropDatabase(forcedName);
+    }
+  }, 90_000);
+
+  it('enables supporting-table RLS idempotently and anchors the 0015/0016/0017 successor states on the 0018 record', async () => {
+    const absentName = databaseName('supporting_rls_absent');
+    const exactName = databaseName('supporting_rls_exact');
+    const partialName = databaseName('supporting_rls_partial');
+    const forcedName = databaseName('supporting_rls_forced');
+    for (const name of [absentName, exactName, partialName, forcedName]) {
+      await createDatabase(name);
+      await preparePre0018State(name);
+    }
+    try {
+      expect((await withPool(absentName, pool => migrationRunner.verify0018(pool))).status)
+        .toBe('absent');
+
+      await applySqlFile(exactName, supportingRlsMigrationPath);
+      expect((await withPool(exactName, pool => migrationRunner.verify0018(pool))).status)
+        .toBe('exact');
+      expect((await withPool(exactName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('incompatible');
+      expect((await withPool(exactName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('incompatible');
+      expect((await withPool(exactName, pool => migrationRunner.verify0017(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(exactName, pool =>
+        pool.query(
+          `INSERT INTO migrations_log (filename)
+           VALUES ('0018_enable_supporting_table_rls.sql')`
+        ).then(() => undefined));
+      expect((await withPool(exactName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('exact');
+      expect((await withPool(exactName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('exact');
+      expect((await withPool(exactName, pool => migrationRunner.verify0017(pool))).status)
+        .toBe('exact');
+
+      const beforeRerun = await schemaFingerprint(exactName);
+      await applySqlFile(exactName, supportingRlsMigrationPath);
+      expect(await schemaFingerprint(exactName)).toBe(beforeRerun);
+      const exactState = await withPool(exactName, pool => migrationRunner.verify0018(pool));
+      expect(exactState.status).toBe('exact');
+      expect(exactState.evidence.rls_tables).toHaveLength(11);
+      expect(exactState.evidence.policies).toHaveLength(35);
+      expect(exactState.evidence.helpers).toHaveLength(11);
+
+      await withPool(exactName, async pool => {
+        await pool.query('DROP POLICY investigations_tenant_update ON investigations');
+        await pool.query(
+          `CREATE POLICY investigations_tenant_update
+           ON investigations
+           FOR UPDATE
+           TO capmint_app
+           USING (true)
+           WITH CHECK (true)`
+        );
+      });
+      await expect(applySqlFile(exactName, supportingRlsMigrationPath))
+        .rejects.toThrow(/0018_PARTIAL_RLS_STATE/);
+      expect((await withPool(exactName, pool => migrationRunner.verify0018(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(partialName, pool =>
+        pool.query('ALTER TABLE lab_results ENABLE ROW LEVEL SECURITY').then(() => undefined));
+      expect((await withPool(partialName, pool => migrationRunner.verify0018(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(forcedName, async pool => {
+        await pool.query('ALTER TABLE scan_events ENABLE ROW LEVEL SECURITY');
+        await pool.query('ALTER TABLE scan_events FORCE ROW LEVEL SECURITY');
+      });
+      expect((await withPool(forcedName, pool => migrationRunner.verify0018(pool))).status)
+        .toBe('incompatible');
+      await expect(applySqlFile(forcedName, supportingRlsMigrationPath))
+        .rejects.toThrow(/0018_FORCE_RLS_FORBIDDEN/);
+    } finally {
+      await dropDatabase(absentName);
+      await dropDatabase(exactName);
+      await dropDatabase(partialName);
+      await dropDatabase(forcedName);
+    }
+  }, 90_000);
 
   it('produces identical normalized schemas from baseline and snapshot paths', async () => {
     const baseline = databaseName('compare_baseline');

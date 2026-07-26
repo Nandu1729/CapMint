@@ -4,6 +4,7 @@ import pg from 'pg';
 import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import { tenantContextFromUser, withTenantTx } from '../../../packages/shared/tenant-db.js';
 
 dotenv.config();
 
@@ -115,7 +116,7 @@ const BUDGET_READ_SPECS = [
 ];
 
 // Initialize PostgreSQL Client Pool
-const DATABASE_URL = process.env.DATABASE_URL || (process.env.NODE_ENV === 'test' ? 'postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_dev' : '');
+const DATABASE_URL = process.env.DATABASE_URL || '';
 if (!DATABASE_URL) {
   console.error('FATAL: DATABASE_URL is not set. Refusing to start with an insecure default.');
   process.exit(1);
@@ -123,6 +124,11 @@ if (!DATABASE_URL) {
 const pgPool = new pg.Pool({
   connectionString: DATABASE_URL
 });
+
+const withAuthenticatedTenantTx = <T>(
+  request: FastifyRequest,
+  fn: (client: pg.PoolClient) => Promise<T>
+) => withTenantTx(pgPool, tenantContextFromUser(request.user as any), fn);
 
 // Initialize Redis Client
 const REDIS_URL = process.env.REDIS_URL || (process.env.NODE_ENV === 'test' ? 'redis://:capmint_redis_secure_password@localhost:6379/0' : '');
@@ -204,10 +210,11 @@ server.post('/api/v1/budgets', {
     });
   }
 
+  return withAuthenticatedTenantTx(request, async (client) => {
   // Resolve the caller's only producer profile when the compatibility field is
   // omitted. A supplied legacy profile ID remains accepted only when owned by
   // the caller; profile and organization IDs are independent key spaces.
-  const producerProfile = await pgPool.query(
+  const producerProfile = await client.query(
     `SELECT p.id
      FROM producers p
      JOIN organizations o ON o.id = p.organization_id
@@ -240,7 +247,7 @@ server.post('/api/v1/budgets', {
     });
   }
 
-  const certifierProfile = await pgPool.query(
+  const certifierProfile = await client.query(
     `SELECT c.id
      FROM certifiers c
      JOIN organizations o ON o.id = c.organization_id
@@ -277,7 +284,7 @@ server.post('/api/v1/budgets', {
   // CPQ-09: Create duplicate budget for same season
   const crop = yield_assumptions?.crop;
   if (crop) {
-    const dupCheck = await pgPool.query(
+    const dupCheck = await client.query(
       `SELECT id FROM budgets 
        WHERE producer_id = $1 
          AND yield_assumptions->>'crop' = $2 
@@ -322,7 +329,7 @@ server.post('/api/v1/budgets', {
     RETURNING id, producer_id, certifier_id, source_unit_type, approved_quantity, remaining_quantity, status
   `;
 
-  const result = await pgPool.query(query, [
+  const result = await client.query(query, [
     canonicalProducerId,
     certifier_id,
     source_unit_type,
@@ -354,6 +361,7 @@ server.post('/api/v1/budgets', {
       timestamp: new Date().toISOString(),
       requestId: request.id
     }
+  });
   });
 });
 
@@ -392,13 +400,10 @@ server.post('/api/v1/budgets/:id/activate', {
     });
   }
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
 
     const budgetFetch = await lockCertifierBudget(client, id, user.orgId);
     if (budgetFetch.rows.length === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({
         success: false,
         error: {
@@ -413,7 +418,6 @@ server.post('/api/v1/budgets/:id/activate', {
     const message = `budget_id:${id};approved_quantity:${budget.approved_quantity}`;
     const certifierPrivateKey = process.env.CERTIFIER_PRIVATE_KEY;
     if (!certifierPrivateKey) {
-      await client.query('ROLLBACK');
       server.log.error('CERTIFIER_PRIVATE_KEY is not configured; cannot co-sign budget activation.');
       return reply.status(500).send({
         success: false,
@@ -425,7 +429,6 @@ server.post('/api/v1/budgets/:id/activate', {
     try {
       signatureBundle = crypto.sign(null, Buffer.from(message), certifierPrivateKey).toString('hex');
     } catch (err) {
-      await client.query('ROLLBACK');
       server.log.error(err as any, 'Ed25519 signing failed');
       return reply.status(500).send({
         success: false,
@@ -441,20 +444,13 @@ server.post('/api/v1/budgets/:id/activate', {
       [id, signatureBundle]
     );
     await logBudgetStatus(client, id, budget.status, 'ACTIVE', user.username);
-    await client.query('COMMIT');
-
     return {
       success: true,
       data: {
         budget: result.rows[0]
       }
     };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Drawdown Capacity (supports row locking FOR UPDATE to prevent race conditions)
@@ -488,16 +484,12 @@ server.post('/api/v1/budgets/:id/drawdown', {
     });
   }
 
-  const client = await pgPool.connect();
-  try {
-    // 1. Start Database Transaction
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
 
     // 2. Select For Update (Row Lock to prevent double-mint race conditions)
     const user = request.user as any;
     const budgetRes = await lockProducerBudget(client, id, user.orgId);
     if (budgetRes.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({
         success: false,
         error: {
@@ -515,7 +507,6 @@ server.post('/api/v1/budgets/:id/drawdown', {
     // values must all block the drawdown (no bypass).
     const certifierRes = await client.query('SELECT public_key FROM certifiers WHERE id = $1', [budget.certifier_id]);
     if (certifierRes.rows.length === 0) {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: {
@@ -537,7 +528,6 @@ server.post('/api/v1/budgets/:id/drawdown', {
     }
 
     if (!isVerified) {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: {
@@ -550,7 +540,6 @@ server.post('/api/v1/budgets/:id/drawdown', {
 
     // 3. Verify Budget Status
     if (budget.status !== 'ACTIVE') {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: {
@@ -567,7 +556,6 @@ server.post('/api/v1/budgets/:id/drawdown', {
 
     // 4. Verify Remaining Capacity
     if (remaining < drawdownAmount) {
-      await client.query('ROLLBACK');
       return reply.status(422).send({
         success: false,
         error: {
@@ -591,9 +579,6 @@ server.post('/api/v1/budgets/:id/drawdown', {
       [newConsumed, newStatus, id]
     );
 
-    // 6. Commit transaction
-    await client.query('COMMIT');
-
     const updatedBudget = updateRes.rows[0];
     return reply.status(200).send({
       success: true,
@@ -611,12 +596,7 @@ server.post('/api/v1/budgets/:id/drawdown', {
         requestId: request.id
       }
     });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Get all budgets
@@ -624,10 +604,11 @@ server.get('/api/v1/budgets', {
   preValidation: [server.authenticate, server.authorize(BUDGET_READ_SPECS)]
 }, async (request, reply) => {
   const user = request.user as any;
+  return withAuthenticatedTenantTx(request, async (client) => {
   let result;
   
   if (user.orgType === 'PRODUCER') {
-    result = await pgPool.query(`
+    result = await client.query(`
       SELECT b.*, p.name as producer 
       FROM budgets b 
       JOIN producers p ON b.producer_id = p.id
@@ -635,7 +616,7 @@ server.get('/api/v1/budgets', {
       ORDER BY b.created_at DESC
     `, [user.orgId]);
   } else if (user.orgType === 'CERTIFICATION_BODY') {
-    result = await pgPool.query(`
+    result = await client.query(`
       SELECT b.*, p.name as producer
       FROM budgets b
       LEFT JOIN producers p ON b.producer_id = p.id
@@ -644,7 +625,7 @@ server.get('/api/v1/budgets', {
       ORDER BY b.created_at DESC
     `, [user.orgId]);
   } else if (user.orgType === 'SYSTEM_ADMINISTRATOR' && user.role === 'ADMIN') {
-    result = await pgPool.query(`
+    result = await client.query(`
       SELECT b.*, p.name as producer 
       FROM budgets b 
       LEFT JOIN producers p ON b.producer_id = p.id 
@@ -676,6 +657,7 @@ server.get('/api/v1/budgets', {
       }))
     }
   };
+  });
 });
 
 // Route: Submit Budget Proposal for Approval
@@ -684,12 +666,9 @@ server.post('/api/v1/budgets/:id/submit', {
 }, async (request, reply) => {
   const { id } = request.params as any;
   const user = request.user as any;
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
     const budgetFetch = await lockProducerBudget(client, id, user.orgId);
     if (budgetFetch.rows.length === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Budget not found.' } });
     }
 
@@ -698,14 +677,8 @@ server.post('/api/v1/budgets/:id/submit', {
       [id]
     );
     await logBudgetStatus(client, id, budgetFetch.rows[0].status, 'PENDING_APPROVAL', user.username, 'Farmer submitted budget for certifier approval');
-    await client.query('COMMIT');
     return { success: true, data: { status: 'PENDING_APPROVAL' } };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Certifier Reviewing Budget
@@ -715,25 +688,16 @@ server.post('/api/v1/budgets/:id/review', {
   const { id } = request.params as any;
   const { notes } = request.body as any;
   const user = request.user as any;
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
     const budgetFetch = await lockCertifierBudget(client, id, user.orgId);
     if (budgetFetch.rows.length === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Budget not found.' } });
     }
 
     await client.query(`UPDATE budgets SET status = 'REVIEWING', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
     await logBudgetStatus(client, id, budgetFetch.rows[0].status, 'REVIEWING', user.username, notes || 'Certifier started administrative review');
-    await client.query('COMMIT');
     return { success: true, data: { status: 'REVIEWING' } };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Certifier Reject Budget
@@ -748,12 +712,9 @@ server.post('/api/v1/budgets/:id/reject', {
     return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Rejection reason is required.' } });
   }
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
     const budgetFetch = await lockCertifierBudget(client, id, user.orgId);
     if (budgetFetch.rows.length === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Budget not found.' } });
     }
 
@@ -762,14 +723,8 @@ server.post('/api/v1/budgets/:id/reject', {
       [id, rejection_reason]
     );
     await logBudgetStatus(client, id, budgetFetch.rows[0].status, 'REJECTED', user.username, rejection_reason);
-    await client.query('COMMIT');
     return { success: true, data: { status: 'REJECTED', rejection_reason } };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Certifier Request Revision
@@ -784,12 +739,9 @@ server.post('/api/v1/budgets/:id/revision', {
     return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Revision notes are required.' } });
   }
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
     const budgetFetch = await lockCertifierBudget(client, id, user.orgId);
     if (budgetFetch.rows.length === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Budget not found.' } });
     }
 
@@ -798,14 +750,8 @@ server.post('/api/v1/budgets/:id/revision', {
       [id, notes]
     );
     await logBudgetStatus(client, id, budgetFetch.rows[0].status, 'REVISION_REQUESTED', user.username, notes);
-    await client.query('COMMIT');
     return { success: true, data: { status: 'REVISION_REQUESTED', notes } };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Start the server

@@ -192,6 +192,7 @@ async function runIteration(iteration: number): Promise<void> {
   const children: RunningChild[] = [];
   const tempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'capmint-f1-'));
   let databaseCreated = false;
+  let appRoleProvisioned = false;
   let redis: Redis | undefined;
 
   try {
@@ -215,6 +216,18 @@ async function runIteration(iteration: number): Promise<void> {
     if (bootstrap.status !== 0) {
       throw new Error(`C1 bootstrap failed (${bootstrap.status}): ${bootstrap.stderr || bootstrap.stdout}`);
     }
+    const roleState = await adminPool.query(
+      `SELECT rolcanlogin FROM pg_roles WHERE rolname = 'capmint_app'`
+    );
+    if (roleState.rows[0]?.rolcanlogin) {
+      throw new Error('capmint_app already has LOGIN; refusing to replace an operator-managed credential.');
+    }
+    const appPassword = crypto.randomBytes(36).toString('base64url');
+    await adminPool.query(`ALTER ROLE capmint_app LOGIN PASSWORD '${appPassword}'`);
+    appRoleProvisioned = true;
+    const appUrl = new URL(testUrl);
+    appUrl.username = 'capmint_app';
+    appUrl.password = appPassword;
 
     const identity = await testPool.query('SELECT current_database() AS name');
     if (identity.rows[0].name !== databaseName || !identity.rows[0].name.startsWith('capmint_suite_')) {
@@ -279,6 +292,7 @@ async function runIteration(iteration: number): Promise<void> {
     for (const [name, sourcePath] of services) {
       await startChild(children, name, tsxPath, [sourcePath], PORTS[name], {
         ...commonEnv,
+        DATABASE_URL: name === 'integration' ? testUrl : appUrl.toString(),
         PORT: String(PORTS[name])
       });
     }
@@ -309,12 +323,18 @@ async function runIteration(iteration: number): Promise<void> {
       timeout: 180_000
     });
     const output = `${result.stdout || ''}${result.stderr || ''}`.replace(/\u001b\[[0-9;]*m/g, '');
+    const serviceOutput = children
+      .filter(child => child.output)
+      .map(child => `[${child.name}]\n${child.output.slice(-4000)}`)
+      .join('\n');
     process.stdout.write(`\n[F1 compliance iteration ${iteration}]\n${output}\n`);
     const totals = output.match(
       /Total Passed:\s*(\d+)\s*\|\s*Total Pending:\s*(\d+)\s*\|\s*Total Failed:\s*(\d+)/
     );
     if (!totals || Number(totals[1]) + Number(totals[2]) + Number(totals[3]) === 0) {
-      throw new Error(`Compliance runner completed without executing assertions:\n${output}`);
+      throw new Error(
+        `Compliance runner completed without executing assertions:\n${output}\n${serviceOutput}`
+      );
     }
     if (output.includes('An error occurred during test execution:')) {
       throw new Error(`Compliance runner reported a fatal execution error:\n${output}`);
@@ -330,6 +350,9 @@ async function runIteration(iteration: number): Promise<void> {
       redis.disconnect();
     }
     await testPool.end().catch(() => undefined);
+    if (appRoleProvisioned) {
+      await adminPool.query('ALTER ROLE capmint_app NOLOGIN PASSWORD NULL');
+    }
     if (databaseCreated) {
       await adminPool.query(`DROP DATABASE ${quoteIdentifier(databaseName)} WITH (FORCE)`);
     }

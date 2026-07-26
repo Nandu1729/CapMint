@@ -29,12 +29,12 @@ describe('migration runner metadata and planning primitives', () => {
     expect(() => runner.parseArgs(['--adopt'])).toThrow(/requires one or more/);
   });
 
-  it('loads a monotonic migration set ending in tenancy-tightening migration 0013', () => {
+  it('loads a monotonic migration set ending in final-table RLS migration 0019', () => {
     const result = runner.loadMigrations();
     expect(result.errors).toEqual([]);
-    expect(result.migrations.at(-1)?.filename).toBe('0013_tighten_tenant_constraints.sql');
+    expect(result.migrations.at(-1)?.filename).toBe('0019_enable_users_and_ledger_rls.sql');
     expect(result.migrations.map((migration: { version: number }) => migration.version))
-      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
     for (const migration of result.migrations) {
       expect(migration.checksum).toMatch(/^[a-f0-9]{64}$/);
     }
@@ -130,5 +130,99 @@ describe('migration runner metadata and planning primitives', () => {
         quarantinedStatus: 'REVOKED'
       }
     });
+  });
+
+  it('defines the certifier NOT NULL successor state', () => {
+    expect(runner.CERTIFIER_NOT_NULL_STATE).toEqual({
+      column: {
+        table: 'certifiers',
+        name: 'organization_id'
+      },
+      temporaryConstraint: 'certifiers_organization_id_not_null',
+      orphanId: '00000000-0000-0000-0000-000000000003'
+    });
+    expect(runner.verify0014).toBeTypeOf('function');
+  });
+
+  it('defines the exact capmint_app D1 grant surface', () => {
+    expect(runner.APP_ROLE_STATE).toEqual({
+      role: 'capmint_app',
+      tables: [
+        'organizations',
+        'users',
+        'certifiers',
+        'producers',
+        'plots_or_hive_clusters',
+        'budgets',
+        'lots',
+        'unit_codes',
+        'lab_results',
+        'scan_events',
+        'log_entries',
+        'investigations',
+        'producer_brandings'
+      ],
+      tablePrivileges: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+      sequencePrivileges: ['SELECT', 'USAGE']
+    });
+    expect(runner.verify0015).toBeTypeOf('function');
+  });
+
+  it('defines the exact D2 identity-table RLS surface', () => {
+    expect(runner.IDENTITY_RLS_STATE.tables).toEqual([
+      'certifiers',
+      'organizations',
+      'producers'
+    ]);
+    expect(runner.IDENTITY_RLS_STATE.policies).toHaveLength(12);
+    expect(runner.IDENTITY_RLS_STATE.policies.every(
+      (policy: { signature: string }) => /^[a-f0-9]{64}$/.test(policy.signature)
+    )).toBe(true);
+    expect(runner.verify0016).toBeTypeOf('function');
+  });
+
+  it('defines the exact D3a provenance-chain RLS surface', () => {
+    expect(runner.PROVENANCE_RLS_STATE.tables).toEqual([
+      'budgets',
+      'lots',
+      'unit_codes'
+    ]);
+    expect(runner.PROVENANCE_RLS_STATE.policies).toHaveLength(9);
+    expect(runner.PROVENANCE_RLS_STATE.helpers).toHaveLength(6);
+    expect(runner.PROVENANCE_RLS_STATE.policies.every(
+      (policy: { signature: string }) => /^[a-f0-9]{64}$/.test(policy.signature)
+    )).toBe(true);
+    expect(runner.PROVENANCE_RLS_STATE.helpers.every(
+      (routine: { signature: string }) => /^[a-f0-9]{64}$/.test(routine.signature)
+    )).toBe(true);
+    expect(runner.verify0017).toBeTypeOf('function');
+  });
+
+  it('defines the exact D3b supporting-table RLS surface', () => {
+    expect(runner.SUPPORTING_RLS_STATE.tables).toEqual([
+      'investigations',
+      'lab_results',
+      'plots_or_hive_clusters',
+      'producer_brandings',
+      'scan_events'
+    ]);
+    expect(runner.SUPPORTING_RLS_STATE.policies).toHaveLength(14);
+    expect(runner.SUPPORTING_RLS_STATE.helpers).toHaveLength(5);
+    expect(runner.SUPPORTING_RLS_STATE.policies.every(
+      (policy: { signature: string }) => /^[a-f0-9]{64}$/.test(policy.signature)
+    )).toBe(true);
+    expect(runner.SUPPORTING_RLS_STATE.helpers.every(
+      (routine: { signature: string }) => /^[a-f0-9]{64}$/.test(routine.signature)
+    )).toBe(true);
+    expect(runner.verify0018).toBeTypeOf('function');
+  });
+
+  it('defines the exact D3c final-table RLS surface', () => {
+    expect(runner.FINAL_RLS_STATE.tables).toEqual(['log_entries', 'users']);
+    expect(runner.FINAL_RLS_STATE.policies).toHaveLength(6);
+    expect(runner.FINAL_RLS_STATE.policies.every(
+      (policy: { signature: string }) => /^[a-f0-9]{64}$/.test(policy.signature)
+    )).toBe(true);
+    expect(runner.verify0019).toBeTypeOf('function');
   });
 });

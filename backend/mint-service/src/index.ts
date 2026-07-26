@@ -5,6 +5,7 @@ import { Redis } from 'ioredis';
 import qr from 'qrcode';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
+import { tenantContextFromUser, withTenantTx } from '../../../packages/shared/tenant-db.js';
 
 dotenv.config();
 
@@ -91,7 +92,7 @@ const PRODUCER_OPERATION_SPECS = [
 ];
 
 // Initialize PostgreSQL Client Pool
-const DATABASE_URL = process.env.DATABASE_URL || (process.env.NODE_ENV === 'test' ? 'postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_dev' : '');
+const DATABASE_URL = process.env.DATABASE_URL || '';
 if (!DATABASE_URL) {
   console.error('FATAL: DATABASE_URL is not set. Refusing to start with an insecure default.');
   process.exit(1);
@@ -209,10 +210,7 @@ server.post('/api/v1/mint', {
     });
   }
 
-  const client = await pgPool.connect();
-  try {
-    // Start Database Transaction to handle capacity checks and generation atomically
-    await client.query('BEGIN');
+  return withTenantTx(pgPool, tenantContextFromUser(user), async (client) => {
 
     const lotRes = await client.query(
       `SELECT l.*
@@ -227,7 +225,6 @@ server.post('/api/v1/mint', {
       [lot_id, user.orgId]
     );
     if (lotRes.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({
         success: false,
         error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' }
@@ -236,7 +233,6 @@ server.post('/api/v1/mint', {
 
     const lot = lotRes.rows[0];
     if (lot.revocation_status === 'REVOKED') {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: {
@@ -260,7 +256,6 @@ server.post('/api/v1/mint', {
       [budgetId, user.orgId]
     );
     if (budgetRes.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({
         success: false,
         error: { statusCode: 404, code: 'NOT_FOUND', message: 'Budget linked to Lot not found.' }
@@ -269,7 +264,6 @@ server.post('/api/v1/mint', {
 
     const budget = budgetRes.rows[0];
     if (budget.status !== 'ACTIVE') {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: {
@@ -282,7 +276,6 @@ server.post('/api/v1/mint', {
 
     // Verify certifier signature authorizing this budget (defense in depth; fail closed).
     if (!(await verifyBudgetAuthority(client, budget.id, budget.certifier_id, budget.approved_quantity, budget.signature_bundle))) {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: { statusCode: 400, code: 'INVALID_SIGNATURE', message: 'Budget supply authority could not be cryptographically verified.' }
@@ -294,7 +287,6 @@ server.post('/api/v1/mint', {
     const remaining = approved - consumed;
 
     if (remaining < mintCount) {
-      await client.query('ROLLBACK');
       return reply.status(422).send({
         success: false,
         error: {
@@ -339,9 +331,6 @@ server.post('/api/v1/mint', {
       qrCodesList.push(qrCodeDataUri);
     }
 
-    // Commit transaction
-    await client.query('COMMIT');
-
     return reply.status(201).send({
       success: true,
       data: {
@@ -357,12 +346,7 @@ server.post('/api/v1/mint', {
         requestId: request.id
       }
     });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Generate QR Code (QR Engine)
