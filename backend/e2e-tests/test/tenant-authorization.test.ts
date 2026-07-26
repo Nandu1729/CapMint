@@ -805,7 +805,6 @@ suite('C0 tenant authorization containment', () => {
       method: 'POST',
       token: tokens.producerA,
       body: {
-        producer_id: ids.producerA,
         certifier_id: ids.certifierA,
         source_unit_type: 'UNIT_COUNT',
         approved_quantity: 5,
