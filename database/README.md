@@ -284,6 +284,53 @@ No policy is created and no table has RLS enabled or forced in D1. Consequently
 the runtime result set and authorization behavior remain unchanged. D2/D3 are
 separate approval gates.
 
+## Identity-Table RLS Enforcement 0016
+
+`0016_enable_identity_table_rls.sql` implements DM-04 D2 for only the three
+tables with direct organization identity:
+
+- enables, but does not force, row-level security on `organizations`,
+  `producers`, and `certifiers`;
+- gives `capmint_app` owner-scoped SELECT/INSERT/UPDATE/DELETE policies using
+  `NULLIF(current_setting('app.current_organization_id', true), '')::uuid`;
+- includes the system-administrator branch
+  `current_setting('app.actor_is_system_admin', true) = 'on'` in every policy;
+- permits public organization reads needed by registration duplicate checks
+  and login, while public inserts are limited to `PENDING` registrations of
+  the four registrable organization types;
+- permits authenticated reads of activated certification-body and laboratory
+  organizations for cross-organization workflow validation;
+- permits public producer reads only when the producer has a registered unit
+  code, and permits a certifier to read only producers attached to budgets it
+  controls;
+- permits authenticated cross-organization reads of only `ACTIVE` certifier
+  rows so signature-verification paths can obtain the certifier public key.
+
+PostgreSQL RLS controls rows rather than projected columns. The login and
+registration queries therefore make public organization rows visible, and an
+active cross-organization certifier row is visible rather than only its
+`public_key` field. Those exceptions are read-only; all UPDATE and DELETE
+policies remain owner-or-system-administrator only.
+
+The certifier laboratory-assignment flow validates an activated laboratory
+with an ordinary SELECT. A cross-organization `SELECT ... FOR SHARE` also
+requires the UPDATE policy in PostgreSQL and would therefore hide the row under
+the owner-only write rule. Removing that read lock preserves the legitimate
+validation without granting cross-organization writes.
+
+Migration 0016 fails closed unless 0015 is recorded, `capmint_app` remains
+non-elevated, and the database is in either the pre-D2 state or the exact D2
+successor state. `verify0016` classifies exact, absent, and incompatible
+states, including policy definitions, roles, commands, enabled-versus-forced
+RLS, and unexpected policy surfaces. `verify0015` accepts the successor only
+when 0016 is recorded and its physical policy state is exact.
+
+The owner `capmint_admin` remains exempt because no table uses FORCE. Migration
+bootstrap, first-administrator bootstrap, and development seed must continue
+to use the owner URL. The six PostgreSQL-backed services continue to use the
+operator-provisioned `capmint_app` URL. RLS on transactional and join-scoped
+tables remains deferred to D3.
+
 ## Existing Database Procedure
 
 1. Run `--check`.
