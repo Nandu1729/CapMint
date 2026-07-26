@@ -439,6 +439,27 @@ uses FORCE; migrations, bootstrap, and seed remain owner operations.
 
 RLS on `users` and `log_entries` remains deferred to D3c.
 
+## DM-04 D3c Completion
+
+Migration `0019_enable_users_and_ledger_rls.sql` completes RLS coverage on all
+13 application tables. `users` has tenant SELECT/INSERT/UPDATE/DELETE policies
+with system-admin bypass; the public SELECT branch preserves pre-auth login and
+the public INSERT branch is limited to active ADMIN registration rows. Because
+RLS is row-scoped, the auth handler's username predicate remains the backstop
+for password-hash exposure and credential lookup.
+
+`log_entries` has SELECT and INSERT policies only. There is deliberately no
+UPDATE or DELETE policy for `capmint_app`, enforcing append-only ledger
+immutability at the database layer. Public reads preserve transparency
+integrity/entry endpoints. Public inserts are limited to genesis, login audit,
+and registration audit shapes required by existing public auth/genesis flows;
+authenticated and system-admin contexts append normally.
+
+`verify0019` validates the complete 13-table/41-policy RLS surface. Earlier
+D1–D3b verifiers accept it only after the recorded 0019 successor migration.
+No table uses FORCE, so owner-run migrations, bootstrap, and seed still bypass
+RLS.
+
 ## Existing Database Procedure
 
 1. Run `--check`.
