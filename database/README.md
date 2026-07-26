@@ -384,9 +384,60 @@ is recorded and its combined six-table policy/helper state is exact.
 
 The owner `capmint_admin` remains exempt because no table uses FORCE.
 Migration bootstrap, first-administrator bootstrap, and development seed
-continue to use the owner URL. RLS on `lab_results`, `investigations`,
-`scan_events`, `plots_or_hive_clusters`, `producer_brandings`, `users`, and
-`log_entries` remains deferred to D3b/D3c.
+continue to use the owner URL.
+
+## DM-04 D3b Supporting-Table RLS
+
+Migration `0018_enable_supporting_table_rls.sql` enables, but does not force,
+RLS on `lab_results`, `investigations`, `scan_events`,
+`plots_or_hive_clusters`, and `producer_brandings`. It requires the recorded
+and physically exact D2/D3a surface before making changes. The preflight
+rejects partial or forced target state, unexpected RLS/policies/helpers,
+elevated `capmint_app` attributes, and unsafe helper definitions.
+
+The exact policy surface contains 14 policies:
+
+- `lab_results`: relationship-scoped/public SELECT plus producer-or-assigned-lab
+  INSERT and assigned-actor UPDATE. Access derives from `lot_id`, so legacy
+  rows with `submitted_by_organization_id IS NULL` remain readable.
+- `investigations`: controlling-certifier/public SELECT, registered-code public
+  INSERT, and controlling-certifier/public-conflict UPDATE.
+- `scan_events`: provenance-actor/public SELECT and registered-code public
+  INSERT.
+- `plots_or_hive_clusters`: producer-owner SELECT, INSERT, and UPDATE.
+- `producer_brandings`: producer-owner or registered-producer public SELECT,
+  plus producer-owner INSERT and UPDATE.
+
+Every policy includes the system-administrator branch. Authenticated tenant
+branches cast only
+`NULLIF(current_setting('app.current_organization_id', true), '')`, and public
+branches require that same safe expression to resolve to NULL. There are no
+D3b DELETE policies.
+
+Five new owner-executed boolean helpers resolve joins without policy
+recursion: `capmint_rls_registered_unit_code`,
+`capmint_rls_unit_certifier`, `capmint_rls_unit_code_actor`,
+`capmint_rls_lab_result_writer`, and
+`capmint_rls_producer_has_public_code`. Each is SQL, STABLE, SECURITY DEFINER,
+owned by `capmint_admin`, fixed to the `pg_catalog, public` search path,
+non-executable by PUBLIC, and executable by `capmint_app` in addition to its
+owner.
+
+Public scan and investigation writes are row-bounded to a fully registered
+unit code. Investigation inserts also require `public_identifier` to match the
+linked code. PostgreSQL RLS cannot constrain which columns a permitted INSERT
+or UPDATE supplies, so the public verification handler remains responsible
+for scan-event values and the investigation conflict update. Public lab and
+branding reads are limited to provenance that has a fully registered public
+code.
+
+`verify0018` classifies exact, absent, and incompatible states using exact
+policy and helper signatures. `verify0015`, `verify0016`, and `verify0017`
+accept the D3b successor surface only when migration 0018 is recorded.
+`capmint_admin` continues to bypass these policies because the migration never
+uses FORCE; migrations, bootstrap, and seed remain owner operations.
+
+RLS on `users` and `log_entries` remains deferred to D3c.
 
 ## Existing Database Procedure
 
