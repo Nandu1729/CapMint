@@ -424,6 +424,15 @@ suite('C0 tenant authorization containment', () => {
       `INSERT INTO migrations_log (filename)
        VALUES ('0017_enable_provenance_chain_rls.sql')`
     );
+    const supportingRlsMigration = await fs.readFile(
+      path.join(ROOT, 'database/migrations/0018_enable_supporting_table_rls.sql'),
+      'utf8'
+    );
+    await testPool.query(supportingRlsMigration);
+    await testPool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0018_enable_supporting_table_rls.sql')`
+    );
     const roleState = await adminPool.query(
       `SELECT rolcanlogin FROM pg_roles WHERE rolname = 'capmint_app'`
     );
@@ -593,10 +602,35 @@ suite('C0 tenant authorization containment', () => {
         appPool,
         producerContext,
         client => client.query(
+          `INSERT INTO investigations
+             (product_name, public_identifier, risk_level, status,
+              detection_reason, manufacturer, current_product_status,
+              evidence, unit_code_id)
+           VALUES ('Denied', $1, 'HIGH', 'OPEN', 'Denied',
+                   'Producer B', 'ACTIVE', '{}', $1)
+           ON CONFLICT (public_identifier) DO UPDATE SET status = 'OPEN'`,
+          [ids.codeB]
+        )
+      )).rejects.toMatchObject({ code: '42501' });
+      await expect(withTenantTx(
+        appPool,
+        producerContext,
+        client => client.query(
           `INSERT INTO producers
              (id, name, type, registry_references, organization_id)
            VALUES ($1, 'Cross-tenant producer', 'FARMER', '{}', $2)`,
           [crypto.randomUUID(), ids.producerOrgB]
+        )
+      )).rejects.toMatchObject({ code: '42501' });
+      await expect(withTenantTx(
+        appPool,
+        producerContext,
+        client => client.query(
+          `INSERT INTO producer_brandings (producer_id, brand_story)
+           VALUES ($1, 'Denied')
+           ON CONFLICT (producer_id) DO UPDATE
+           SET brand_story = EXCLUDED.brand_story`,
+          [ids.producerB]
         )
       )).rejects.toMatchObject({ code: '42501' });
       await expect(withTenantTx(
@@ -828,6 +862,240 @@ suite('C0 tenant authorization containment', () => {
       });
     } finally {
       await appPool.end();
+    }
+  });
+
+  it('enforces supporting-table isolation while preserving bounded public and actor flows', async () => {
+    const plotA = crypto.randomUUID();
+    const plotB = crypto.randomUUID();
+    const scanA = crypto.randomUUID();
+    const scanB = crypto.randomUUID();
+    const publicInvestigation = crypto.randomUUID();
+    await testPool.query(
+      `INSERT INTO lab_results
+         (lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
+       VALUES ($1, 'Producer B Lab', 'Purity', 'PASS', $2, 'b.pdf')
+       ON CONFLICT (lot_id) DO NOTHING`,
+      [ids.lotB, crypto.createHash('sha256').update('d3b-lab-b').digest('hex')]
+    );
+    await testPool.query(
+      `INSERT INTO plots_or_hive_clusters
+         (id, producer_id, geo_boundary, crop_type, season_year)
+       VALUES
+         ($1, $2, '{}', 'HONEY', '2026'),
+         ($3, $4, '{}', 'HONEY', '2026')`,
+      [plotA, ids.producerA, plotB, ids.producerB]
+    );
+    await testPool.query(
+      `INSERT INTO producer_brandings (producer_id, brand_story)
+       VALUES ($1, 'Producer A public story'), ($2, 'Producer B public story')
+       ON CONFLICT (producer_id) DO UPDATE
+       SET brand_story = EXCLUDED.brand_story`,
+      [ids.producerA, ids.producerB]
+    );
+    await testPool.query(
+      `INSERT INTO scan_events (id, unit_code_id, device_metadata, verdict)
+       VALUES
+         ($1, $2, '{}', 'VERIFIED'),
+         ($3, $4, '{}', 'VERIFIED')`,
+      [scanA, ids.codeA, scanB, ids.codeB]
+    );
+
+    const appPool = new pg.Pool({ connectionString: appDatabaseUrl, max: 1 });
+    const producerContext = {
+      access: 'authenticated' as const,
+      orgId: ids.producerOrgA,
+      isSystemAdmin: false
+    };
+    try {
+      await withTenantTx(appPool, producerContext, async client => {
+        for (const [table, column, value] of [
+          ['lab_results', 'lot_id', ids.lotB],
+          ['investigations', 'id', ids.investigationB],
+          ['scan_events', 'id', scanB],
+          ['plots_or_hive_clusters', 'id', plotB],
+          ['producer_brandings', 'producer_id', ids.producerB]
+        ]) {
+          expect((await client.query(
+            `SELECT 1 FROM ${table} WHERE ${column} = $1`,
+            [value]
+          )).rowCount).toBe(0);
+          expect((await client.query(
+            `UPDATE ${table} SET ${column} = ${column}
+             WHERE ${column} = $1 RETURNING ${column}`,
+            [value]
+          )).rowCount).toBe(0);
+          expect((await client.query(
+            `DELETE FROM ${table} WHERE ${column} = $1 RETURNING ${column}`,
+            [value]
+          )).rowCount).toBe(0);
+        }
+
+        expect((await client.query(
+          'SELECT 1 FROM lab_results WHERE lot_id = $1',
+          [ids.lotA]
+        )).rowCount).toBe(1);
+        expect((await client.query(
+          'SELECT 1 FROM plots_or_hive_clusters WHERE id = $1',
+          [plotA]
+        )).rowCount).toBe(1);
+        expect((await client.query(
+          'SELECT 1 FROM producer_brandings WHERE producer_id = $1',
+          [ids.producerA]
+        )).rowCount).toBe(1);
+      });
+
+      await expect(withTenantTx(
+        appPool,
+        producerContext,
+        client => client.query(
+          `INSERT INTO lab_results
+             (lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
+           VALUES ($1, 'Denied', 'Purity', 'PASS', $2, 'denied.pdf')
+           ON CONFLICT (lot_id) DO UPDATE SET lab_name = EXCLUDED.lab_name`,
+          [ids.lotB, crypto.createHash('sha256').update('denied').digest('hex')]
+        )
+      )).rejects.toMatchObject({ code: '42501' });
+      await expect(withTenantTx(
+        appPool,
+        producerContext,
+        client => client.query(
+          `INSERT INTO scan_events (unit_code_id, device_metadata, verdict)
+           VALUES ($1, '{}', 'VERIFIED')`,
+          [ids.codeB]
+        )
+      )).rejects.toMatchObject({ code: '42501' });
+      await expect(withTenantTx(
+        appPool,
+        producerContext,
+        client => client.query(
+          `INSERT INTO plots_or_hive_clusters
+             (producer_id, geo_boundary, crop_type, season_year)
+           VALUES ($1, '{}', 'HONEY', '2026')`,
+          [ids.producerB]
+        )
+      )).rejects.toMatchObject({ code: '42501' });
+
+      await withTenantTx(appPool, PUBLIC_TENANT_CONTEXT, async client => {
+        expect((await client.query(
+          'SELECT 1 FROM lab_results WHERE lot_id = $1',
+          [ids.lotA]
+        )).rowCount).toBe(1);
+        expect((await client.query(
+          'SELECT brand_story FROM producer_brandings WHERE producer_id = $1',
+          [ids.producerA]
+        )).rows[0].brand_story).toBe('Producer A public story');
+        expect((await client.query(
+          'SELECT 1 FROM scan_events WHERE id = $1',
+          [scanA]
+        )).rowCount).toBe(1);
+
+        await client.query(
+          `INSERT INTO scan_events (unit_code_id, device_metadata, verdict)
+           VALUES ($1, '{"source":"d3b-public"}', 'VERIFIED')`,
+          [ids.codeA]
+        );
+        const insertInvestigation = () => client.query(
+          `INSERT INTO investigations
+             (id, product_name, public_identifier, risk_level, status,
+              detection_reason, manufacturer, current_product_status,
+              evidence, unit_code_id)
+           VALUES
+             ($1, 'D3b public', $2, 'HIGH', 'OPEN', 'D3b public scan',
+              'Producer B', 'ACTIVE', '{}', $2)
+           ON CONFLICT (public_identifier) DO UPDATE
+           SET status = 'OPEN',
+               unit_code_id = EXCLUDED.unit_code_id`,
+          [publicInvestigation, ids.codeAutomation]
+        );
+        await insertInvestigation();
+        await insertInvestigation();
+      });
+
+      const nonexistentCode = crypto.randomUUID();
+      await expect(withTenantTx(
+        appPool,
+        PUBLIC_TENANT_CONTEXT,
+        client => client.query(
+          `INSERT INTO scan_events (unit_code_id, device_metadata, verdict)
+           VALUES ($1, '{}', 'VERIFIED')`,
+          [nonexistentCode]
+        )
+      )).rejects.toMatchObject({ code: '42501' });
+      await expect(withTenantTx(
+        appPool,
+        PUBLIC_TENANT_CONTEXT,
+        client => client.query(
+          `INSERT INTO investigations
+             (product_name, public_identifier, risk_level, status,
+              detection_reason, manufacturer, current_product_status,
+              evidence, unit_code_id)
+           VALUES ('Rejected', $1, 'HIGH', 'OPEN', 'Rejected',
+                   'Unknown', 'ACTIVE', '{}', $1)`,
+          [nonexistentCode]
+        )
+      )).rejects.toMatchObject({ code: '42501' });
+
+      await withTenantTx(
+        appPool,
+        {
+          access: 'authenticated',
+          orgId: ids.certifierOrgA,
+          isSystemAdmin: false
+        },
+        async client => {
+          expect((await client.query(
+            'SELECT 1 FROM investigations WHERE id = $1',
+            [ids.investigationA]
+          )).rowCount).toBe(1);
+          expect((await client.query(
+            'SELECT 1 FROM investigations WHERE id = $1',
+            [ids.investigationB]
+          )).rowCount).toBe(0);
+          expect((await client.query(
+            'SELECT 1 FROM scan_events WHERE id = $1',
+            [scanA]
+          )).rowCount).toBe(1);
+        }
+      );
+
+      const adminRows = await withTenantTx(
+        appPool,
+        { access: 'authenticated', orgId: null, isSystemAdmin: true },
+        client => client.query(
+          `SELECT
+             (SELECT count(*)::int FROM lab_results) AS lab_results,
+             (SELECT count(*)::int FROM investigations) AS investigations,
+             (SELECT count(*)::int FROM scan_events) AS scan_events,
+             (SELECT count(*)::int FROM plots_or_hive_clusters) AS plots,
+             (SELECT count(*)::int FROM producer_brandings) AS brandings`
+        )
+      );
+      expect(adminRows.rows[0]).toMatchObject({
+        lab_results: 2,
+        investigations: 3,
+        plots: 2,
+        brandings: 2
+      });
+      expect(adminRows.rows[0].scan_events).toBeGreaterThanOrEqual(3);
+    } finally {
+      await appPool.end();
+      await testPool.query('DELETE FROM investigations WHERE id = $1', [publicInvestigation]);
+      await testPool.query(
+        `DELETE FROM scan_events
+         WHERE id IN ($1, $2)
+            OR device_metadata @> '{"source":"d3b-public"}'::jsonb`,
+        [scanA, scanB]
+      );
+      await testPool.query(
+        'DELETE FROM plots_or_hive_clusters WHERE id IN ($1, $2)',
+        [plotA, plotB]
+      );
+      await testPool.query(
+        'DELETE FROM producer_brandings WHERE producer_id IN ($1, $2)',
+        [ids.producerA, ids.producerB]
+      );
+      await testPool.query('DELETE FROM lab_results WHERE lot_id = $1', [ids.lotB]);
     }
   });
 

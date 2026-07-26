@@ -19,6 +19,7 @@ const certifierTighteningMigrationPath = path.join(ROOT, 'database/migrations/00
 const appRoleMigrationPath = path.join(ROOT, 'database/migrations/0015_add_capmint_app_role.sql');
 const identityRlsMigrationPath = path.join(ROOT, 'database/migrations/0016_enable_identity_table_rls.sql');
 const provenanceRlsMigrationPath = path.join(ROOT, 'database/migrations/0017_enable_provenance_chain_rls.sql');
+const supportingRlsMigrationPath = path.join(ROOT, 'database/migrations/0018_enable_supporting_table_rls.sql');
 const allLegacyFiles = [
   '0001_add_certification_status_and_updated_at.sql',
   '0002_add_investigations_table.sql',
@@ -142,6 +143,32 @@ async function createLegacyLog(name: string, filenames: string[]): Promise<void>
   });
 }
 
+async function preparePre0018State(name: string): Promise<void> {
+  await applySqlFile(name, schemaPath);
+  await createLegacyLog(name, []);
+  await applySqlFile(name, appRoleMigrationPath);
+  await withPool(name, async pool => {
+    await pool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0015_add_capmint_app_role.sql')`
+    );
+  });
+  await applySqlFile(name, identityRlsMigrationPath);
+  await withPool(name, async pool => {
+    await pool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0016_enable_identity_table_rls.sql')`
+    );
+  });
+  await applySqlFile(name, provenanceRlsMigrationPath);
+  await withPool(name, async pool => {
+    await pool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0017_enable_provenance_chain_rls.sql')`
+    );
+  });
+}
+
 async function schemaFingerprint(name: string): Promise<string> {
   return withPool(name, async pool => {
     const result = await pool.query(`
@@ -244,7 +271,7 @@ suite('C1 migration reconciliation', () => {
     if (adminPool) await adminPool.end();
   }, 60_000);
 
-  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0017, and becomes a no-op', async () => {
+  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0018, and becomes a no-op', async () => {
     const name = databaseName('bootstrap');
     await createDatabase(name);
     try {
@@ -263,7 +290,7 @@ suite('C1 migration reconciliation', () => {
          FROM migrations_log
          ORDER BY id`
       ).then(result => result.rows));
-      expect(rows).toHaveLength(9);
+      expect(rows).toHaveLength(10);
       expect(rows[0]).toMatchObject({
         filename: 'capmint-baseline-20260725.sql',
         application_mode: 'BASELINE',
@@ -304,6 +331,10 @@ suite('C1 migration reconciliation', () => {
         filename: '0017_enable_provenance_chain_rls.sql',
         application_mode: 'EXECUTED'
       });
+      expect(rows[9]).toMatchObject({
+        filename: '0018_enable_supporting_table_rls.sql',
+        application_mode: 'EXECUTED'
+      });
       const baselineState = await withPool(name, pool => pool.query(
         `SELECT
            EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'uuid-ossp') AS has_uuid_ossp,
@@ -320,7 +351,7 @@ suite('C1 migration reconciliation', () => {
       expect(bootstrapNoOpApply.status, bootstrapNoOpApply.stderr).toBe(0);
       expect(runRunner(name, ['--check']).status).toBe(0);
       const count = await withPool(name, pool => pool.query('SELECT count(*)::int AS count FROM migrations_log').then(result => result.rows[0].count));
-      expect(count).toBe(9);
+      expect(count).toBe(10);
     } finally {
       await dropDatabase(name);
     }
@@ -1424,6 +1455,87 @@ suite('C1 migration reconciliation', () => {
       });
       expect((await withPool(forcedName, pool => migrationRunner.verify0017(pool))).status)
         .toBe('incompatible');
+    } finally {
+      await dropDatabase(absentName);
+      await dropDatabase(exactName);
+      await dropDatabase(partialName);
+      await dropDatabase(forcedName);
+    }
+  }, 90_000);
+
+  it('enables supporting-table RLS idempotently and anchors the 0015/0016/0017 successor states on the 0018 record', async () => {
+    const absentName = databaseName('supporting_rls_absent');
+    const exactName = databaseName('supporting_rls_exact');
+    const partialName = databaseName('supporting_rls_partial');
+    const forcedName = databaseName('supporting_rls_forced');
+    for (const name of [absentName, exactName, partialName, forcedName]) {
+      await createDatabase(name);
+      await preparePre0018State(name);
+    }
+    try {
+      expect((await withPool(absentName, pool => migrationRunner.verify0018(pool))).status)
+        .toBe('absent');
+
+      await applySqlFile(exactName, supportingRlsMigrationPath);
+      expect((await withPool(exactName, pool => migrationRunner.verify0018(pool))).status)
+        .toBe('exact');
+      expect((await withPool(exactName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('incompatible');
+      expect((await withPool(exactName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('incompatible');
+      expect((await withPool(exactName, pool => migrationRunner.verify0017(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(exactName, pool =>
+        pool.query(
+          `INSERT INTO migrations_log (filename)
+           VALUES ('0018_enable_supporting_table_rls.sql')`
+        ).then(() => undefined));
+      expect((await withPool(exactName, pool => migrationRunner.verify0015(pool))).status)
+        .toBe('exact');
+      expect((await withPool(exactName, pool => migrationRunner.verify0016(pool))).status)
+        .toBe('exact');
+      expect((await withPool(exactName, pool => migrationRunner.verify0017(pool))).status)
+        .toBe('exact');
+
+      const beforeRerun = await schemaFingerprint(exactName);
+      await applySqlFile(exactName, supportingRlsMigrationPath);
+      expect(await schemaFingerprint(exactName)).toBe(beforeRerun);
+      const exactState = await withPool(exactName, pool => migrationRunner.verify0018(pool));
+      expect(exactState.status).toBe('exact');
+      expect(exactState.evidence.rls_tables).toHaveLength(11);
+      expect(exactState.evidence.policies).toHaveLength(35);
+      expect(exactState.evidence.helpers).toHaveLength(11);
+
+      await withPool(exactName, async pool => {
+        await pool.query('DROP POLICY investigations_tenant_update ON investigations');
+        await pool.query(
+          `CREATE POLICY investigations_tenant_update
+           ON investigations
+           FOR UPDATE
+           TO capmint_app
+           USING (true)
+           WITH CHECK (true)`
+        );
+      });
+      await expect(applySqlFile(exactName, supportingRlsMigrationPath))
+        .rejects.toThrow(/0018_PARTIAL_RLS_STATE/);
+      expect((await withPool(exactName, pool => migrationRunner.verify0018(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(partialName, pool =>
+        pool.query('ALTER TABLE lab_results ENABLE ROW LEVEL SECURITY').then(() => undefined));
+      expect((await withPool(partialName, pool => migrationRunner.verify0018(pool))).status)
+        .toBe('incompatible');
+
+      await withPool(forcedName, async pool => {
+        await pool.query('ALTER TABLE scan_events ENABLE ROW LEVEL SECURITY');
+        await pool.query('ALTER TABLE scan_events FORCE ROW LEVEL SECURITY');
+      });
+      expect((await withPool(forcedName, pool => migrationRunner.verify0018(pool))).status)
+        .toBe('incompatible');
+      await expect(applySqlFile(forcedName, supportingRlsMigrationPath))
+        .rejects.toThrow(/0018_FORCE_RLS_FORBIDDEN/);
     } finally {
       await dropDatabase(absentName);
       await dropDatabase(exactName);

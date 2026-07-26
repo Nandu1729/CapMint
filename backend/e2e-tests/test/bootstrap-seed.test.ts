@@ -355,7 +355,26 @@ suite('F2 secure bootstrap and development seed', () => {
           const sql = await fs.readFile(legacySeedPath, 'utf8');
           await withPool(name, async pool => {
             await pool.query(
-              `DROP POLICY IF EXISTS budgets_tenant_select ON budgets;
+              `DROP POLICY IF EXISTS lab_results_tenant_select ON lab_results;
+               DROP POLICY IF EXISTS lab_results_tenant_insert ON lab_results;
+               DROP POLICY IF EXISTS lab_results_tenant_update ON lab_results;
+               DROP POLICY IF EXISTS investigations_tenant_select ON investigations;
+               DROP POLICY IF EXISTS investigations_tenant_insert ON investigations;
+               DROP POLICY IF EXISTS investigations_tenant_update ON investigations;
+               DROP POLICY IF EXISTS scan_events_tenant_select ON scan_events;
+               DROP POLICY IF EXISTS scan_events_tenant_insert ON scan_events;
+               DROP POLICY IF EXISTS plots_or_hive_clusters_tenant_select ON plots_or_hive_clusters;
+               DROP POLICY IF EXISTS plots_or_hive_clusters_tenant_insert ON plots_or_hive_clusters;
+               DROP POLICY IF EXISTS plots_or_hive_clusters_tenant_update ON plots_or_hive_clusters;
+               DROP POLICY IF EXISTS producer_brandings_tenant_select ON producer_brandings;
+               DROP POLICY IF EXISTS producer_brandings_tenant_insert ON producer_brandings;
+               DROP POLICY IF EXISTS producer_brandings_tenant_update ON producer_brandings;
+               DROP FUNCTION IF EXISTS capmint_rls_unit_code_actor(uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_unit_certifier(uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_registered_unit_code(uuid, uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_producer_has_public_code(uuid);
+               DROP FUNCTION IF EXISTS capmint_rls_lab_result_writer(uuid, uuid, uuid);
+               DROP POLICY IF EXISTS budgets_tenant_select ON budgets;
                DROP POLICY IF EXISTS budgets_tenant_insert ON budgets;
                DROP POLICY IF EXISTS budgets_tenant_update ON budgets;
                DROP POLICY IF EXISTS lots_tenant_select ON lots;

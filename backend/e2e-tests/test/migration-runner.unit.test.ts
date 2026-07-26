@@ -29,12 +29,12 @@ describe('migration runner metadata and planning primitives', () => {
     expect(() => runner.parseArgs(['--adopt'])).toThrow(/requires one or more/);
   });
 
-  it('loads a monotonic migration set ending in provenance-chain RLS migration 0017', () => {
+  it('loads a monotonic migration set ending in supporting-table RLS migration 0018', () => {
     const result = runner.loadMigrations();
     expect(result.errors).toEqual([]);
-    expect(result.migrations.at(-1)?.filename).toBe('0017_enable_provenance_chain_rls.sql');
+    expect(result.migrations.at(-1)?.filename).toBe('0018_enable_supporting_table_rls.sql');
     expect(result.migrations.map((migration: { version: number }) => migration.version))
-      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
+      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]);
     for (const migration of result.migrations) {
       expect(migration.checksum).toMatch(/^[a-f0-9]{64}$/);
     }
@@ -196,5 +196,24 @@ describe('migration runner metadata and planning primitives', () => {
       (routine: { signature: string }) => /^[a-f0-9]{64}$/.test(routine.signature)
     )).toBe(true);
     expect(runner.verify0017).toBeTypeOf('function');
+  });
+
+  it('defines the exact D3b supporting-table RLS surface', () => {
+    expect(runner.SUPPORTING_RLS_STATE.tables).toEqual([
+      'investigations',
+      'lab_results',
+      'plots_or_hive_clusters',
+      'producer_brandings',
+      'scan_events'
+    ]);
+    expect(runner.SUPPORTING_RLS_STATE.policies).toHaveLength(14);
+    expect(runner.SUPPORTING_RLS_STATE.helpers).toHaveLength(5);
+    expect(runner.SUPPORTING_RLS_STATE.policies.every(
+      (policy: { signature: string }) => /^[a-f0-9]{64}$/.test(policy.signature)
+    )).toBe(true);
+    expect(runner.SUPPORTING_RLS_STATE.helpers.every(
+      (routine: { signature: string }) => /^[a-f0-9]{64}$/.test(routine.signature)
+    )).toBe(true);
+    expect(runner.verify0018).toBeTypeOf('function');
   });
 });
