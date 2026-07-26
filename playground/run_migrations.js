@@ -262,6 +262,17 @@ const SUPPORTING_RLS_STATE = {
     }
   ]
 };
+const FINAL_RLS_STATE = {
+  tables: ['log_entries', 'users'],
+  policies: [
+    { table_name: 'log_entries', policy_name: 'log_entries_tenant_insert', command: 'INSERT', signature: 'e634b9af7b00336844863e1e74bd06357e110a8899b9e2152dbd9bd73ee655f0' },
+    { table_name: 'log_entries', policy_name: 'log_entries_tenant_select', command: 'SELECT', signature: 'bd2a23fac7503b5484def1615a10fde6a4696f73cbadb0047bda7d5b94cd7f78' },
+    { table_name: 'users', policy_name: 'users_tenant_delete', command: 'DELETE', signature: '61718ef66df96f152a652c8db85c5c13f339f2feace75d263d7584950c504325' },
+    { table_name: 'users', policy_name: 'users_tenant_insert', command: 'INSERT', signature: 'fd9dc535e9b3f7785f2cc9033fb7bf6bf5875b9f803dd301a0fd18d04c70312a' },
+    { table_name: 'users', policy_name: 'users_tenant_select', command: 'SELECT', signature: '0371001700d9fca78dc2944dab2abd44586d8366e026050f8830be0f2ee8aec8' },
+    { table_name: 'users', policy_name: 'users_tenant_update', command: 'UPDATE', signature: '698a82369ca54d4ed185197b0d5e380a4349cf19d3213267e458883aad30bb69' }
+  ]
+};
 const CORE_TABLES = [
   'organizations',
   'users',
@@ -1290,6 +1301,12 @@ async function verify0015(client) {
     };
   }
 
+  if (supportingSuccessorEvidence.final_migration_recorded
+    && finalRlsExact(supportingSuccessorEvidence)
+    && appRoleSecurityExact(evidence) && appRoleGrantsExact(evidence)) {
+    return { status: 'exact', summary: 'Non-owner capmint_app D1 grants remain exact with recorded 0019 complete RLS enforcement.', evidence: { ...evidence, successor: supportingSuccessorEvidence }, fingerprint: evidenceFingerprint({ ...evidence, successor: supportingSuccessorEvidence }) };
+  }
+
   const noDatabaseEffects = evidence.database_privileges.length === 0
     && evidence.schema_privileges.length === 0
     && evidence.table_privileges.length === 0
@@ -1334,6 +1351,7 @@ async function readIdentityRlsEvidence(client) {
     migration_recorded: false,
     provenance_migration_recorded: false,
     supporting_migration_recorded: false,
+    final_migration_recorded: false,
     rls_tables: [],
     policies: []
   };
@@ -1353,13 +1371,15 @@ async function readIdentityRlsEvidence(client) {
          SELECT 1
          FROM migrations_log
          WHERE filename = '0018_enable_supporting_table_rls.sql'
-       ) AS supporting_recorded`
+       ) AS supporting_recorded,
+       EXISTS (SELECT 1 FROM migrations_log WHERE filename = '0019_enable_users_and_ledger_rls.sql') AS final_recorded`
     )).rows[0];
     evidence.migration_recorded = migrationRecords.identity_recorded;
     evidence.provenance_migration_recorded =
       migrationRecords.provenance_recorded;
     evidence.supporting_migration_recorded =
       migrationRecords.supporting_recorded;
+    evidence.final_migration_recorded = migrationRecords.final_recorded;
   }
   evidence.rls_tables = (await client.query(
     `SELECT relation.relname AS table_name,
@@ -1623,6 +1643,22 @@ function supportingRlsEffectsAbsent(evidence) {
     );
 }
 
+function finalRlsExact(evidence) {
+  const tables = [...IDENTITY_RLS_STATE.tables, ...PROVENANCE_RLS_STATE.tables, ...SUPPORTING_RLS_STATE.tables, ...FINAL_RLS_STATE.tables].sort().map(table_name => ({ table_name, enabled: true, forced: false }));
+  const policies = [...IDENTITY_RLS_STATE.policies, ...PROVENANCE_RLS_STATE.policies, ...SUPPORTING_RLS_STATE.policies, ...FINAL_RLS_STATE.policies].sort((a,b) => a.table_name.localeCompare(b.table_name) || a.policy_name.localeCompare(b.policy_name));
+  const helpers = [...PROVENANCE_RLS_STATE.helpers, ...SUPPORTING_RLS_STATE.helpers].sort((a,b) => a.function_name.localeCompare(b.function_name) || a.identity_arguments.localeCompare(b.identity_arguments));
+  return stableJson(evidence.rls_tables) === stableJson(tables)
+    && evidence.policies.length === policies.length
+    && evidence.policies.every((policy, index) => identityPolicyShapeExact(policy, policies[index]))
+    && evidence.helpers.length === helpers.length
+    && evidence.helpers.every((routine, index) => provenanceHelperShapeExact(routine, helpers[index]));
+}
+
+function finalRlsEffectsAbsent(evidence) {
+  return evidence.rls_tables.every(table => !FINAL_RLS_STATE.tables.includes(table.table_name))
+    && evidence.policies.every(policy => !FINAL_RLS_STATE.tables.includes(policy.table_name));
+}
+
 async function verify0016(client) {
   const evidence = await readIdentityRlsEvidence(client);
 
@@ -1656,6 +1692,10 @@ async function verify0016(client) {
       evidence: supportingSuccessorEvidence,
       fingerprint: evidenceFingerprint(supportingSuccessorEvidence)
     };
+  }
+
+  if (supportingSuccessorEvidence.final_migration_recorded && finalRlsExact(supportingSuccessorEvidence)) {
+    return { status: 'exact', summary: 'Identity-table RLS remains exact with recorded 0019 complete enforcement.', evidence: supportingSuccessorEvidence, fingerprint: evidenceFingerprint(supportingSuccessorEvidence) };
   }
 
   if (evidence.rls_tables.length === 0 && evidence.policies.length === 0) {
@@ -1698,6 +1738,10 @@ async function verify0017(client) {
     };
   }
 
+  if (successorEvidence.final_migration_recorded && finalRlsExact(successorEvidence)) {
+    return { status: 'exact', summary: 'Provenance-chain RLS remains exact with recorded 0019 complete enforcement.', evidence: successorEvidence, fingerprint: evidenceFingerprint(successorEvidence) };
+  }
+
   if (provenanceRlsEffectsAbsent(evidence)) {
     return {
       status: 'absent',
@@ -1727,6 +1771,10 @@ async function verify0018(client) {
     };
   }
 
+  if (evidence.final_migration_recorded && finalRlsExact(evidence)) {
+    return { status: 'exact', summary: 'Supporting-table RLS remains exact with recorded 0019 complete enforcement.', evidence, fingerprint: evidenceFingerprint(evidence) };
+  }
+
   if (supportingRlsEffectsAbsent(evidence)) {
     return {
       status: 'absent',
@@ -1742,6 +1790,13 @@ async function verify0018(client) {
     evidence,
     fingerprint: evidenceFingerprint(evidence)
   };
+}
+
+async function verify0019(client) {
+  const evidence = await readSupportingRlsEvidence(client);
+  if (finalRlsExact(evidence)) return { status: 'exact', summary: 'All 13 application tables have exact RLS coverage; the ledger is append-only for capmint_app.', evidence, fingerprint: evidenceFingerprint(evidence) };
+  if (finalRlsEffectsAbsent(evidence)) return { status: 'absent', summary: 'Users and ledger RLS effects are absent.', evidence, fingerprint: evidenceFingerprint(evidence) };
+  return { status: 'incompatible', summary: 'Users/ledger RLS is partial, forced, unexpected, or non-exact.', evidence, fingerprint: evidenceFingerprint(evidence) };
 }
 
 async function verify0013(client) {
@@ -1920,6 +1975,7 @@ const STATE_VERIFIERS = new Map([
   ['0016_enable_identity_table_rls.sql', verify0016],
   ['0017_enable_provenance_chain_rls.sql', verify0017],
   ['0018_enable_supporting_table_rls.sql', verify0018]
+  ,['0019_enable_users_and_ledger_rls.sql', verify0019]
 ]);
 
 async function readMetadata(client) {
@@ -2369,6 +2425,7 @@ module.exports = {
   IDENTITY_RLS_STATE,
   PROVENANCE_RLS_STATE,
   SUPPORTING_RLS_STATE,
+  FINAL_RLS_STATE,
   PROFILE_ORGANIZATION_STATE,
   TENANCY_TIGHTENING_STATE,
   TOOL_VERSION,
@@ -2391,5 +2448,6 @@ module.exports = {
   verify0015,
   verify0016,
   verify0017,
-  verify0018
+  verify0018,
+  verify0019
 };
