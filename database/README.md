@@ -237,6 +237,53 @@ silently accepted. `lab_results.submitted_by_organization_id` and
 policy, tenant GUC enforcement, service behavior, or authorization predicate is
 changed by 0014.
 
+## Non-Owner Runtime Foundation 0015
+
+`0015_add_capmint_app_role.sql` establishes the DM-04 D1 runtime foundation
+without enabling row-level security:
+
+- creates the global `capmint_app` role as `NOLOGIN`, non-owner,
+  `NOSUPERUSER`, `NOCREATEDB`, `NOCREATEROLE`, `NOINHERIT`,
+  `NOREPLICATION`, and `NOBYPASSRLS`;
+- grants only database `CONNECT`, public-schema `USAGE`, application-table
+  `SELECT`/`INSERT`/`UPDATE`/`DELETE`, and public-sequence
+  `USAGE`/`SELECT`;
+- adds owner-scoped default privileges for future public tables and sequences;
+- rejects role membership, object ownership, unexpected privileges, any
+  existing policy, and any table with enabled or forced RLS;
+- records 0015 as `EXECUTED`; `verify0015` classifies the database-local
+  effects as exact, absent, or incompatible.
+
+All six PostgreSQL-backed services use the single
+`packages/shared/tenant-db.js` helper. `withTenantTx` checks out one pooled
+client, starts a transaction, sets transaction-local
+`app.current_organization_id` and `app.actor_is_system_admin`, runs the query
+callback on that client, and commits or rolls back before release.
+Authenticated actors without an organization fail before checkout unless the
+existing JWT claims identify a system administrator. Public resolver,
+transparency-read, and consumer-verification paths select an explicit public
+context. D3 must define their RLS policies before public enforcement is
+enabled.
+
+Migration 0015 intentionally cannot provision a login secret. After applying
+and verifying the migration, an operator must inject a generated credential
+from the deployment secret manager:
+
+```sql
+ALTER ROLE capmint_app LOGIN PASSWORD '<operator-injected secret>';
+```
+
+Rotate `DATABASE_URL` independently for auth, CPQ, mint, resolver,
+transparency, and verification so its username is `capmint_app`. Do not place
+the password in source, migration SQL, images, or committed environment files.
+Migration, first-admin bootstrap, and development-seed commands must continue
+to receive a separate owner `DATABASE_URL` for `capmint_admin`. Integration
+service has no PostgreSQL pool and requires no database-role rotation.
+
+No policy is created and no table has RLS enabled or forced in D1. Consequently
+the runtime result set and authorization behavior remain unchanged. D2/D3 are
+separate approval gates.
+
 ## Existing Database Procedure
 
 1. Run `--check`.
