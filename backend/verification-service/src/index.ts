@@ -148,30 +148,32 @@ if (!REDIS_URL) {
 }
 const redisClient = new Redis(REDIS_URL);
 
-// C0 temporary containment: producer/certifier profile IDs currently equal
-// organization IDs. Replace these helpers with profile.organization_id joins in C3.
 async function lockCertifierLot(client: pg.PoolClient, lotId: string, organizationId: string) {
   return client.query(
     `SELECT l.*
      FROM lots l
      JOIN budgets b ON b.id = l.budget_id
+     JOIN certifiers c ON c.id = b.certifier_id
      WHERE l.id = $1
-       AND b.certifier_id = $2
-     FOR UPDATE OF l, b`,
+       AND c.organization_id = $2
+     FOR UPDATE OF l, b
+     FOR SHARE OF c`,
     [lotId, organizationId]
   );
 }
 
 async function lockCertifierInvestigation(client: pg.PoolClient, investigationId: string, organizationId: string) {
   return client.query(
-    `SELECT i.*
+    `SELECT i.*, u.lot_id AS linked_lot_id
      FROM investigations i
-     JOIN unit_codes u ON u.public_identifier = i.public_identifier
+     JOIN unit_codes u ON u.id = i.unit_code_id
      JOIN lots l ON l.id = u.lot_id
      JOIN budgets b ON b.id = l.budget_id
+     JOIN certifiers c ON c.id = b.certifier_id
      WHERE i.id = $1
-       AND b.certifier_id = $2
-     FOR UPDATE OF i, u, l, b`,
+       AND c.organization_id = $2
+     FOR UPDATE OF i, u, l, b
+     FOR SHARE OF c`,
     [investigationId, organizationId]
   );
 }
@@ -187,32 +189,49 @@ async function lockInvestigationForActor(client: pg.PoolClient, investigationId:
   return lockCertifierInvestigation(client, investigationId, user.orgId);
 }
 
-async function findScopedLot(lotId: string, user: any) {
+async function loadScopedLotCodes(lotId: string, user: any) {
+  const selection = `SELECT l.product_metadata,
+                            u.public_identifier,
+                            u.gtin,
+                            u.serial,
+                            u.digital_link_uri,
+                            u.verification_url
+                     FROM lots l
+                     JOIN budgets b ON b.id = l.budget_id`;
+  const codeJoin = 'LEFT JOIN unit_codes u ON u.lot_id = l.id';
   if (user.orgType === 'PRODUCER') {
     return pgPool.query(
-      `SELECT l.*
-       FROM lots l
-       JOIN budgets b ON b.id = l.budget_id
+      `${selection}
+       JOIN producers p ON p.id = l.producer_id
+       ${codeJoin}
        WHERE l.id = $1
-         AND l.producer_id = $2
-         AND b.producer_id = $2`,
+         AND b.producer_id = l.producer_id
+         AND p.organization_id = $2
+       ORDER BY u.minted_at`,
       [lotId, user.orgId]
     );
   }
   if (user.orgType === 'CERTIFICATION_BODY') {
     return pgPool.query(
-      `SELECT l.*
-       FROM lots l
-       JOIN budgets b ON b.id = l.budget_id
+      `${selection}
+       JOIN certifiers c ON c.id = b.certifier_id
+       ${codeJoin}
        WHERE l.id = $1
-         AND b.certifier_id = $2`,
+         AND c.organization_id = $2
+       ORDER BY u.minted_at`,
       [lotId, user.orgId]
     );
   }
   if (isSystemAdministrator(user)) {
-    return pgPool.query('SELECT * FROM lots WHERE id = $1', [lotId]);
+    return pgPool.query(
+      `${selection}
+       ${codeJoin}
+       WHERE l.id = $1
+       ORDER BY u.minted_at`,
+      [lotId]
+    );
   }
-  return pgPool.query('SELECT * FROM lots WHERE FALSE');
+  return pgPool.query('SELECT NULL WHERE FALSE');
 }
 
 // Redis sliding-window rate limiter (per client IP). Returns true if within the limit.
@@ -521,11 +540,14 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
 
       await pgPool.query(`
         INSERT INTO investigations (
-          product_name, public_identifier, risk_level, status, detection_reason, manufacturer, current_product_status, evidence
+          product_name, public_identifier, risk_level, status, detection_reason,
+          manufacturer, current_product_status, evidence, unit_code_id
         )
-        VALUES ($1, $2, $3, 'OPEN', $4, $5, $6, $7)
+        VALUES ($1, $2, $3, 'OPEN', $4, $5, $6, $7, $8)
         ON CONFLICT (public_identifier) DO UPDATE
-        SET status = 'OPEN', updated_at = CURRENT_TIMESTAMP
+        SET status = 'OPEN',
+            unit_code_id = EXCLUDED.unit_code_id,
+            updated_at = CURRENT_TIMESTAMP
       `, [
         (codeRecord.product_metadata as any)?.name || 'Organic White Honey',
         public_identifier,
@@ -533,7 +555,8 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
         'Clone suspect flag tripped due to anomalous scanning frequency',
         (codeRecord.product_metadata as any)?.manufacturer || 'Premium Farms',
         finalStatus,
-        JSON.stringify(evidence)
+        JSON.stringify(evidence),
+        codeRecord.id
       ]);
 
       // Append Investigation Created event to transparency ledger
@@ -624,11 +647,13 @@ server.post('/api/v1/verify/register', {
         `SELECT l.id, l.batch_size, l.budget_id
          FROM lots l
          JOIN budgets b ON b.id = l.budget_id
+         JOIN producers p ON p.id = l.producer_id
          WHERE l.id = $1
-           AND l.producer_id = $2
-           AND b.producer_id = $2
+           AND b.producer_id = l.producer_id
+           AND p.organization_id = $2
            AND l.revocation_status = 'ACTIVE'
-         FOR UPDATE OF l, b`,
+         FOR UPDATE OF l, b
+         FOR SHARE OF p`,
         [lot_id, user.orgId]
       );
       if (lotRes.rowCount === 0) {
@@ -661,7 +686,16 @@ server.post('/api/v1/verify/register', {
       // No explicit lot: draw down exactly one unit of budget capacity atomically and
       // create a single-unit lot, so this quick path can never over-issue.
       const budgetRes = await client.query(
-        `SELECT id, approved_quantity, consumed_quantity, certifier_id, signature_bundle FROM budgets WHERE producer_id = $1 AND status = 'ACTIVE' ORDER BY created_at DESC LIMIT 1 FOR UPDATE`,
+        `SELECT b.id, b.producer_id, b.approved_quantity, b.consumed_quantity,
+                b.certifier_id, b.signature_bundle
+         FROM budgets b
+         JOIN producers p ON p.id = b.producer_id
+         WHERE p.organization_id = $1
+           AND b.status = 'ACTIVE'
+         ORDER BY b.created_at DESC
+         LIMIT 1
+         FOR UPDATE OF b
+         FOR SHARE OF p`,
         [user.orgId]
       );
       if (budgetRes.rowCount === 0) {
@@ -700,7 +734,7 @@ server.post('/api/v1/verify/register', {
         INSERT INTO lots (id, producer_id, budget_id, product_metadata, batch_size, processing_dates, lab_status)
         VALUES (uuid_generate_v4(), $1, $2, $3, 1, '{}', 'PASSED')
         RETURNING id
-      `, [user.orgId, budgetRow.id, JSON.stringify(product_metadata || { name: 'Organic White Honey', manufacturer: 'Premium Farms' })]);
+      `, [budgetRow.producer_id, budgetRow.id, JSON.stringify(product_metadata || { name: 'Organic White Honey', manufacturer: 'Premium Farms' })]);
       lotUuid = lotInsert.rows[0].id;
     }
 
@@ -757,9 +791,14 @@ server.post('/api/v1/lots', {
 
     // 1. Lock budget row to avoid concurrent drawdowns
     const budgetRes = await client.query(
-      `SELECT status, approved_quantity, consumed_quantity, certifier_id, signature_bundle
-       FROM budgets 
-       WHERE id = $1 AND producer_id = $2 FOR UPDATE`,
+      `SELECT b.producer_id, b.status, b.approved_quantity, b.consumed_quantity,
+              b.certifier_id, b.signature_bundle
+       FROM budgets b
+       JOIN producers p ON p.id = b.producer_id
+       WHERE b.id = $1
+         AND p.organization_id = $2
+       FOR UPDATE OF b
+       FOR SHARE OF p`,
       [budget_id, user.orgId]
     );
 
@@ -818,7 +857,7 @@ server.post('/api/v1/lots', {
       `INSERT INTO lots (id, producer_id, budget_id, product_metadata, batch_size, processing_dates, lab_status)
        VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, 'PENDING')
        RETURNING *`,
-      [user.orgId, budget_id, JSON.stringify(product_metadata || {}), quantity, JSON.stringify(processing_dates || {})]
+      [budget.producer_id, budget_id, JSON.stringify(product_metadata || {}), quantity, JSON.stringify(processing_dates || {})]
     );
 
     const lotUuid = lotRes.rows[0].id;
@@ -864,18 +903,15 @@ server.get('/api/v1/lots/:id/export/csv', {
   const { id } = request.params as any;
   const user = request.user as any;
 
-  const lotCheck = await findScopedLot(id, user);
-  if (lotCheck.rowCount === 0) {
+  const scopedRows = await loadScopedLotCodes(id, user);
+  if (scopedRows.rowCount === 0) {
     return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' } });
   }
 
-  const result = await pgPool.query(
-    'SELECT public_identifier, gtin, serial, digital_link_uri, verification_url FROM unit_codes WHERE lot_id = $1',
-    [id]
-  );
+  const unitCodes = scopedRows.rows.filter(row => row.public_identifier !== null);
 
   let csvContent = 'public_identifier,gtin,serial,digital_link_uri,verification_url\n';
-  result.rows.forEach(row => {
+  unitCodes.forEach(row => {
     csvContent += `"${row.public_identifier}","${row.gtin}","${row.serial}","${row.digital_link_uri}","${row.verification_url}"\n`;
   });
 
@@ -892,25 +928,22 @@ server.get('/api/v1/lots/:id/export/pdf', {
   const { id } = request.params as any;
   const user = request.user as any;
 
-  const lotCheck = await findScopedLot(id, user);
-  if (lotCheck.rowCount === 0) {
+  const scopedRows = await loadScopedLotCodes(id, user);
+  if (scopedRows.rowCount === 0) {
     return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' } });
   }
 
-  const result = await pgPool.query(
-    'SELECT public_identifier, gtin, serial, digital_link_uri, verification_url FROM unit_codes WHERE lot_id = $1',
-    [id]
-  );
+  const unitCodes = scopedRows.rows.filter(row => row.public_identifier !== null);
 
   // Return a structured JSON listing to represent the print-sheet layout
   return {
     success: true,
     data: {
       lot_id: id,
-      product_name: lotCheck.rows[0].product_metadata?.name || 'Organic White Honey',
+      product_name: scopedRows.rows[0].product_metadata?.name || 'Organic White Honey',
       sheet_format: 'A4 Grid (3x8 stickers)',
-      total_codes: result.rows.length,
-      print_ready_codes: result.rows.map(row => ({
+      total_codes: unitCodes.length,
+      print_ready_codes: unitCodes.map(row => ({
         public_id: row.public_identifier,
         gtin: row.gtin,
         serial: row.serial,
@@ -1147,9 +1180,11 @@ server.post('/api/v1/verify/revoke', {
       `SELECT l.id
        FROM lots l
        JOIN budgets b ON b.id = l.budget_id
+       JOIN certifiers c ON c.id = b.certifier_id
        WHERE l.product_metadata->>'batch_id' = $1
-         AND b.certifier_id = $2
-       FOR UPDATE OF l`,
+         AND c.organization_id = $2
+       FOR UPDATE OF l
+       FOR SHARE OF c`,
       [batch_id, user.orgId]
     );
 
@@ -1364,8 +1399,9 @@ server.get('/api/v1/verify/unit-codes', {
        FROM unit_codes u
        JOIN lots l ON l.id = u.lot_id
        JOIN budgets b ON b.id = l.budget_id
-       WHERE l.producer_id = $1
-         AND b.producer_id = $1
+       JOIN producers p ON p.id = l.producer_id
+       WHERE b.producer_id = l.producer_id
+         AND p.organization_id = $1
        ORDER BY u.minted_at DESC`,
       [user.orgId]
     );
@@ -1375,17 +1411,20 @@ server.get('/api/v1/verify/unit-codes', {
        FROM unit_codes u
        JOIN lots l ON l.id = u.lot_id
        JOIN budgets b ON b.id = l.budget_id
-       WHERE b.certifier_id = $1
+       JOIN certifiers c ON c.id = b.certifier_id
+       WHERE c.organization_id = $1
        ORDER BY u.minted_at DESC`,
       [user.orgId]
     );
-  } else {
+  } else if (isSystemAdministrator(user)) {
     result = await pgPool.query(`
       SELECT u.*, l.product_metadata
       FROM unit_codes u
       JOIN lots l ON l.id = u.lot_id
       ORDER BY u.minted_at DESC
     `);
+  } else {
+    return reply.status(403).send({ success: false, error: { statusCode: 403, code: 'FORBIDDEN', message: 'You do not have permission to list unit codes.' } });
   }
   return {
     success: true,
@@ -1416,8 +1455,9 @@ server.get('/api/v1/verify/lots', {
       `SELECT l.*
        FROM lots l
        JOIN budgets b ON b.id = l.budget_id
-       WHERE l.producer_id = $1
-         AND b.producer_id = $1
+       JOIN producers p ON p.id = l.producer_id
+       WHERE b.producer_id = l.producer_id
+         AND p.organization_id = $1
        ORDER BY l.created_at DESC`,
       [user.orgId]
     );
@@ -1426,12 +1466,15 @@ server.get('/api/v1/verify/lots', {
       `SELECT l.*
        FROM lots l
        JOIN budgets b ON b.id = l.budget_id
-       WHERE b.certifier_id = $1
+       JOIN certifiers c ON c.id = b.certifier_id
+       WHERE c.organization_id = $1
        ORDER BY l.created_at DESC`,
       [user.orgId]
     );
-  } else {
+  } else if (isSystemAdministrator(user)) {
     result = await pgPool.query('SELECT * FROM lots ORDER BY created_at DESC');
+  } else {
+    return reply.status(403).send({ success: false, error: { statusCode: 403, code: 'FORBIDDEN', message: 'You do not have permission to list lots.' } });
   }
   return {
     success: true,
@@ -1454,19 +1497,22 @@ server.get('/api/v1/verify/lots', {
 
 // Route: List Investigations
 server.get('/api/v1/verify/investigations', {
-  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
+  preValidation: [server.authenticate, server.authorize(INVESTIGATION_MUTATION_SPECS)]
 }, async (request, reply) => {
   const user = request.user as any;
-  const result = await pgPool.query(
-    `SELECT i.*
-     FROM investigations i
-     JOIN unit_codes u ON u.public_identifier = i.public_identifier
-     JOIN lots l ON l.id = u.lot_id
-     JOIN budgets b ON b.id = l.budget_id
-     WHERE b.certifier_id = $1
-     ORDER BY i.created_at DESC`,
-    [user.orgId]
-  );
+  const result = isSystemAdministrator(user)
+    ? await pgPool.query('SELECT * FROM investigations ORDER BY created_at DESC')
+    : await pgPool.query(
+        `SELECT i.*
+         FROM investigations i
+         JOIN unit_codes u ON u.id = i.unit_code_id
+         JOIN lots l ON l.id = u.lot_id
+         JOIN budgets b ON b.id = l.budget_id
+         JOIN certifiers c ON c.id = b.certifier_id
+         WHERE c.organization_id = $1
+         ORDER BY i.created_at DESC`,
+        [user.orgId]
+      );
   return {
     success: true,
     data: {
@@ -1488,20 +1534,23 @@ server.get('/api/v1/verify/investigations', {
 
 // Route: Get Investigation Details
 server.get('/api/v1/verify/investigations/:id', {
-  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
+  preValidation: [server.authenticate, server.authorize(INVESTIGATION_MUTATION_SPECS)]
 }, async (request, reply) => {
   const { id } = request.params as any;
   const user = request.user as any;
-  const result = await pgPool.query(
-    `SELECT i.*
-     FROM investigations i
-     JOIN unit_codes u ON u.public_identifier = i.public_identifier
-     JOIN lots l ON l.id = u.lot_id
-     JOIN budgets b ON b.id = l.budget_id
-     WHERE i.id = $1
-       AND b.certifier_id = $2`,
-    [id, user.orgId]
-  );
+  const result = isSystemAdministrator(user)
+    ? await pgPool.query('SELECT * FROM investigations WHERE id = $1', [id])
+    : await pgPool.query(
+        `SELECT i.*
+         FROM investigations i
+         JOIN unit_codes u ON u.id = i.unit_code_id
+         JOIN lots l ON l.id = u.lot_id
+         JOIN budgets b ON b.id = l.budget_id
+         JOIN certifiers c ON c.id = b.certifier_id
+         WHERE i.id = $1
+           AND c.organization_id = $2`,
+        [id, user.orgId]
+      );
   if (result.rows.length === 0) {
     return reply.status(404).send({
       success: false,
@@ -1551,39 +1600,32 @@ server.post('/api/v1/verify/investigations/:id/approve', {
     const inv = invRes.rows[0];
     const pubId = inv.public_identifier;
 
-    // 2. Fetch linked unit code to get lot ID
-    const ucRes = await client.query('SELECT id, lot_id FROM unit_codes WHERE public_identifier = $1', [pubId]);
-    if (ucRes.rows.length > 0) {
-      const codeRecord = ucRes.rows[0];
-      const lotId = codeRecord.lot_id;
+    // 2. The scoped lock already resolved and locked the linked unit and lot.
+    await client.query(
+      `UPDATE unit_codes SET current_state = 'REVOKED', revoked_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [inv.unit_code_id]
+    );
 
-      // 3. Update Unit Code state to REVOKED
-      await client.query(
-        `UPDATE unit_codes SET current_state = 'REVOKED', revoked_at = CURRENT_TIMESTAMP WHERE id = $1`,
-        [codeRecord.id]
-      );
+    // 3. Update Lot revocation status to REVOKED
+    await client.query(
+      `UPDATE lots
+       SET revocation_status = 'REVOKED',
+           product_metadata = product_metadata || jsonb_build_object('revocation_reason', $2::text, 'revocation_date', CURRENT_TIMESTAMP),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [inv.linked_lot_id, inv.detection_reason]
+    );
 
-      // 4. Update Lot revocation status to REVOKED
-      await client.query(
-        `UPDATE lots 
-         SET revocation_status = 'REVOKED', 
-             product_metadata = product_metadata || jsonb_build_object('revocation_reason', $2::text, 'revocation_date', CURRENT_TIMESTAMP),
-             updated_at = CURRENT_TIMESTAMP 
-         WHERE id = $1`,
-        [lotId, inv.detection_reason]
-      );
-    }
-
-    // 5. Update Investigation Status to REVOKED (resolved state)
+    // 4. Update Investigation Status to REVOKED (resolved state)
     await client.query(
       `UPDATE investigations SET status = 'REVOKED', current_product_status = 'REVOKED', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
       [id]
     );
 
-    // 6. Commit transaction
+    // 5. Commit transaction
     await client.query('COMMIT');
 
-    // 7. Log to Transparency Ledger
+    // 6. Log to Transparency Ledger
     try {
       await fetch(LEDGER_URL, {
         method: 'POST',
