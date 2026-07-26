@@ -1,7 +1,7 @@
 -- CapMint PostgreSQL schema snapshot
--- Snapshot version: 2026-07-26-DM03-C3c
+-- Snapshot version: 2026-07-26-DM03-certifier-NOT-NULL
 -- Generated: 2026-07-26
--- Authoritative migration cutoff: 0013_tighten_tenant_constraints.sql
+-- Authoritative migration cutoff: 0014_tighten_certifier_organization_id.sql
 -- Intended use: inspection and disposable-database schema comparison only.
 -- DO NOT apply this snapshot to an existing database. Forward migrations are
 -- the authoritative schema evolution path.
@@ -53,7 +53,7 @@ CREATE TABLE certifiers (
     key_rotation_metadata JSONB,
     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    organization_id UUID REFERENCES organizations(id),
+    organization_id UUID NOT NULL REFERENCES organizations(id),
     CONSTRAINT chk_certifiers_key_status CHECK (key_status IN ('ACTIVE', 'ROTATED', 'REVOKED'))
 );
 

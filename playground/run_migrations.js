@@ -113,6 +113,14 @@ const TENANCY_TIGHTENING_STATE = {
     quarantinedStatus: 'REVOKED'
   }
 };
+const CERTIFIER_NOT_NULL_STATE = {
+  column: {
+    table: 'certifiers',
+    name: 'organization_id'
+  },
+  temporaryConstraint: 'certifiers_organization_id_not_null',
+  orphanId: KNOWN_ORPHAN_CERTIFIER_ID
+};
 const CORE_TABLES = [
   'organizations',
   'users',
@@ -562,14 +570,27 @@ async function verify0011(client) {
   const successorExact = tighteningEvidence
     ? tenancyTighteningSchemaExact(tighteningEvidence)
     : false;
-  if (ownershipShapeExact && certifierNullable && (producerNullable || successorExact)) {
+  const certifierSuccessorEvidence = tighteningEvidence && !certifierNullable
+    ? await readCertifierNotNullEvidence(client, tighteningEvidence)
+    : null;
+  const certifierSuccessorExact = certifierSuccessorEvidence
+    ? certifierSuccessorEvidence.data.migration_recorded
+      && certifierNotNullExact(certifierSuccessorEvidence)
+    : false;
+  if (ownershipShapeExact
+    && ((certifierNullable && (producerNullable || successorExact)) || certifierSuccessorExact)) {
+    const resultEvidence = certifierSuccessorExact
+      ? { ownership: evidence, successor: certifierSuccessorEvidence }
+      : evidence;
     return {
       status: 'exact',
-      summary: successorExact
-        ? 'Profile organization ownership is exact with the approved 0013 producer tightening.'
+      summary: certifierSuccessorExact
+        ? 'Profile organization ownership is exact with the recorded 0014 certifier tightening.'
+        : successorExact
+          ? 'Profile organization ownership is exact with the approved 0013 producer tightening.'
         : 'Nullable profile organization columns, validated foreign keys, and indexes are exact.',
-      evidence,
-      fingerprint: evidenceFingerprint(evidence)
+      evidence: resultEvidence,
+      fingerprint: evidenceFingerprint(resultEvidence)
     };
   }
   return {
@@ -705,14 +726,17 @@ async function readTenancyTighteningEvidence(client) {
   return evidence;
 }
 
-function tenancyTighteningSchemaExact(evidence) {
+function tenancyTighteningSchemaExact(evidence, certifierNotNull = false) {
   const columnsExact = TENANCY_TIGHTENING_STATE.columns.every(expected => {
     const actual = evidence.columns[`${expected.table}.${expected.column}`];
+    const expectedNotNull = expected.table === 'certifiers'
+      ? certifierNotNull
+      : expected.notNull;
     return actual
       && actual.table
       && actual.column
       && actual.column.type === 'uuid'
-      && actual.column.not_null === expected.notNull
+      && actual.column.not_null === expectedNotNull
       && actual.column.default_expr === null;
   });
   if (!columnsExact || evidence.index.length !== 1) return false;
@@ -759,6 +783,114 @@ function tenancyTighteningEffectsAbsent(evidence) {
   return noTightenedColumns && noUniqueIndex && noQuarantine;
 }
 
+async function readCertifierNotNullEvidence(client, tenancyEvidence = null) {
+  const evidence = {
+    tenancy: tenancyEvidence || await readTenancyTighteningEvidence(client),
+    temporary_constraint: [],
+    data: {
+      certifier_nulls: null,
+      known_orphan_rows: null,
+      known_orphan_budget_references: null,
+      migration_recorded: false
+    }
+  };
+
+  if (await tableExists(client, 'certifiers')) {
+    evidence.temporary_constraint = (await client.query(
+      `SELECT table_relation.relname AS table_name,
+              constraint_record.contype AS type,
+              constraint_record.convalidated AS validated,
+              pg_get_constraintdef(constraint_record.oid, true) AS definition
+       FROM pg_constraint AS constraint_record
+       JOIN pg_class AS table_relation
+         ON table_relation.oid = constraint_record.conrelid
+       JOIN pg_namespace AS namespace
+         ON namespace.oid = table_relation.relnamespace
+       WHERE namespace.nspname = 'public'
+         AND constraint_record.conname = $1`,
+      [CERTIFIER_NOT_NULL_STATE.temporaryConstraint]
+    )).rows;
+  }
+
+  if (await tableExists(client, 'certifiers')) {
+    const certifierOrganizationColumn =
+      evidence.tenancy.columns['certifiers.organization_id']?.column;
+    const certifierNullExpression = certifierOrganizationColumn
+      ? 'count(*) FILTER (WHERE organization_id IS NULL)::int'
+      : 'NULL::int';
+    evidence.data = (await client.query(
+      `SELECT
+         ${certifierNullExpression} AS certifier_nulls,
+         count(*) FILTER (WHERE id = $1)::int AS known_orphan_rows,
+         (SELECT count(*)::int
+          FROM budgets
+          WHERE certifier_id = $1) AS known_orphan_budget_references
+       FROM certifiers`,
+      [CERTIFIER_NOT_NULL_STATE.orphanId]
+    )).rows[0];
+    evidence.data.migration_recorded = false;
+    if (await tableExists(client, 'migrations_log')) {
+      evidence.data.migration_recorded = (await client.query(
+        `SELECT EXISTS (
+           SELECT 1
+           FROM migrations_log
+           WHERE filename = '0014_tighten_certifier_organization_id.sql'
+         ) AS recorded`
+      )).rows[0].recorded;
+    }
+  }
+
+  return evidence;
+}
+
+function certifierNotNullExact(evidence) {
+  return tenancyTighteningSchemaExact(evidence.tenancy, true)
+    && evidence.temporary_constraint.length === 0
+    && Number(evidence.data.certifier_nulls) === 0
+    && Number(evidence.data.known_orphan_rows) === 0
+    && Number(evidence.data.known_orphan_budget_references) === 0;
+}
+
+function certifierNotNullEffectsAbsent(evidence) {
+  const certifierColumn =
+    evidence.tenancy.columns['certifiers.organization_id']?.column;
+  if (evidence.temporary_constraint.length !== 0) return false;
+  if (!certifierColumn) return true;
+  if (certifierColumn.not_null) return false;
+  return tenancyTighteningEffectsAbsent(evidence.tenancy)
+    || (tenancyTighteningSchemaExact(evidence.tenancy)
+      && tenancyTighteningOrphanExact(evidence.tenancy));
+}
+
+async function verify0014(client) {
+  const evidence = await readCertifierNotNullEvidence(client);
+
+  if (certifierNotNullExact(evidence)) {
+    return {
+      status: 'exact',
+      summary: 'Certifier organization ownership is mandatory and the approved zero-reference orphan is absent.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  if (certifierNotNullEffectsAbsent(evidence)) {
+    return {
+      status: 'absent',
+      summary: 'Certifier organization ownership remains nullable and the approved 0013 orphan state is intact.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  return {
+    status: 'incompatible',
+    summary: 'Certifier NOT NULL enforcement or approved orphan deletion is partially present or incompatible.',
+    evidence,
+    fingerprint: evidenceFingerprint(evidence)
+  };
+}
+
 async function verify0013(client) {
   const evidence = await readTenancyTighteningEvidence(client);
 
@@ -768,6 +900,16 @@ async function verify0013(client) {
       summary: 'C3c producer/investigation constraints, unique provenance index, and orphan quarantine are exact.',
       evidence,
       fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  const successorEvidence = await readCertifierNotNullEvidence(client, evidence);
+  if (successorEvidence.data.migration_recorded && certifierNotNullExact(successorEvidence)) {
+    return {
+      status: 'exact',
+      summary: 'C3c constraints remain exact with the recorded 0014 certifier tightening and orphan deletion.',
+      evidence: successorEvidence,
+      fingerprint: evidenceFingerprint(successorEvidence)
     };
   }
 
@@ -865,8 +1007,16 @@ async function verify0012(client) {
   const successorExact = tighteningEvidence
     ? tenancyTighteningSchemaExact(tighteningEvidence)
     : false;
+  const certifierSuccessorEvidence = tighteningEvidence
+    ? await readCertifierNotNullEvidence(client, tighteningEvidence)
+    : null;
+  const certifierSuccessorExact = certifierSuccessorEvidence
+    ? certifierSuccessorEvidence.data.migration_recorded
+      && certifierNotNullExact(certifierSuccessorEvidence)
+    : false;
 
-  if (constraintsExact && ((nullableColumnsExact && plainIndexesExact) || successorExact)) {
+  if (constraintsExact
+    && ((nullableColumnsExact && plainIndexesExact) || successorExact || certifierSuccessorExact)) {
     evidence.data = (await client.query(
       `SELECT
          (SELECT count(*)::int
@@ -882,13 +1032,18 @@ async function verify0012(client) {
 
     if (Number(evidence.data.lot_budget_producer_mismatches) === 0
       && Number(evidence.data.investigation_link_mismatches) === 0) {
+      const resultEvidence = certifierSuccessorExact
+        ? { relationships: evidence, successor: certifierSuccessorEvidence }
+        : evidence;
       return {
         status: 'exact',
-        summary: successorExact
-          ? 'C3a relationships remain exact with the approved 0013 investigation tightening.'
+        summary: certifierSuccessorExact
+          ? 'C3a relationships remain exact with the recorded 0014 certifier tightening.'
+          : successorExact
+            ? 'C3a relationships remain exact with the approved 0013 investigation tightening.'
           : 'C3a nullable relationship columns, validated constraints, plain indexes, and deterministic links are exact.',
-        evidence,
-        fingerprint: evidenceFingerprint(evidence)
+        evidence: resultEvidence,
+        fingerprint: evidenceFingerprint(resultEvidence)
       };
     }
   }
@@ -906,7 +1061,8 @@ const STATE_VERIFIERS = new Map([
   ['0009_widen_investigations_status_check.sql', verify0009],
   ['0011_add_profile_organization_id.sql', verify0011],
   ['0012_add_derived_tenant_relationships.sql', verify0012],
-  ['0013_tighten_tenant_constraints.sql', verify0013]
+  ['0013_tighten_tenant_constraints.sql', verify0013],
+  ['0014_tighten_certifier_organization_id.sql', verify0014]
 ]);
 
 async function readMetadata(client) {
@@ -1351,6 +1507,7 @@ module.exports = {
   LOCK_KEY_1,
   LOCK_KEY_2,
   DERIVED_TENANCY_STATE,
+  CERTIFIER_NOT_NULL_STATE,
   PROFILE_ORGANIZATION_STATE,
   TENANCY_TIGHTENING_STATE,
   TOOL_VERSION,
@@ -1368,5 +1525,6 @@ module.exports = {
   verify0009,
   verify0011,
   verify0012,
-  verify0013
+  verify0013,
+  verify0014
 };
