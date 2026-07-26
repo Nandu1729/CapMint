@@ -113,8 +113,9 @@ while current activation continues to create one equal-ID profile.
 
 JWTs continue to carry only `orgId`. C3a replaced the temporary equal-ID
 authorization predicates with explicit profile ownership joins. C3c makes
-producer ownership mandatory while retaining the known quarantined certifier
-exception. RLS enforcement remains separately gated work.
+producer ownership mandatory, and migration 0014 makes certifier ownership
+mandatory after deleting the operator-approved zero-reference orphan. RLS
+enforcement remains separately gated work.
 
 The reserved tenant-session convention for future RLS policies is the
 transaction-local PostgreSQL GUC `app.current_org`. A future application
@@ -124,10 +125,11 @@ Migration 0011 does not set the GUC, create policies, enable RLS, or change
 database roles.
 
 `verify0011` is the adoption authority for out-of-band exact state. It accepts
-the original nullable C2 shape and the approved 0013 successor shape, while
-requiring both named validated foreign keys and both named single-column btree
-indexes. A completely absent shape returns `absent`; partial or incompatible
-state fails closed.
+the original nullable C2 shape, the approved 0013 successor shape, and the
+post-0014 certifier tightening only when 0014 is recorded in `migrations_log`.
+It requires both named validated foreign keys and both named single-column
+btree indexes. A completely absent shape returns `absent`; partial or
+incompatible state fails closed.
 
 ## Derived Tenant Relationships 0012
 
@@ -208,6 +210,32 @@ tightening and quarantine together as exact, absent, or incompatible; the
 partial tightening. After an empty bootstrap has recorded 0013, the verifier
 also accepts a later all-mapped certifier population with zero orphans; the
 same non-empty zero-orphan state remains incompatible before 0013 execution.
+
+## Certifier Organization Tightening 0014
+
+`0014_tighten_certifier_organization_id.sql` completes the operator-approved
+certifier disposition and constraint follow-up:
+
+- shape preflight requires the complete 0013 state, keeps both laboratory
+  relationship columns nullable, and accepts only stable pre-0014 or fully
+  tightened certifier nullability;
+- the exact certifier `00000000-0000-0000-0000-000000000003` is deleted only
+  while locked, `REVOKED`, and referenced by zero budgets;
+- a non-revoked or referenced approved row fails closed, as does any other
+  certifier with `NULL organization_id`;
+- a temporary `NOT VALID` CHECK is validated before
+  `certifiers.organization_id` is set `NOT NULL`, then the redundant CHECK is
+  removed;
+- empty schema-only bootstrap and direct re-execution are no-ops for orphan
+  deletion and remain idempotent.
+
+`verify0014` classifies exact, absent, and incompatible physical states.
+`verify0011`, `verify0012`, and `verify0013` recognize the post-0014 successor
+only when the 0014 migration record exists, so raw over-tightening is not
+silently accepted. `lab_results.submitted_by_organization_id` and
+`lots.assigned_laboratory_organization_id` remain nullable. No RLS role,
+policy, tenant GUC enforcement, service behavior, or authorization predicate is
+changed by 0014.
 
 ## Existing Database Procedure
 

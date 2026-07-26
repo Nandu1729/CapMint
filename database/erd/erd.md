@@ -158,14 +158,14 @@ erDiagram
 9.  **`unit_codes` $\rightarrow$ `scan_events` ($1:N$)**: An individual unit code generates zero or more public verification telemetry logs.
 
 The tenant root is `organizations`. Its profile foreign keys permit structural
-1:N ownership. C3c makes `producers.organization_id` mandatory; the sole
-zero-reference legacy certifier remains `NULL` and is quarantined with
-`key_status = 'REVOKED'` pending separate disposition. Runtime authorization
-derives producer and certifier scope through those explicit ownership keys. C3b
+1:N ownership. C3c makes `producers.organization_id` mandatory; migration 0014
+deletes the approved zero-reference revoked certifier and makes
+`certifiers.organization_id` mandatory. Runtime authorization derives producer
+and certifier scope through those explicit ownership keys. C3b
 assigns laboratories through the nullable lot relationship,
 restricts laboratory lists and writes to that assignment, and records the
 authenticated submitter on new/replaced results. Legacy `NULL` submitters remain
-unknown. No RLS policy exists, and certifier/laboratory tenant columns remain
+unknown. No RLS policy exists, and the laboratory tenant columns remain
 nullable.
 
 *Note: The `log_entries` table is logically associated with all mutable entities (Budgets, Lots, Unit Codes) using polymorphic references (`entity_type` + `entity_id`) without physical foreign key constraints. This prevents cascading deletions or profile changes from breaking the historical cryptographic chain.*
