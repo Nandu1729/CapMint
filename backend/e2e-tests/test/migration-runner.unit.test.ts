@@ -29,12 +29,12 @@ describe('migration runner metadata and planning primitives', () => {
     expect(() => runner.parseArgs(['--adopt'])).toThrow(/requires one or more/);
   });
 
-  it('loads a monotonic migration set ending in derived-tenancy migration 0012', () => {
+  it('loads a monotonic migration set ending in tenancy-tightening migration 0013', () => {
     const result = runner.loadMigrations();
     expect(result.errors).toEqual([]);
-    expect(result.migrations.at(-1)?.filename).toBe('0012_add_derived_tenant_relationships.sql');
+    expect(result.migrations.at(-1)?.filename).toBe('0013_tighten_tenant_constraints.sql');
     expect(result.migrations.map((migration: { version: number }) => migration.version))
-      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
     for (const migration of result.migrations) {
       expect(migration.checksum).toMatch(/^[a-f0-9]{64}$/);
     }
@@ -108,5 +108,27 @@ describe('migration runner metadata and planning primitives', () => {
         'idx_lab_results_submitted_by_organization_id',
         'idx_lots_assigned_laboratory_organization_id'
       ]);
+  });
+
+  it('defines one canonical expected shape for C3c tightening', () => {
+    expect(runner.TENANCY_TIGHTENING_STATE).toEqual({
+      columns: [
+        { table: 'producers', column: 'organization_id', notNull: true },
+        { table: 'certifiers', column: 'organization_id', notNull: false },
+        { table: 'investigations', column: 'unit_code_id', notNull: true },
+        { table: 'lab_results', column: 'submitted_by_organization_id', notNull: false },
+        { table: 'lots', column: 'assigned_laboratory_organization_id', notNull: false }
+      ],
+      index: {
+        table: 'investigations',
+        name: 'idx_investigations_unit_code_id',
+        columns: ['unit_code_id']
+      },
+      orphan: {
+        id: '00000000-0000-0000-0000-000000000003',
+        activeStatus: 'ACTIVE',
+        quarantinedStatus: 'REVOKED'
+      }
+    });
   });
 });
