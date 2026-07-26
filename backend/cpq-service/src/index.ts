@@ -132,18 +132,30 @@ if (!REDIS_URL) {
 }
 const redisClient = new Redis(REDIS_URL);
 
-// C0 temporary containment: profile IDs currently equal organization IDs.
-// Replace these predicates with explicit profile.organization_id joins in C3.
 async function lockProducerBudget(client: pg.PoolClient, budgetId: string, organizationId: string) {
   return client.query(
-    'SELECT * FROM budgets WHERE id = $1 AND producer_id = $2 FOR UPDATE',
+    `SELECT budget.*
+     FROM budgets AS budget
+     JOIN producers AS producer
+       ON producer.id = budget.producer_id
+     WHERE budget.id = $1
+       AND producer.organization_id = $2
+     FOR UPDATE OF budget
+     FOR SHARE OF producer`,
     [budgetId, organizationId]
   );
 }
 
 async function lockCertifierBudget(client: pg.PoolClient, budgetId: string, organizationId: string) {
   return client.query(
-    'SELECT * FROM budgets WHERE id = $1 AND certifier_id = $2 FOR UPDATE',
+    `SELECT budget.*
+     FROM budgets AS budget
+     JOIN certifiers AS certifier
+       ON certifier.id = budget.certifier_id
+     WHERE budget.id = $1
+       AND certifier.organization_id = $2
+     FOR UPDATE OF budget
+     FOR SHARE OF certifier`,
     [budgetId, organizationId]
   );
 }
@@ -180,36 +192,25 @@ server.post('/api/v1/budgets', {
   }
 
   const user = request.user as any;
-  if (producer_id !== user.orgId) {
-    return reply.status(403).send({
-      success: false,
-      error: {
-        statusCode: 403,
-        code: 'FORBIDDEN',
-        message: 'You cannot request budgets for another organization.'
-      }
-    });
-  }
-
-  // C0 temporary containment: derive the producer from the JWT organization.
-  // The selected certifier must also be backed by an active organization so the
-  // quarantined legacy orphan cannot receive new budgets.
+  // Legacy producer_id remains accepted only when it names a profile owned by
+  // the caller. Profile IDs and organization IDs are independent key spaces.
   const producerProfile = await pgPool.query(
     `SELECT p.id
      FROM producers p
-     JOIN organizations o ON o.id = p.id
+     JOIN organizations o ON o.id = p.organization_id
      WHERE p.id = $1
+       AND p.organization_id = $2
        AND o.type = 'PRODUCER'
        AND o.status = 'ACTIVATED'`,
-    [user.orgId]
+    [producer_id, user.orgId]
   );
   if (producerProfile.rowCount === 0) {
-    return reply.status(403).send({
+    return reply.status(404).send({
       success: false,
       error: {
-        statusCode: 403,
-        code: 'PRODUCER_PROFILE_REQUIRED',
-        message: 'An active producer profile is required.'
+        statusCode: 404,
+        code: 'NOT_FOUND',
+        message: 'Producer profile not found.'
       }
     });
   }
@@ -217,7 +218,7 @@ server.post('/api/v1/budgets', {
   const certifierProfile = await pgPool.query(
     `SELECT c.id
      FROM certifiers c
-     JOIN organizations o ON o.id = c.id
+     JOIN organizations o ON o.id = c.organization_id
      WHERE c.id = $1
        AND c.key_status = 'ACTIVE'
        AND o.type = 'CERTIFICATION_BODY'
@@ -235,7 +236,7 @@ server.post('/api/v1/budgets', {
     });
   }
 
-  const canonicalProducerId = user.orgId;
+  const canonicalProducerId = producer_id;
   const quantity = parseFloat(approved_quantity);
   if (isNaN(quantity) || quantity <= 0) {
     return reply.status(400).send({
@@ -278,7 +279,21 @@ server.post('/api/v1/budgets', {
       producer_id, certifier_id, source_unit_type, approved_quantity,
       yield_assumptions, signature_bundle, effective_start_date, effective_end_date, status
     )
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'DRAFT')
+    SELECT producer.id, certifier.id, $3, $4, $5, $6, $7, $8, 'DRAFT'
+    FROM producers AS producer
+    JOIN organizations AS producer_organization
+      ON producer_organization.id = producer.organization_id
+    JOIN certifiers AS certifier
+      ON certifier.id = $2
+    JOIN organizations AS certifier_organization
+      ON certifier_organization.id = certifier.organization_id
+    WHERE producer.id = $1
+      AND producer.organization_id = $9
+      AND producer_organization.type = 'PRODUCER'
+      AND producer_organization.status = 'ACTIVATED'
+      AND certifier.key_status = 'ACTIVE'
+      AND certifier_organization.type = 'CERTIFICATION_BODY'
+      AND certifier_organization.status = 'ACTIVATED'
     RETURNING id, producer_id, certifier_id, source_unit_type, approved_quantity, remaining_quantity, status
   `;
 
@@ -290,8 +305,20 @@ server.post('/api/v1/budgets', {
     JSON.stringify(yield_assumptions),
     signature_bundle,
     effective_start_date,
-    effective_end_date
+    effective_end_date,
+    user.orgId
   ]);
+
+  if (result.rowCount === 0) {
+    return reply.status(404).send({
+      success: false,
+      error: {
+        statusCode: 404,
+        code: 'NOT_FOUND',
+        message: 'Producer or certifier profile not found.'
+      }
+    });
+  }
 
   return reply.status(201).send({
     success: true,
@@ -578,8 +605,8 @@ server.get('/api/v1/budgets', {
     result = await pgPool.query(`
       SELECT b.*, p.name as producer 
       FROM budgets b 
-      LEFT JOIN producers p ON b.producer_id = p.id 
-      WHERE b.producer_id = $1
+      JOIN producers p ON b.producer_id = p.id
+      WHERE p.organization_id = $1
       ORDER BY b.created_at DESC
     `, [user.orgId]);
   } else if (user.orgType === 'CERTIFICATION_BODY') {
@@ -587,16 +614,26 @@ server.get('/api/v1/budgets', {
       SELECT b.*, p.name as producer
       FROM budgets b
       LEFT JOIN producers p ON b.producer_id = p.id
-      WHERE b.certifier_id = $1
+      JOIN certifiers c ON c.id = b.certifier_id
+      WHERE c.organization_id = $1
       ORDER BY b.created_at DESC
     `, [user.orgId]);
-  } else {
+  } else if (user.orgType === 'SYSTEM_ADMINISTRATOR' && user.role === 'ADMIN') {
     result = await pgPool.query(`
       SELECT b.*, p.name as producer 
       FROM budgets b 
       LEFT JOIN producers p ON b.producer_id = p.id 
       ORDER BY b.created_at DESC
     `);
+  } else {
+    return reply.status(403).send({
+      success: false,
+      error: {
+        statusCode: 403,
+        code: 'FORBIDDEN',
+        message: 'You do not have permission to list budgets.'
+      }
+    });
   }
 
   return {
