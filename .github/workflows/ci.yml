@@ -89,3 +89,33 @@ jobs:
           F1_SUITE_RUN_ID: ci_${{ github.run_id }}_${{ github.run_attempt }}
           F1_SUITE_ITERATIONS: '1'
         run: npm test --workspace=backend/e2e-tests -- compliance-suite.test.ts
+
+  data-integrity-canary:
+    name: Over-Issuance Data Integrity Canary
+    if: >-
+      ${{
+        vars.RUN_DATA_INTEGRITY_CANARY == '1' &&
+        (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+      }}
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.CAPMINT_INTEGRATION_DATABASE_URL }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install Monorepo Dependencies
+        run: npm ci
+
+      - name: Require Integration Database
+        run: test -n "$DATABASE_URL"
+
+      - name: Fail on Any Over-Issued Lot
+        run: node scripts/check-overfilled-lots.mjs
