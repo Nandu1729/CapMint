@@ -754,7 +754,7 @@ server.post('/api/v1/lots', {
     });
   }
 
-  return withAuthenticatedTenantTx(request, async (client) => {
+  const response = await withAuthenticatedTenantTx(request, async (client) => {
 
     const capacity = await reserveBudgetCapacity(client, budget_id, user.orgId, quantity);
     if (!capacity.ok) return sendCapacityFailure(reply, capacity);
@@ -769,31 +769,28 @@ server.post('/api/v1/lots', {
 
     const lotUuid = lotRes.rows[0].id;
 
-    // 4. Log to transparency ledger
+    return {
+      success: true,
+      data: { lot: lotRes.rows[0] },
+      ledgerEvent: {
+        entity_type: 'LOT', entity_id: lotUuid, event_type: 'LOT_CREATED',
+        payload: { lot_id: lotUuid, budget_id, batch_size: quantity, product_metadata }
+      }
+    };
+  });
+  if (response.success) {
     try {
       await fetch(LEDGER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
-        body: JSON.stringify({
-          entity_type: 'LOT',
-          entity_id: lotUuid,
-          event_type: 'LOT_CREATED',
-          payload: {
-            lot_id: lotUuid,
-            budget_id,
-            batch_size: quantity,
-            product_metadata
-          }
-        })
+        body: JSON.stringify(response.ledgerEvent)
       });
     } catch (ledgerErr) {
       server.log.error(ledgerErr as any, 'Failed to log lot creation to transparency ledger');
     }
-    return {
-      success: true,
-      data: { lot: lotRes.rows[0] }
-    };
-  });
+  }
+  const { ledgerEvent, ...body } = response;
+  return body;
 });
 
 // Route: Assign an activated NABL laboratory to a certifier-controlled lot
