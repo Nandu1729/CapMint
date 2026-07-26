@@ -14,8 +14,8 @@ const RUN_INTEGRATION = process.env.RUN_F1_COMPLIANCE === '1';
 const RUN_ID = process.env.F1_SUITE_RUN_ID || '';
 const ITERATIONS = Number(process.env.F1_SUITE_ITERATIONS || '1');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
-const EXPECTED_ACTIVE_ASSERTIONS = 83;
-const EXPECTED_PENDING_ASSERTIONS = 5;
+const EXPECTED_ACTIVE_ASSERTIONS = 88;
+const EXPECTED_PENDING_ASSERTIONS = 0;
 
 dotenv.config({ path: path.join(ROOT, '.env') });
 
