@@ -68,6 +68,7 @@ erDiagram
         uuid id PK
         uuid producer_id FK
         uuid budget_id FK
+        uuid assigned_laboratory_organization_id FK
         jsonb product_metadata
         numeric batch_size
         jsonb processing_dates
@@ -90,6 +91,7 @@ erDiagram
     lab_results {
         uuid id PK
         uuid lot_id FK, UK
+        uuid submitted_by_organization_id FK
         varchar lab_name
         varchar test_type
         varchar result_summary
@@ -97,6 +99,13 @@ erDiagram
         varchar report_reference
         jsonb decision_impact
         timestamptz created_at
+    }
+    investigations {
+        uuid id PK
+        uuid public_identifier UK
+        uuid unit_code_id FK
+        varchar risk_level
+        varchar status
     }
     scan_events {
         uuid id PK
@@ -121,6 +130,8 @@ erDiagram
 
     organizations ||--o{ producers : "tenant owner"
     organizations ||--o{ certifiers : "tenant owner"
+    organizations ||--o{ lots : "assigned laboratory"
+    organizations ||--o{ lab_results : "submitted by"
     producers ||--o{ plots_or_hive_clusters : "owns"
     certifiers ||--o{ budgets : "approves"
     producers ||--o{ budgets : "receives"
@@ -128,6 +139,7 @@ erDiagram
     producers ||--o{ lots : "packages"
     lots ||--o{ unit_codes : "groups"
     lots ||--o| lab_results : "supported by"
+    unit_codes ||--o{ investigations : "investigated by"
     unit_codes ||--o{ scan_events : "triggers"
 ```
 
@@ -142,13 +154,16 @@ erDiagram
 5.  **`producers` $\rightarrow$ `lots` ($1:N$)**: A producer acts as the packaging organization for zero or more lots.
 6.  **`lots` $\rightarrow$ `unit_codes` ($1:N$)**: A lot run generates one or more retail-level package unit codes.
 7.  **`lots` $\rightarrow$ `lab_results` ($1:1$)**: A lot run is backed by at most one analytical test report (NMR/residue panels).
-8.  **`unit_codes` $\rightarrow$ `scan_events` ($1:N$)**: An individual unit code generates zero or more public verification telemetry logs.
+8.  **`unit_codes` $\rightarrow$ `investigations` ($1:N$ in C3a)**: Every migrated investigation resolves through an exact FK-backed unit-code link; C3c may tighten the intended one-to-one relationship.
+9.  **`unit_codes` $\rightarrow$ `scan_events` ($1:N$)**: An individual unit code generates zero or more public verification telemetry logs.
 
-The tenant root is `organizations`. Its nullable C2 foreign keys on
+The tenant root is `organizations`. Its nullable foreign keys on
 `producers.organization_id` and `certifiers.organization_id` permit structural
-1:N ownership while quarantining unmapped legacy profiles as `NULL`. Runtime
-authorization continues to use the temporary equal-ID predicates until DM-03
-C3.
+1:N ownership while quarantining unmapped legacy profiles as `NULL`. C3a
+runtime authorization derives producer and certifier scope through those
+explicit ownership keys. The nullable laboratory relationship columns prepare
+C3b without assigning a laboratory or enabling lab writes. No RLS policy or
+`NOT NULL`/investigation-uniqueness tightening exists in C3a.
 
 *Note: The `log_entries` table is logically associated with all mutable entities (Budgets, Lots, Unit Codes) using polymorphic references (`entity_type` + `entity_id`) without physical foreign key constraints. This prevents cascading deletions or profile changes from breaking the historical cryptographic chain.*
 

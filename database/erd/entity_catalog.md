@@ -149,10 +149,12 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | `revocation_status` | `VARCHAR(32)` | `NOT NULL` | Default `'ACTIVE'`, Check: `ACTIVE`, `REVOKED` | Invalidation state. |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL` | Default `NOW()` | Ingestion timestamp. |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL` | Default `NOW()` | Update timestamp. |
+| `assigned_laboratory_organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Trusted laboratory assignment relationship prepared in C3a; assignment behavior is deferred to C3b. |
 
 *   **Indexing Targets**:
     *   `idx_lots_budget` ON (`budget_id`) — Optimizes quota consumption audits.
     *   `idx_lots_revocation` ON (`revocation_status`) — Optimizes status checks during scan resolution.
+    *   `idx_lots_assigned_laboratory_organization_id` ON (`assigned_laboratory_organization_id`) — Supports future assigned-lab checks.
 *   **Domain Events**:
     *   Created: `LotCreated` (deducts budget quota).
     *   Revoked: `LotRevoked` (triggers cascade revocation of unit codes).
@@ -204,9 +206,11 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | `report_reference` | `VARCHAR(500)` | `NOT NULL` | None | Secure object store URL of the PDF. |
 | `decision_impact` | `JSONB` | `NULL` | None | Extracted chemical residue limit trace details. |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL` | Default `NOW()` | Ingestion date. |
+| `submitted_by_organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Submitting laboratory provenance; legacy rows remain unknown in C3a. |
 
 *   **Indexing Targets**:
     *   `idx_lab_results_lot` ON (`lot_id`) — Optimizes verification lookup details.
+    *   `idx_lab_results_submitted_by_organization_id` ON (`submitted_by_organization_id`) — Supports future laboratory provenance queries.
 *   **Domain Events**:
     *   Uploaded: `LabResultUploaded` (causes lot update and potential revocation cascade).
 *   **Ledger Anchored**: Yes.
@@ -257,6 +261,26 @@ The database is divided into nine core tables, mapped to their single-writer mic
     *   `idx_log_entries_entity` ON (`entity_type`, `entity_id`) — Optimizes history checks for specific records.
 *   **Domain Events**: None.
 *   **Ledger Anchored**: This *is* the ledger.
+
+---
+
+### 2.10 Table: `investigations`
+*   **Logical Owner Service**: `Verification Service`
+*   **Purpose**: Tracks anomaly cases derived from serialized unit codes.
+*   **Key Constraints**: Unique logical `public_identifier`; validated nullable
+    FK from `unit_code_id` to `unit_codes(id)`.
+
+| Column Name | Database Data Type | Nullability | Constraints / Keys | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | `UUID` | `NOT NULL` | `PRIMARY KEY` | Investigation identifier. |
+| `public_identifier` | `UUID` | `NOT NULL` | `UNIQUE` | Public code identifier retained for compatibility. |
+| `unit_code_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `unit_codes(id)` | Exact provenance link backfilled in C3a; NOT NULL/UNIQUE tightening is deferred to C3c. |
+| `risk_level` | `VARCHAR(32)` | `NOT NULL` | None | Current case risk. |
+| `status` | `VARCHAR(32)` | `NOT NULL` | Status CHECK | Investigation workflow state. |
+
+*   **Indexing Targets**:
+    *   `idx_investigations_unit_code_id` ON (`unit_code_id`) — Supports derived
+        certifier ownership joins.
 
 ---
 *End of entity_catalog.md*

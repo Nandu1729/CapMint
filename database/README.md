@@ -111,10 +111,10 @@ or modify orphan profiles. The columns are intentionally non-unique so the
 approved structural model permits an organization to own multiple profiles,
 while current activation continues to create one equal-ID profile.
 
-Runtime authorization remains on the temporary C0 equal-ID predicates. JWTs
-continue to carry only `orgId`. Predicate rewrites, orphan resolution,
-`NOT NULL`, laboratory assignment, and RLS enforcement require separately
-approved DM-03 C3 work.
+JWTs continue to carry only `orgId`. C3a replaces the temporary equal-ID
+authorization predicates with explicit profile ownership joins. Orphan
+resolution, `NOT NULL`, laboratory assignment behavior, and RLS enforcement
+remain separately gated work.
 
 The reserved tenant-session convention for future RLS policies is the
 transaction-local PostgreSQL GUC `app.current_org`. A future application
@@ -127,6 +127,36 @@ database roles.
 `exact` only when both nullable UUID columns, both named validated foreign keys,
 and both named single-column btree indexes match the expected shape. A completely
 absent shape returns `absent`; partial or incompatible state fails closed.
+
+## Derived Tenant Relationships 0012
+
+`0012_add_derived_tenant_relationships.sql` is the additive DM-03 C3a
+relationship layer:
+
+- nullable `investigations.unit_code_id`,
+  `lab_results.submitted_by_organization_id`, and
+  `lots.assigned_laboratory_organization_id` UUID columns;
+- unique reference support on `budgets(id, producer_id)` and a validated
+  composite lot-to-budget producer foreign key;
+- validated restrictive foreign keys for the investigation unit, laboratory
+  submitter, and laboratory assignment relationships;
+- plain single-column indexes on each nullable relationship column;
+- deterministic investigation backfill from an exact
+  `public_identifier` match.
+
+The migration refuses lot/budget producer drift, unmatched or ambiguous
+investigation identifiers, incompatible pre-existing links, and incompatible
+named schema objects. It does not fabricate laboratory submitters or
+assignments, so legacy values remain `NULL`.
+
+`verify0012` is the exact/absent/incompatible adoption authority and also
+requires zero lot/budget producer mismatches and exact investigation links.
+The corresponding application authorization resolves producer and certifier
+scope through `profile.organization_id = jwt.orgId`; JWT claims are unchanged.
+
+C3a does not enable RLS, set `NOT NULL`, add investigation uniqueness, assign
+laboratories, or authorize laboratory writes. Those changes remain behind the
+C3b/C3c and DM-04 approval gates.
 
 ## Existing Database Procedure
 

@@ -20,9 +20,13 @@ The table below lists all database relationships in CapMint:
 | `certifiers` | `budgets` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `certifier_id` | `RESTRICT` | `CASCADE` | Tracks certifier signing budget quota. |
 | `producers` | `budgets` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `producer_id` | `RESTRICT` | `CASCADE` | Tracks capacity allocation to producer. |
 | `budgets` | `lots` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `budget_id` | `RESTRICT` | `CASCADE` | Tracks quota consumed by lots. |
+| `budgets` | `lots` | Composite ownership guard | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `(budget_id, producer_id)` | `RESTRICT` | `NO ACTION` | Prevents a lot producer from disagreeing with its budget producer. |
 | `producers` | `lots` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `producer_id` | `RESTRICT` | `CASCADE` | Tracks batch packaging producer. |
 | `lots` | `unit_codes` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $1..*$ (Mandatory) | `lot_id` | `RESTRICT` | `CASCADE` | Groups retail codes under batch runs. |
 | `lots` | `lab_results` | One-to-One ($1:1$) | $1$ (Mandatory) $\rightarrow$ $0..1$ (Optional) | `lot_id` | `RESTRICT` | `CASCADE` | Binds lab PDF reports to lots. |
+| `organizations` | `lots` | Laboratory assignment | $0..1$ (Optional) $\rightarrow$ $0..*$ | `assigned_laboratory_organization_id` | `RESTRICT` | `NO ACTION` | Nullable C3a relationship only; assignment behavior is deferred to C3b. |
+| `organizations` | `lab_results` | Laboratory submitter provenance | $0..1$ (Optional) $\rightarrow$ $0..*$ | `submitted_by_organization_id` | `RESTRICT` | `NO ACTION` | Legacy rows stay NULL; write enforcement is deferred to C3b. |
+| `unit_codes` | `investigations` | One-to-One candidate | $1$ after C3a backfill $\rightarrow$ $0..*$ | `unit_code_id` | `RESTRICT` | `CASCADE` | Exact FK-backed investigation provenance; NOT NULL/UNIQUE tightening is deferred to C3c. |
 | `unit_codes` | `scan_events` | One-to-Many ($1:N$) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `unit_code_id` | `RESTRICT` | `CASCADE` | Logs telemetry query events. |
 | *Polymorphic* | `log_entries` | Polymorphic (Logical) | $1$ (Mandatory) $\rightarrow$ $0..*$ (Optional) | `entity_id` | N/A (Manual) | N/A (Manual)| decoupled ledger audit trail. |
 
@@ -34,7 +38,7 @@ The table below lists all database relationships in CapMint:
 *   **Business Rationale**: JWT `orgId` identifies `organizations.id`, while producer and certifier primary keys remain independent domain identifiers. Explicit foreign keys make tenant ownership expressible without changing existing provenance identifiers.
 *   **Cardinality**: The schema permits one organization to own multiple profiles. Current activation provisions at most one equal-ID profile. During C2, a legacy profile may have no mapped organization and therefore retains `NULL`.
 *   **Constraints**: `FOREIGN KEY (organization_id) REFERENCES organizations(id)` on both profile tables.
-*   **Enforcement rationale**: Every non-`NULL` tenant key is validated. C2 deliberately defers uniqueness, `NOT NULL`, RLS, and orphan resolution to DM-03 C3.
+*   **Enforcement rationale**: Every non-`NULL` tenant key is validated. C3a authorization derives ownership through these keys; uniqueness, `NOT NULL`, RLS, and orphan resolution remain separately gated.
 
 ### 3.2 Producer $\rightarrow$ Plots or Hive Clusters ($1:N$)
 *   **Business Rationale**: A producer owns the land plots or apiary clusters where raw commodities are grown. 
@@ -83,6 +87,23 @@ The table below lists all database relationships in CapMint:
 *   **Cardinality**: A scan event references exactly one unit code. A unit code can accrue multiple scans.
 *   **Constraint**: `FOREIGN KEY (unit_code_id) REFERENCES unit_codes(id) ON DELETE RESTRICT ON UPDATE CASCADE`
 *   **Enforcement rationale**: `RESTRICT` prevents purging a unit code if scan events are logged, protecting telemetry datasets from retroactive modification.
+
+### 3.10 C3a Derived Ownership Relationships
+
+*   **Lot/budget producer guard**: `budgets(id, producer_id)` has unique
+    reference support and
+    `lots(budget_id, producer_id) REFERENCES budgets(id, producer_id)
+    ON DELETE RESTRICT`. This makes the duplicated producer key consistent.
+*   **Investigation provenance**:
+    `investigations.unit_code_id REFERENCES unit_codes(id)
+    ON DELETE RESTRICT ON UPDATE CASCADE`. Migration 0012 fills it only from an
+    exact `public_identifier` match. It remains nullable and non-unique until
+    C3c.
+*   **Laboratory preparation**:
+    `lots.assigned_laboratory_organization_id` and
+    `lab_results.submitted_by_organization_id` reference organizations with
+    `ON DELETE RESTRICT`. Both remain nullable; C3a does not assign a lab or
+    enable laboratory mutation.
 
 ---
 
