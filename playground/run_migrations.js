@@ -121,6 +121,26 @@ const CERTIFIER_NOT_NULL_STATE = {
   temporaryConstraint: 'certifiers_organization_id_not_null',
   orphanId: KNOWN_ORPHAN_CERTIFIER_ID
 };
+const APP_ROLE_STATE = {
+  role: 'capmint_app',
+  tables: [
+    'organizations',
+    'users',
+    'certifiers',
+    'producers',
+    'plots_or_hive_clusters',
+    'budgets',
+    'lots',
+    'unit_codes',
+    'lab_results',
+    'scan_events',
+    'log_entries',
+    'investigations',
+    'producer_brandings'
+  ],
+  tablePrivileges: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
+  sequencePrivileges: ['SELECT', 'USAGE']
+};
 const CORE_TABLES = [
   'organizations',
   'users',
@@ -891,6 +911,234 @@ async function verify0014(client) {
   };
 }
 
+async function readAppRoleEvidence(client) {
+  const roleResult = await client.query(
+    `SELECT oid,
+            rolcanlogin AS can_login,
+            rolsuper AS superuser,
+            rolinherit AS inherit,
+            rolcreaterole AS create_role,
+            rolcreatedb AS create_database,
+            rolreplication AS replication,
+            rolbypassrls AS bypass_rls
+     FROM pg_roles
+     WHERE rolname = $1`,
+    [APP_ROLE_STATE.role]
+  );
+  const role = roleResult.rows[0] || null;
+  const evidence = {
+    role,
+    database_privileges: [],
+    schema_privileges: [],
+    table_privileges: [],
+    sequences: [],
+    sequence_privileges: [],
+    default_privileges: [],
+    memberships: 0,
+    ownerships: 0,
+    rls_enabled_tables: [],
+    policies: []
+  };
+
+  evidence.rls_enabled_tables = (await client.query(
+    `SELECT relation.relname AS table_name,
+            relation.relrowsecurity AS enabled,
+            relation.relforcerowsecurity AS forced
+     FROM pg_class AS relation
+     JOIN pg_namespace AS namespace
+       ON namespace.oid = relation.relnamespace
+     WHERE namespace.nspname = 'public'
+       AND relation.relkind IN ('r', 'p')
+       AND (relation.relrowsecurity OR relation.relforcerowsecurity)
+     ORDER BY relation.relname`
+  )).rows;
+  evidence.policies = (await client.query(
+    `SELECT tablename, policyname
+     FROM pg_policies
+     WHERE schemaname = 'public'
+     ORDER BY tablename, policyname`
+  )).rows;
+
+  if (!role) return evidence;
+
+  evidence.database_privileges = (await client.query(
+    `SELECT privilege.privilege_type
+     FROM pg_database AS database_record
+     CROSS JOIN LATERAL aclexplode(database_record.datacl) AS privilege
+     WHERE database_record.datname = current_database()
+       AND privilege.grantee = $1
+     ORDER BY privilege.privilege_type`,
+    [role.oid]
+  )).rows.map(row => row.privilege_type);
+  evidence.schema_privileges = (await client.query(
+    `SELECT privilege.privilege_type
+     FROM pg_namespace AS namespace
+     CROSS JOIN LATERAL aclexplode(namespace.nspacl) AS privilege
+     WHERE namespace.nspname = 'public'
+       AND privilege.grantee = $1
+     ORDER BY privilege.privilege_type`,
+    [role.oid]
+  )).rows.map(row => row.privilege_type);
+  evidence.table_privileges = (await client.query(
+    `SELECT relation.relname AS table_name,
+            privilege.privilege_type
+     FROM pg_class AS relation
+     JOIN pg_namespace AS namespace
+       ON namespace.oid = relation.relnamespace
+     CROSS JOIN LATERAL aclexplode(relation.relacl) AS privilege
+     WHERE namespace.nspname = 'public'
+       AND relation.relkind IN ('r', 'p', 'v', 'm', 'f')
+       AND privilege.grantee = $1
+     ORDER BY relation.relname, privilege.privilege_type`,
+    [role.oid]
+  )).rows;
+  evidence.sequences = (await client.query(
+    `SELECT relation.relname AS sequence_name
+     FROM pg_class AS relation
+     JOIN pg_namespace AS namespace
+       ON namespace.oid = relation.relnamespace
+     WHERE namespace.nspname = 'public'
+       AND relation.relkind = 'S'
+     ORDER BY relation.relname`
+  )).rows.map(row => row.sequence_name);
+  evidence.sequence_privileges = (await client.query(
+    `SELECT relation.relname AS sequence_name,
+            privilege.privilege_type
+     FROM pg_class AS relation
+     JOIN pg_namespace AS namespace
+       ON namespace.oid = relation.relnamespace
+     CROSS JOIN LATERAL aclexplode(relation.relacl) AS privilege
+     WHERE namespace.nspname = 'public'
+       AND relation.relkind = 'S'
+       AND privilege.grantee = $1
+     ORDER BY relation.relname, privilege.privilege_type`,
+    [role.oid]
+  )).rows;
+  evidence.default_privileges = (await client.query(
+    `SELECT pg_get_userbyid(default_acl.defaclrole) AS owner,
+            default_acl.defaclobjtype AS object_type,
+            privilege.privilege_type
+     FROM pg_default_acl AS default_acl
+     CROSS JOIN LATERAL aclexplode(default_acl.defaclacl) AS privilege
+     WHERE default_acl.defaclnamespace = 'public'::regnamespace
+       AND privilege.grantee = $1
+     ORDER BY owner, object_type, privilege.privilege_type`,
+    [role.oid]
+  )).rows;
+  evidence.memberships = Number((await client.query(
+    `SELECT count(*)::int AS count
+     FROM pg_auth_members
+     WHERE member = $1`,
+    [role.oid]
+  )).rows[0].count);
+  evidence.ownerships = Number((await client.query(
+    `SELECT
+       (SELECT count(*) FROM pg_database WHERE datdba = $1)
+       + (SELECT count(*) FROM pg_namespace WHERE nspowner = $1)
+       + (SELECT count(*) FROM pg_class WHERE relowner = $1)
+       + (SELECT count(*) FROM pg_proc WHERE proowner = $1)
+       AS count`,
+    [role.oid]
+  )).rows[0].count);
+
+  return evidence;
+}
+
+function appRoleSecurityExact(evidence) {
+  return evidence.role
+    && !evidence.role.superuser
+    && !evidence.role.inherit
+    && !evidence.role.create_role
+    && !evidence.role.create_database
+    && !evidence.role.replication
+    && !evidence.role.bypass_rls
+    && evidence.memberships === 0
+    && evidence.ownerships === 0;
+}
+
+function expectedPrivilegeRows(names, privileges, nameKey) {
+  return names.flatMap(name =>
+    privileges.map(privilege => ({
+      [nameKey]: name,
+      privilege_type: privilege
+    }))).sort((left, right) =>
+    left[nameKey].localeCompare(right[nameKey])
+      || left.privilege_type.localeCompare(right.privilege_type));
+}
+
+function appRoleGrantsExact(evidence) {
+  const expectedTables = expectedPrivilegeRows(
+    APP_ROLE_STATE.tables,
+    APP_ROLE_STATE.tablePrivileges,
+    'table_name'
+  );
+  const expectedSequences = expectedPrivilegeRows(
+    evidence.sequences,
+    APP_ROLE_STATE.sequencePrivileges,
+    'sequence_name'
+  );
+  const defaultByType = new Map();
+  for (const row of evidence.default_privileges) {
+    const key = `${row.owner}:${row.object_type}`;
+    if (!defaultByType.has(key)) defaultByType.set(key, []);
+    defaultByType.get(key).push(row.privilege_type);
+  }
+  const defaultSetsExact = [...defaultByType.entries()].some(([key, privileges]) =>
+    key.endsWith(':r')
+      && stableJson(privileges) === stableJson(APP_ROLE_STATE.tablePrivileges)
+  )
+    && [...defaultByType.entries()].some(([key, privileges]) =>
+      key.endsWith(':S')
+        && stableJson(privileges) === stableJson(APP_ROLE_STATE.sequencePrivileges)
+    );
+
+  return stableJson(evidence.database_privileges) === stableJson(['CONNECT'])
+    && stableJson(evidence.schema_privileges) === stableJson(['USAGE'])
+    && stableJson(evidence.table_privileges) === stableJson(expectedTables)
+    && stableJson(evidence.sequence_privileges) === stableJson(expectedSequences)
+    && defaultSetsExact
+    && evidence.default_privileges.length
+      === APP_ROLE_STATE.tablePrivileges.length
+        + APP_ROLE_STATE.sequencePrivileges.length;
+}
+
+async function verify0015(client) {
+  const evidence = await readAppRoleEvidence(client);
+  const noRls = evidence.rls_enabled_tables.length === 0
+    && evidence.policies.length === 0;
+
+  if (noRls && appRoleSecurityExact(evidence) && appRoleGrantsExact(evidence)) {
+    return {
+      status: 'exact',
+      summary: 'Non-owner capmint_app role, application DML/default grants, and non-enforcing RLS state are exact.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  const noDatabaseEffects = evidence.database_privileges.length === 0
+    && evidence.schema_privileges.length === 0
+    && evidence.table_privileges.length === 0
+    && evidence.sequence_privileges.length === 0
+    && evidence.default_privileges.length === 0;
+  if (noRls && noDatabaseEffects
+    && (!evidence.role || appRoleSecurityExact(evidence))) {
+    return {
+      status: 'absent',
+      summary: 'capmint_app D1 grants and all RLS enforcement effects are absent from this database.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  return {
+    status: 'incompatible',
+    summary: 'capmint_app security/grants are partial or incompatible, or RLS enforcement is already present.',
+    evidence,
+    fingerprint: evidenceFingerprint(evidence)
+  };
+}
+
 async function verify0013(client) {
   const evidence = await readTenancyTighteningEvidence(client);
 
@@ -1062,7 +1310,8 @@ const STATE_VERIFIERS = new Map([
   ['0011_add_profile_organization_id.sql', verify0011],
   ['0012_add_derived_tenant_relationships.sql', verify0012],
   ['0013_tighten_tenant_constraints.sql', verify0013],
-  ['0014_tighten_certifier_organization_id.sql', verify0014]
+  ['0014_tighten_certifier_organization_id.sql', verify0014],
+  ['0015_add_capmint_app_role.sql', verify0015]
 ]);
 
 async function readMetadata(client) {
@@ -1508,6 +1757,7 @@ module.exports = {
   LOCK_KEY_2,
   DERIVED_TENANCY_STATE,
   CERTIFIER_NOT_NULL_STATE,
+  APP_ROLE_STATE,
   PROFILE_ORGANIZATION_STATE,
   TENANCY_TIGHTENING_STATE,
   TOOL_VERSION,
@@ -1526,5 +1776,6 @@ module.exports = {
   verify0011,
   verify0012,
   verify0013,
-  verify0014
+  verify0014,
+  verify0015
 };
