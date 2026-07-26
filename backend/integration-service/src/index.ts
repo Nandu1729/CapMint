@@ -33,6 +33,28 @@ server.decorate('authenticate', async (request: FastifyRequest, reply: FastifyRe
   }
 });
 
+const INTEGRATION_LOOKUP_ACTORS = new Set([
+  'PRODUCER:ADMIN',
+  'PRODUCER:MEMBER',
+  'CERTIFICATION_BODY:ADMIN',
+  'CERTIFICATION_BODY:MEMBER',
+  'SYSTEM_ADMINISTRATOR:ADMIN'
+]);
+
+async function authorizeIntegrationLookup(request: FastifyRequest, reply: FastifyReply) {
+  const user = request.user as any;
+  if (!user || !INTEGRATION_LOOKUP_ACTORS.has(`${user.orgType}:${user.role}`)) {
+    return reply.status(403).send({
+      success: false,
+      error: {
+        statusCode: 403,
+        code: 'FORBIDDEN',
+        message: 'You do not have permission to access this integration.'
+      }
+    });
+  }
+}
+
 // Global error handler complying with RFC 7807 Problem Details
 server.setErrorHandler((error, request, reply) => {
   server.log.error(error);
@@ -55,7 +77,9 @@ server.get('/health', async () => {
 });
 
 // Route: AgriStack Farmer Details Lookup (M-015)
-server.get('/api/v1/integrations/agristack/farmers/:id', { preValidation: [server.authenticate] }, async (request, reply) => {
+server.get('/api/v1/integrations/agristack/farmers/:id', {
+  preValidation: [server.authenticate, authorizeIntegrationLookup]
+}, async (request, reply) => {
   const { id } = request.params as any;
 
   if (!id) {
@@ -117,7 +141,9 @@ server.get('/api/v1/integrations/agristack/farmers/:id', { preValidation: [serve
 });
 
 // Route: TraceNet NPOP Certification Validation (M-014)
-server.get('/api/v1/integrations/tracenet/certificates/:licenseId', { preValidation: [server.authenticate] }, async (request, reply) => {
+server.get('/api/v1/integrations/tracenet/certificates/:licenseId', {
+  preValidation: [server.authenticate, authorizeIntegrationLookup]
+}, async (request, reply) => {
   const { licenseId } = request.params as any;
 
   if (!licenseId) {
