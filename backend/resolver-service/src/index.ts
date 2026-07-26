@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import pg from 'pg';
 import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
+import { PUBLIC_TENANT_CONTEXT, withTenantTx } from '../../../packages/shared/tenant-db.js';
 
 dotenv.config();
 
@@ -10,7 +11,7 @@ const server = Fastify({
 });
 
 // Initialize PostgreSQL Client Pool
-const DATABASE_URL = process.env.DATABASE_URL || (process.env.NODE_ENV === 'test' ? 'postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_dev' : '');
+const DATABASE_URL = process.env.DATABASE_URL || '';
 if (!DATABASE_URL) {
   console.error('FATAL: DATABASE_URL is not set. Refusing to start with an insecure default.');
   process.exit(1);
@@ -71,7 +72,11 @@ server.get('/01/:gtin/21/:serial', async (request, reply) => {
       JOIN producers p ON l.producer_id = p.id
       WHERE u.gtin = $1 AND u.serial = $2
     `;
-    const result = await pgPool.query(query, [gtin, serial]);
+    const result = await withTenantTx(
+      pgPool,
+      PUBLIC_TENANT_CONTEXT,
+      (client) => client.query(query, [gtin, serial])
+    );
 
     if (result.rowCount === 0) {
       return reply.status(404).send({

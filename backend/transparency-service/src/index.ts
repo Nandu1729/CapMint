@@ -4,6 +4,11 @@ import pg from 'pg';
 import { Redis } from 'ioredis';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
+import {
+  PUBLIC_TENANT_CONTEXT,
+  tenantContextFromUser,
+  withTenantTx
+} from '../../../packages/shared/tenant-db.js';
 
 dotenv.config();
 
@@ -38,7 +43,7 @@ server.decorate('authenticate', async (request: FastifyRequest, reply: FastifyRe
 });
 
 // Initialize PostgreSQL Client Pool
-const DATABASE_URL = process.env.DATABASE_URL || (process.env.NODE_ENV === 'test' ? 'postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_dev' : '');
+const DATABASE_URL = process.env.DATABASE_URL || '';
 if (!DATABASE_URL) {
   console.error('FATAL: DATABASE_URL is not set. Refusing to start with an insecure default.');
   process.exit(1);
@@ -92,9 +97,7 @@ server.post('/api/v1/log', { preValidation: [server.authenticate] }, async (requ
     });
   }
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withTenantTx(pgPool, tenantContextFromUser(request.user as any), async (client) => {
 
     // 1. Fetch the latest log entry to lock the chain tail and get previous hash
     const latestRes = await client.query(
@@ -126,27 +129,20 @@ server.post('/api/v1/log', { preValidation: [server.authenticate] }, async (requ
       currentHash
     ]);
 
-    await client.query('COMMIT');
-
     return reply.status(201).send({
       success: true,
       data: {
         entry: result.rows[0]
       }
     });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Helper to implement route handler logic for verify integrity
-async function handleVerifyLog(request: any, reply: any) {
+async function handleVerifyLog(request: any, reply: any, client: pg.PoolClient) {
   try {
     // Read all logs ordered by creation to verify sequential links
-    const logsRes = await pgPool.query('SELECT * FROM log_entries ORDER BY created_at ASC, id ASC');
+    const logsRes = await client.query('SELECT * FROM log_entries ORDER BY created_at ASC, id ASC');
     const logs = logsRes.rows;
 
     let unbroken = true;
@@ -196,12 +192,14 @@ async function handleVerifyLog(request: any, reply: any) {
 }
 
 // Route: Verify Integrity of Hash Chain
-server.get('/api/v1/log/verify', handleVerifyLog);
-server.get('/log/api/v1/log/verify', handleVerifyLog);
+const verifyLogPublicly = (request: any, reply: any) =>
+  withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, (client) => handleVerifyLog(request, reply, client));
+server.get('/api/v1/log/verify', verifyLogPublicly);
+server.get('/log/api/v1/log/verify', verifyLogPublicly);
 
 // Helper to implement log entries fetching
-async function handleGetEntries(request: any, reply: any) {
-  const result = await pgPool.query('SELECT * FROM log_entries ORDER BY created_at ASC, id ASC');
+async function handleGetEntries(request: any, reply: any, client: pg.PoolClient) {
+  const result = await client.query('SELECT * FROM log_entries ORDER BY created_at ASC, id ASC');
   return {
     success: true,
     data: {
@@ -218,11 +216,13 @@ async function handleGetEntries(request: any, reply: any) {
   };
 }
 
-server.get('/api/v1/log/entries', handleGetEntries);
-server.get('/log/api/v1/log/entries', handleGetEntries);
+const getEntriesPublicly = (request: any, reply: any) =>
+  withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, (client) => handleGetEntries(request, reply, client));
+server.get('/api/v1/log/entries', getEntriesPublicly);
+server.get('/log/api/v1/log/entries', getEntriesPublicly);
 
 // Helper to handle appending to log
-async function handleAppendLog(request: any, reply: any) {
+async function handleAppendLog(request: any, reply: any, client: pg.PoolClient) {
   const { entity_type, entity_id, event_type, payload } = request.body as any;
 
   if (!entity_type || !entity_id || !event_type || !payload) {
@@ -231,10 +231,6 @@ async function handleAppendLog(request: any, reply: any) {
       error: { statusCode: 400, code: 'BAD_REQUEST', message: 'Missing log entry parameters.' }
     });
   }
-
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
 
     // 1. Fetch the latest log entry to lock the chain tail and get previous hash
     const latestRes = await client.query(
@@ -266,23 +262,21 @@ async function handleAppendLog(request: any, reply: any) {
       currentHash
     ]);
 
-    await client.query('COMMIT');
-
     return reply.status(201).send({
       success: true,
       data: {
         entry: result.rows[0]
       }
     });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
 }
 
-server.post('/log/api/v1/log', { preValidation: [server.authenticate] }, handleAppendLog);
+server.post('/log/api/v1/log', { preValidation: [server.authenticate] }, (request, reply) =>
+  withTenantTx(
+    pgPool,
+    tenantContextFromUser(request.user as any),
+    (client) => handleAppendLog(request, reply, client)
+  )
+);
 
 // Start the server
 const start = async () => {
@@ -290,19 +284,18 @@ const start = async () => {
     const port = parseInt(process.env.PORT || '8085', 10);
 
     // Seed genesis block if table is empty
-    const client = await pgPool.connect();
     try {
-      const checkRes = await client.query('SELECT COUNT(*) FROM log_entries');
-      if (parseInt(checkRes.rows[0].count, 10) === 0) {
-        await client.query(`
-          INSERT INTO log_entries (entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
-          VALUES ('SYSTEM', '00000000-0000-0000-0000-000000000000', 'GENESIS_BLOCK_ANCHOR', 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', '00000000-0000-0000-0000-000000000000', 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
-        `);
-      }
+      await withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, async (client) => {
+        const checkRes = await client.query('SELECT COUNT(*) FROM log_entries');
+        if (parseInt(checkRes.rows[0].count, 10) === 0) {
+          await client.query(`
+            INSERT INTO log_entries (entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
+            VALUES ('SYSTEM', '00000000-0000-0000-0000-000000000000', 'GENESIS_BLOCK_ANCHOR', 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', '00000000-0000-0000-0000-000000000000', 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
+          `);
+        }
+      });
     } catch (seedErr) {
       server.log.error(seedErr as any, 'Seeding log_entries failed');
-    } finally {
-      client.release();
     }
 
     await server.listen({ port, host: '0.0.0.0' });

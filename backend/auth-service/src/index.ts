@@ -4,6 +4,11 @@ import bcrypt from 'fastify-bcrypt';
 import pg from 'pg';
 import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
+import {
+  PUBLIC_TENANT_CONTEXT,
+  tenantContextFromUser,
+  withTenantTx
+} from '../../../packages/shared/tenant-db.js';
 
 dotenv.config();
 
@@ -118,7 +123,7 @@ server.decorate('authorize', (allowedSpecs: any[]) => {
 });
 
 // Initialize PostgreSQL Client Pool
-const DATABASE_URL = process.env.DATABASE_URL || (process.env.NODE_ENV === 'test' ? 'postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_dev' : '');
+const DATABASE_URL = process.env.DATABASE_URL || '';
 if (!DATABASE_URL) {
   console.error('FATAL: DATABASE_URL is not set. Refusing to start with an insecure default.');
   process.exit(1);
@@ -126,6 +131,11 @@ if (!DATABASE_URL) {
 const pgPool = new pg.Pool({
   connectionString: DATABASE_URL
 });
+
+const withAuthenticatedTenantTx = <T>(
+  request: FastifyRequest,
+  fn: (client: pg.PoolClient) => Promise<T>
+) => withTenantTx(pgPool, tenantContextFromUser(request.user as any), fn);
 
 // Initialize Redis Client
 const REDIS_URL = process.env.REDIS_URL || (process.env.NODE_ENV === 'test' ? 'redis://:capmint_redis_secure_password@localhost:6379/0' : '');
@@ -229,9 +239,8 @@ server.post('/api/v1/auth/register-org', async (request, reply) => {
     });
   }
 
-  const client = await pgPool.connect();
   try {
-    await client.query('BEGIN');
+    return await withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, async (client) => {
 
     // AUTH-08: Register organization with duplicate GST/license
     if (business_reg_details?.tax_id) {
@@ -240,7 +249,6 @@ server.post('/api/v1/auth/register-org', async (request, reply) => {
         [business_reg_details.tax_id]
       );
       if (gstCheck.rows.length > 0) {
-        await client.query('ROLLBACK');
         return reply.status(409).send({
           success: false,
           error: {
@@ -258,7 +266,6 @@ server.post('/api/v1/auth/register-org', async (request, reply) => {
         [business_reg_details.registration_number]
       );
       if (regCheck.rows.length > 0) {
-        await client.query('ROLLBACK');
         return reply.status(409).send({
           success: false,
           error: {
@@ -297,8 +304,6 @@ server.post('/api/v1/auth/register-org', async (request, reply) => {
     // 3. Write immutable audit log for Org Registration
     await appendAuditLog(client, 'ORGANIZATION', newOrg.id, 'ORGANIZATION_REGISTERED', { organization_id: newOrg.id });
 
-    await client.query('COMMIT');
-
     return reply.status(201).send({
       success: true,
       data: {
@@ -306,8 +311,8 @@ server.post('/api/v1/auth/register-org', async (request, reply) => {
         adminUser: userRes.rows[0]
       }
     });
+    });
   } catch (err: any) {
-    await client.query('ROLLBACK');
     if (err.code === '23505') {
       return reply.status(409).send({
         success: false,
@@ -319,8 +324,6 @@ server.post('/api/v1/auth/register-org', async (request, reply) => {
       });
     }
     throw err;
-  } finally {
-    client.release();
   }
 });
 
@@ -346,13 +349,14 @@ server.post('/api/v1/auth/login', async (request, reply) => {
     });
   }
 
-  const result = await pgPool.query(`
-    SELECT u.*, o.type as org_type, o.status as org_status 
-    FROM users u 
-    JOIN organizations o ON u.organization_id = o.id 
-    WHERE u.username = $1
-  `, [username]);
-  const user = result.rows[0];
+  return withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, async (client) => {
+    const result = await client.query(`
+      SELECT u.*, o.type as org_type, o.status as org_status
+      FROM users u
+      JOIN organizations o ON u.organization_id = o.id
+      WHERE u.username = $1
+    `, [username]);
+    const user = result.rows[0];
 
   if (!user) {
     return reply.status(401).send({
@@ -402,31 +406,32 @@ server.post('/api/v1/auth/login', async (request, reply) => {
   }
 
   // Write immutable audit log for Login
-  await appendAuditLog(pgPool, 'USER', user.id, 'USER_LOGIN', { user_id: user.id });
+    await appendAuditLog(client, 'USER', user.id, 'USER_LOGIN', { user_id: user.id });
 
   // Sign JWT carrying Organization ID, Type, and Role
-  const token = server.jwt.sign({
-    id: user.id,
-    username: user.username,
-    orgId: user.organization_id,
-    orgType: user.org_type,
-    role: user.role
-  }, {
-    expiresIn: '8h'
-  });
+    const token = server.jwt.sign({
+      id: user.id,
+      username: user.username,
+      orgId: user.organization_id,
+      orgType: user.org_type,
+      role: user.role
+    }, {
+      expiresIn: '8h'
+    });
 
-  return reply.status(200).send({
-    success: true,
-    data: {
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        role: user.role,
-        orgId: user.organization_id,
-        orgType: user.org_type
+    return reply.status(200).send({
+      success: true,
+      data: {
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          orgId: user.organization_id,
+          orgType: user.org_type
+        }
       }
-    }
+    });
   });
 });
 
@@ -447,13 +452,15 @@ server.get('/api/v1/auth/me', {
 server.get('/api/v1/auth/organizations', {
   preValidation: [server.authenticate, server.authorize([{ orgType: 'SYSTEM_ADMINISTRATOR', role: 'ADMIN' }])]
 }, async (request, reply) => {
-  const result = await pgPool.query('SELECT * FROM organizations ORDER BY created_at DESC');
-  return {
-    success: true,
-    data: {
-      organizations: result.rows
-    }
-  };
+  return withAuthenticatedTenantTx(request, async (client) => {
+    const result = await client.query('SELECT * FROM organizations ORDER BY created_at DESC');
+    return {
+      success: true,
+      data: {
+        organizations: result.rows
+      }
+    };
+  });
 });
 
 // Route: Approve / Verification / Activate Organization (System Administrator only)
@@ -471,14 +478,11 @@ server.post('/api/v1/auth/organizations/:id/status', {
     });
   }
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
 
     // 1. Fetch organization first
     const orgCheck = await client.query('SELECT * FROM organizations WHERE id = $1', [id]);
     if (orgCheck.rows.length === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({
         success: false,
         error: { statusCode: 404, code: 'NOT_FOUND', message: 'Organization not found.' }
@@ -513,20 +517,13 @@ server.post('/api/v1/auth/organizations/:id/status', {
     // 4. Log immutable audit trail for status change
     await appendAuditLog(client, 'ORGANIZATION', id, 'ORGANIZATION_STATUS_UPDATED', { status });
 
-    await client.query('COMMIT');
-
     return {
       success: true,
       data: {
         organization: updateRes.rows[0]
       }
     };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: User management - Invite User (Organization Administrator only)
@@ -551,9 +548,8 @@ server.post('/api/v1/auth/users/invite', {
     });
   }
 
-  const client = await pgPool.connect();
   try {
-    await client.query('BEGIN');
+    return await withAuthenticatedTenantTx(request, async (client) => {
 
     // Hash password
     const passHash = await server.bcrypt.hash(password);
@@ -570,16 +566,14 @@ server.post('/api/v1/auth/users/invite', {
     // Log immutable audit entry for User Invitation
     await appendAuditLog(client, 'USER', newUser.id, 'USER_INVITED', { user_id: newUser.id });
 
-    await client.query('COMMIT');
-
     return reply.status(201).send({
       success: true,
       data: {
         user: newUser
       }
     });
+    });
   } catch (err: any) {
-    await client.query('ROLLBACK');
     if (err.code === '23505') {
       return reply.status(409).send({
         success: false,
@@ -587,8 +581,6 @@ server.post('/api/v1/auth/users/invite', {
       });
     }
     throw err;
-  } finally {
-    client.release();
   }
 });
 
@@ -599,8 +591,9 @@ server.post('/api/v1/auth/users/:id/disable', {
   const { id } = request.params as any;
   const adminUser = request.user as any;
 
+  return withAuthenticatedTenantTx(request, async (client) => {
   // Enforce same-organization containment validation
-  const userCheck = await pgPool.query('SELECT organization_id FROM users WHERE id = $1', [id]);
+  const userCheck = await client.query('SELECT organization_id FROM users WHERE id = $1', [id]);
   if (userCheck.rows.length === 0) {
     return reply.status(404).send({
       success: false,
@@ -615,7 +608,7 @@ server.post('/api/v1/auth/users/:id/disable', {
     });
   }
 
-  const result = await pgPool.query(
+  const result = await client.query(
     `UPDATE users SET status = 'DISABLED', updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id, username, status`,
     [id]
   );
@@ -626,6 +619,7 @@ server.post('/api/v1/auth/users/:id/disable', {
       user: result.rows[0]
     }
   };
+  });
 });
 
 // Route: User management - Remove User (Organization Administrator only)
@@ -635,8 +629,9 @@ server.delete('/api/v1/auth/users/:id', {
   const { id } = request.params as any;
   const adminUser = request.user as any;
 
+  return withAuthenticatedTenantTx(request, async (client) => {
   // Enforce same-organization containment validation
-  const userCheck = await pgPool.query('SELECT organization_id FROM users WHERE id = $1', [id]);
+  const userCheck = await client.query('SELECT organization_id FROM users WHERE id = $1', [id]);
   if (userCheck.rows.length === 0) {
     return reply.status(404).send({
       success: false,
@@ -651,12 +646,13 @@ server.delete('/api/v1/auth/users/:id', {
     });
   }
 
-  await pgPool.query('DELETE FROM users WHERE id = $1', [id]);
+  await client.query('DELETE FROM users WHERE id = $1', [id]);
 
   return {
     success: true,
     message: 'User removed successfully.'
   };
+  });
 });
 
 // RBAC-05: Certifier deletes organization (Dummy DELETE organization endpoint to enforce RBAC check)
@@ -689,8 +685,9 @@ server.post('/api/v1/auth/users/:id/role', {
     });
   }
 
+  return withAuthenticatedTenantTx(request, async (client) => {
   // Enforce same-organization containment validation
-  const userCheck = await pgPool.query('SELECT organization_id FROM users WHERE id = $1', [id]);
+  const userCheck = await client.query('SELECT organization_id FROM users WHERE id = $1', [id]);
   if (userCheck.rows.length === 0) {
     return reply.status(404).send({
       success: false,
@@ -705,7 +702,7 @@ server.post('/api/v1/auth/users/:id/role', {
     });
   }
 
-  const result = await pgPool.query(
+  const result = await client.query(
     `UPDATE users SET role = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING id, username, role`,
     [id, role]
   );
@@ -716,6 +713,7 @@ server.post('/api/v1/auth/users/:id/role', {
       user: result.rows[0]
     }
   };
+  });
 });
 
 // Route: List organization users (Admin/Member of same org, or System Admin for all)
@@ -747,13 +745,15 @@ server.get('/api/v1/auth/users', {
 
   query += ' ORDER BY u.username ASC';
 
-  const result = await pgPool.query(query, params);
-  return {
-    success: true,
-    data: {
-      users: result.rows
-    }
-  };
+  return withAuthenticatedTenantTx(request, async (client) => {
+    const result = await client.query(query, params);
+    return {
+      success: true,
+      data: {
+        users: result.rows
+      }
+    };
+  });
 });
 
 // Start the server

@@ -4,6 +4,11 @@ import jwt from '@fastify/jwt';
 import pg from 'pg';
 import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
+import {
+  PUBLIC_TENANT_CONTEXT,
+  tenantContextFromUser,
+  withTenantTx
+} from '../../../packages/shared/tenant-db.js';
 
 dotenv.config();
 
@@ -45,7 +50,11 @@ server.register(jwt, {
 function makeServiceToken(): string {
   const enc = (o: any) => Buffer.from(JSON.stringify(o)).toString('base64url');
   const head = enc({ alg: 'HS256', typ: 'JWT' });
-  const body = enc({ svc: 'verification-service', role: 'SERVICE', orgType: 'SYSTEM' });
+  const body = enc({
+    svc: 'verification-service',
+    role: 'ADMIN',
+    orgType: 'SYSTEM_ADMINISTRATOR'
+  });
   const sig = crypto.createHmac('sha256', JWT_SECRET).update(`${head}.${body}`).digest('base64url');
   return `${head}.${body}.${sig}`;
 }
@@ -135,7 +144,7 @@ const LOT_READ_SPECS = [
 ];
 
 // Initialize PostgreSQL Client Pool
-const DATABASE_URL = process.env.DATABASE_URL || (process.env.NODE_ENV === 'test' ? 'postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_dev' : '');
+const DATABASE_URL = process.env.DATABASE_URL || '';
 if (!DATABASE_URL) {
   console.error('FATAL: DATABASE_URL is not set. Refusing to start with an insecure default.');
   process.exit(1);
@@ -143,6 +152,11 @@ if (!DATABASE_URL) {
 const pgPool = new pg.Pool({
   connectionString: DATABASE_URL
 });
+
+const withAuthenticatedTenantTx = <T>(
+  request: FastifyRequest,
+  fn: (client: pg.PoolClient) => Promise<T>
+) => withTenantTx(pgPool, tenantContextFromUser(request.user as any), fn);
 
 // Initialize Redis Client
 const REDIS_URL = process.env.REDIS_URL || (process.env.NODE_ENV === 'test' ? 'redis://:capmint_redis_secure_password@localhost:6379/0' : '');
@@ -211,7 +225,7 @@ async function lockInvestigationForActor(client: pg.PoolClient, investigationId:
   return lockCertifierInvestigation(client, investigationId, user.orgId);
 }
 
-async function loadScopedLotCodes(lotId: string, user: any) {
+async function loadScopedLotCodes(client: pg.PoolClient, lotId: string, user: any) {
   const selection = `SELECT l.product_metadata,
                             u.public_identifier,
                             u.gtin,
@@ -222,7 +236,7 @@ async function loadScopedLotCodes(lotId: string, user: any) {
                      JOIN budgets b ON b.id = l.budget_id`;
   const codeJoin = 'LEFT JOIN unit_codes u ON u.lot_id = l.id';
   if (user.orgType === 'PRODUCER') {
-    return pgPool.query(
+    return client.query(
       `${selection}
        JOIN producers p ON p.id = l.producer_id
        ${codeJoin}
@@ -234,7 +248,7 @@ async function loadScopedLotCodes(lotId: string, user: any) {
     );
   }
   if (user.orgType === 'CERTIFICATION_BODY') {
-    return pgPool.query(
+    return client.query(
       `${selection}
        JOIN certifiers c ON c.id = b.certifier_id
        ${codeJoin}
@@ -245,7 +259,7 @@ async function loadScopedLotCodes(lotId: string, user: any) {
     );
   }
   if (isSystemAdministrator(user)) {
-    return pgPool.query(
+    return client.query(
       `${selection}
        ${codeJoin}
        WHERE l.id = $1
@@ -253,7 +267,7 @@ async function loadScopedLotCodes(lotId: string, user: any) {
       [lotId]
     );
   }
-  return pgPool.query('SELECT NULL WHERE FALSE');
+  return client.query('SELECT NULL WHERE FALSE');
 }
 
 // Redis sliding-window rate limiter (per client IP). Returns true if within the limit.
@@ -311,6 +325,7 @@ server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
     });
   }
 
+  return withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, async (client) => {
   // 1. Query unit code & lot context
   const query = `
     SELECT u.id, u.serial, u.gtin, u.current_state, u.clone_flag,
@@ -321,7 +336,7 @@ server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
     LEFT JOIN lab_results r ON r.lot_id = l.id
     WHERE u.gtin = $1 AND u.serial = $2
   `;
-  const result = await pgPool.query(query, [gtin, serial]);
+  const result = await client.query(query, [gtin, serial]);
 
   if (result.rowCount === 0) {
     return reply.status(404).send({
@@ -345,7 +360,7 @@ server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
     // 3. Clone detection checks (M-010 geovelocity calculations)
     if (lat !== undefined && lon !== undefined) {
       // Find the previous scan event for this unit code
-      const prevScanRes = await pgPool.query(
+      const prevScanRes = await client.query(
         'SELECT * FROM scan_events WHERE unit_code_id = $1 ORDER BY timestamp DESC LIMIT 1',
         [codeRecord.id]
       );
@@ -372,7 +387,7 @@ server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
               finalVerdict = 'CLONE-SUSPECT';
               
               // Flag record in DB
-              await pgPool.query('UPDATE unit_codes SET clone_flag = TRUE WHERE id = $1', [codeRecord.id]);
+              await client.query('UPDATE unit_codes SET clone_flag = TRUE WHERE id = $1', [codeRecord.id]);
             }
           }
         }
@@ -381,7 +396,7 @@ server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
   }
 
   // 4. Save this scan event
-  await pgPool.query(
+  await client.query(
     `INSERT INTO scan_events (unit_code_id, location, device_metadata, verdict)
      VALUES ($1, $2, $3, $4)`,
     [
@@ -406,6 +421,7 @@ server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
       } : null
     }
   };
+  });
 });
 
 // Route: Public Verification lookup by secure public identifier
@@ -432,6 +448,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
     });
   }
 
+  return withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, async (client) => {
   // 1. Query unit code & lot & budget context using public_identifier
   const query = `
     SELECT u.id, u.serial, u.gtin, u.current_state, u.clone_flag,
@@ -445,7 +462,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
     LEFT JOIN lab_results r ON r.lot_id = l.id
     WHERE u.public_identifier = $1
   `;
-  const result = await pgPool.query(query, [public_identifier]);
+  const result = await client.query(query, [public_identifier]);
 
   if (result.rowCount === 0) {
     return reply.status(404).send({
@@ -479,7 +496,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
     ORDER BY timestamp DESC
     LIMIT 1
   `;
-  const lastScanResult = await pgPool.query(lastScanQuery, [codeRecord.id]);
+  const lastScanResult = await client.query(lastScanQuery, [codeRecord.id]);
 
   if (lastScanResult.rows.length > 0 && lat !== undefined && lon !== undefined) {
     const prevScan = lastScanResult.rows[0];
@@ -498,7 +515,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
         const speed = hours > 0 ? distance / hours : Infinity;
         if (speed > 500 || hours < 0.05) {
           isCloneSuspect = true;
-          await pgPool.query('UPDATE unit_codes SET clone_flag = true WHERE id = $1', [codeRecord.id]);
+          await client.query('UPDATE unit_codes SET clone_flag = true WHERE id = $1', [codeRecord.id]);
         }
       }
     }
@@ -508,7 +525,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
   const finalRisk: string = isCloneSuspect ? 'CRITICAL' : 'LOW';
 
   // 3. Save this scan event
-  await pgPool.query(
+  await client.query(
     `INSERT INTO scan_events (unit_code_id, location, device_metadata, verdict)
      VALUES ($1, $2, $3, $4)`,
     [
@@ -522,14 +539,14 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
   // 3.5 Automatically create Investigation Case if risk is CRITICAL or HIGH
   if (finalRisk === 'CRITICAL' || finalRisk === 'HIGH') {
     // Check if open case already exists to prevent duplicate timeline spam
-    const existingCheck = await pgPool.query(
+    const existingCheck = await client.query(
       `SELECT id FROM investigations WHERE public_identifier = $1 AND status IN ('OPEN', 'UNDER_REVIEW')`,
       [public_identifier]
     );
 
     if (existingCheck.rows.length === 0) {
       // Query historical scans for evidence
-      const scansRes = await pgPool.query(
+      const scansRes = await client.query(
         `SELECT timestamp, location, device_metadata, verdict FROM scan_events WHERE unit_code_id = $1 ORDER BY timestamp DESC`,
         [codeRecord.id]
       );
@@ -560,7 +577,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
         ]
       };
 
-      await pgPool.query(`
+      await client.query(`
         INSERT INTO investigations (
           product_name, public_identifier, risk_level, status, detection_reason,
           manufacturer, current_product_status, evidence, unit_code_id
@@ -624,6 +641,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
       } : null
     }
   };
+  });
 });
 
 // Verify a budget's certifier Ed25519 signature (fail closed: false on missing certifier or invalid signature).
@@ -656,9 +674,7 @@ server.post('/api/v1/verify/register', {
   }
 
   const user = request.user as any;
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
 
     let lotUuid;
     if (lot_id) {
@@ -679,7 +695,6 @@ server.post('/api/v1/verify/register', {
         [lot_id, user.orgId]
       );
       if (lotRes.rowCount === 0) {
-        await client.query('ROLLBACK');
         return reply.status(404).send({
           success: false,
           error: { statusCode: 404, code: 'NOT_FOUND', message: 'Explicit lot not found, revoked, or unauthorized.' }
@@ -688,7 +703,6 @@ server.post('/api/v1/verify/register', {
       const batchSize = parseFloat(lotRes.rows[0].batch_size);
       const countRes = await client.query('SELECT COUNT(*)::int AS c FROM unit_codes WHERE lot_id = $1', [lot_id]);
       if (countRes.rows[0].c + 1 > batchSize) {
-        await client.query('ROLLBACK');
         return reply.status(422).send({
           success: false,
           error: { statusCode: 422, code: 'EXCEEDS_LOT_CAPACITY', message: `Lot capacity exhausted: ${countRes.rows[0].c}/${batchSize} units already minted for this lot.` }
@@ -697,7 +711,6 @@ server.post('/api/v1/verify/register', {
       // Verify the lot's budget carries a valid certifier signature (fail closed).
       const budForLot = await client.query('SELECT id, certifier_id, approved_quantity, signature_bundle FROM budgets WHERE id = $1', [lotRes.rows[0].budget_id]);
       if (budForLot.rows.length === 0 || !(await verifyBudgetAuthority(client, budForLot.rows[0].id, budForLot.rows[0].certifier_id, budForLot.rows[0].approved_quantity, budForLot.rows[0].signature_bundle))) {
-        await client.query('ROLLBACK');
         return reply.status(400).send({
           success: false,
           error: { statusCode: 400, code: 'INVALID_SIGNATURE', message: 'Budget supply authority could not be cryptographically verified.' }
@@ -721,7 +734,6 @@ server.post('/api/v1/verify/register', {
         [user.orgId]
       );
       if (budgetRes.rowCount === 0) {
-        await client.query('ROLLBACK');
         return reply.status(400).send({
           success: false,
           error: {
@@ -734,7 +746,6 @@ server.post('/api/v1/verify/register', {
       const budgetRow = budgetRes.rows[0];
       // Verify certifier signature authorizing this budget (defense in depth; fail closed).
       if (!(await verifyBudgetAuthority(client, budgetRow.id, budgetRow.certifier_id, budgetRow.approved_quantity, budgetRow.signature_bundle))) {
-        await client.query('ROLLBACK');
         return reply.status(400).send({
           success: false,
           error: { statusCode: 400, code: 'INVALID_SIGNATURE', message: 'Budget supply authority could not be cryptographically verified.' }
@@ -742,7 +753,6 @@ server.post('/api/v1/verify/register', {
       }
       const remaining = parseFloat(budgetRow.approved_quantity) - parseFloat(budgetRow.consumed_quantity);
       if (remaining < 1) {
-        await client.query('ROLLBACK');
         return reply.status(422).send({
           success: false,
           error: { statusCode: 422, code: 'EXCEEDS_CAPACITY', message: 'No remaining budget capacity to mint a new unit.' }
@@ -774,15 +784,8 @@ server.post('/api/v1/verify/register', {
       VALUES ($1, $2, $3, $4, $5, $6, $7, 'MINTED')
       ON CONFLICT (public_identifier) DO NOTHING
     `, [lotUuid, serial, gtin, digital_link_uri, public_identifier, verification_url, qr_code_data_uri]);
-
-    await client.query('COMMIT');
     return { success: true, message: 'Verification record persisted successfully.' };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Explicit Lot Creation for Manufacturers
@@ -807,9 +810,7 @@ server.post('/api/v1/lots', {
     });
   }
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
 
     // 1. Lock budget row to avoid concurrent drawdowns
     const budgetRes = await client.query(
@@ -825,7 +826,6 @@ server.post('/api/v1/lots', {
     );
 
     if (budgetRes.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({
         success: false,
         error: { statusCode: 404, message: 'Budget not found or unauthorized.' }
@@ -834,7 +834,6 @@ server.post('/api/v1/lots', {
 
     const budget = budgetRes.rows[0];
     if (budget.status !== 'ACTIVE') {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: { statusCode: 400, message: 'Budget is not active.' }
@@ -848,7 +847,6 @@ server.post('/api/v1/lots', {
       budget.approved_quantity,
       budget.signature_bundle
     ))) {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: {
@@ -861,7 +859,6 @@ server.post('/api/v1/lots', {
 
     const remaining = parseFloat(budget.approved_quantity) - parseFloat(budget.consumed_quantity);
     if (quantity > remaining) {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: { statusCode: 400, code: 'BUDGET_EXHAUSTED', message: 'Insufficient capacity remaining in budget.' }
@@ -904,18 +901,11 @@ server.post('/api/v1/lots', {
     } catch (ledgerErr) {
       server.log.error(ledgerErr as any, 'Failed to log lot creation to transparency ledger');
     }
-
-    await client.query('COMMIT');
     return {
       success: true,
       data: { lot: lotRes.rows[0] }
     };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Assign an activated NABL laboratory to a certifier-controlled lot
@@ -938,13 +928,10 @@ server.post('/api/v1/lots/:id/assign-laboratory', {
     });
   }
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
 
     const lotResult = await lockCertifierLotForLaboratoryAssignment(client, id, user.orgId);
     if (lotResult.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({
         success: false,
         error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' }
@@ -961,7 +948,6 @@ server.post('/api/v1/lots/:id/assign-laboratory', {
       [laboratory_organization_id]
     );
     if (laboratoryResult.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({
         success: false,
         error: {
@@ -981,8 +967,6 @@ server.post('/api/v1/lots/:id/assign-laboratory', {
         [id, laboratory_organization_id]
       );
     }
-
-    await client.query('COMMIT');
     return {
       success: true,
       data: {
@@ -992,12 +976,7 @@ server.post('/api/v1/lots/:id/assign-laboratory', {
         }
       }
     };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Export Lot Unit Codes as CSV
@@ -1007,7 +986,8 @@ server.get('/api/v1/lots/:id/export/csv', {
   const { id } = request.params as any;
   const user = request.user as any;
 
-  const scopedRows = await loadScopedLotCodes(id, user);
+  return withAuthenticatedTenantTx(request, async (client) => {
+  const scopedRows = await loadScopedLotCodes(client, id, user);
   if (scopedRows.rowCount === 0) {
     return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' } });
   }
@@ -1023,6 +1003,7 @@ server.get('/api/v1/lots/:id/export/csv', {
     .header('Content-Type', 'text/csv')
     .header('Content-Disposition', `attachment; filename=lot_export_${id}.csv`)
     .send(csvContent);
+  });
 });
 
 // Route: Export Lot Unit Codes as print-ready PDF data sheet
@@ -1032,7 +1013,8 @@ server.get('/api/v1/lots/:id/export/pdf', {
   const { id } = request.params as any;
   const user = request.user as any;
 
-  const scopedRows = await loadScopedLotCodes(id, user);
+  return withAuthenticatedTenantTx(request, async (client) => {
+  const scopedRows = await loadScopedLotCodes(client, id, user);
   if (scopedRows.rowCount === 0) {
     return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' } });
   }
@@ -1057,6 +1039,7 @@ server.get('/api/v1/lots/:id/export/pdf', {
       }))
     }
   };
+  });
 });
 
 // Route: Assign Caseworker to Investigation
@@ -1071,12 +1054,9 @@ server.post('/api/v1/verify/investigations/:id/assign', {
     return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Missing assigned_to UUID.' } });
   }
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
     const investigation = await lockInvestigationForActor(client, id, user);
     if (investigation.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Investigation not found.' } });
     }
 
@@ -1087,7 +1067,6 @@ server.post('/api/v1/verify/investigations/:id/assign', {
           [assigned_to, user.orgId, 'ACTIVE']
         );
     if (assignee.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Assignee not found.' } });
     }
 
@@ -1106,14 +1085,8 @@ server.post('/api/v1/verify/investigations/:id/assign', {
        RETURNING *`,
       [id, assigned_to, JSON.stringify([timelineEntry])]
     );
-    await client.query('COMMIT');
     return { success: true, data: { investigation: result.rows[0] } };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Add Case Notes to Investigation
@@ -1128,12 +1101,9 @@ server.post('/api/v1/verify/investigations/:id/notes', {
     return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Missing note_text.' } });
   }
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
     const investigation = await lockInvestigationForActor(client, id, user);
     if (investigation.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Investigation not found.' } });
     }
 
@@ -1153,14 +1123,8 @@ server.post('/api/v1/verify/investigations/:id/notes', {
        RETURNING *`,
       [id, JSON.stringify([noteEntry]), JSON.stringify([timelineEntry])]
     );
-    await client.query('COMMIT');
     return { success: true, data: { investigation: result.rows[0] } };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Escalate Investigation Severity
@@ -1175,12 +1139,9 @@ server.post('/api/v1/verify/investigations/:id/escalate', {
     return reply.status(400).send({ success: false, error: { statusCode: 400, message: 'Missing risk_level.' } });
   }
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
     const investigation = await lockInvestigationForActor(client, id, user);
     if (investigation.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Investigation not found.' } });
     }
 
@@ -1200,14 +1161,8 @@ server.post('/api/v1/verify/investigations/:id/escalate', {
        RETURNING *`,
       [id, risk_level, JSON.stringify([timelineEntry])]
     );
-    await client.query('COMMIT');
     return { success: true, data: { investigation: result.rows[0] } };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Close/Resolve Investigation
@@ -1224,12 +1179,9 @@ server.post('/api/v1/verify/investigations/:id/close', {
     return reply.status(400).send({ success: false, error: { statusCode: 400, code: 'BAD_REQUEST', message: 'Invalid closure status.' } });
   }
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
     const investigation = await lockInvestigationForActor(client, id, user);
     if (investigation.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({ success: false, error: { statusCode: 404, code: 'NOT_FOUND', message: 'Investigation not found.' } });
     }
 
@@ -1248,14 +1200,8 @@ server.post('/api/v1/verify/investigations/:id/close', {
        RETURNING *`,
       [id, finalStatus, JSON.stringify([timelineEntry])]
     );
-    await client.query('COMMIT');
     return { success: true, data: { investigation: result.rows[0] } };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Public simulation revocation for Manufacturer Console
@@ -1276,9 +1222,7 @@ server.post('/api/v1/verify/revoke', {
     });
   }
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
 
     const lotRes = await client.query(
       `SELECT l.id
@@ -1293,7 +1237,6 @@ server.post('/api/v1/verify/revoke', {
     );
 
     if (lotRes.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({
         success: false,
         error: { statusCode: 404, code: 'NOT_FOUND', message: 'Batch not found.' }
@@ -1314,15 +1257,8 @@ server.post('/api/v1/verify/revoke', {
       `UPDATE unit_codes SET current_state = 'REVOKED', revoked_at = CURRENT_TIMESTAMP WHERE lot_id = ANY($1)`,
       [lotIds]
     );
-
-    await client.query('COMMIT');
     return { success: true, message: `Batch ${batch_id} and all associated unit codes cascade revoked successfully in simulation.` };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Cascade Revocation (M-011)
@@ -1332,13 +1268,10 @@ server.post('/api/v1/lots/:id/revoke', {
   const { id } = request.params as any;
   const user = request.user as any;
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
 
     const lotRes = await lockCertifierLot(client, id, user.orgId);
     if (lotRes.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({
         success: false,
         error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' }
@@ -1347,7 +1280,6 @@ server.post('/api/v1/lots/:id/revoke', {
 
     // CERT-04: Revoke already revoked lot -> No duplicate action
     if (lotRes.rows[0].revocation_status === 'REVOKED') {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: {
@@ -1372,18 +1304,11 @@ server.post('/api/v1/lots/:id/revoke', {
       [id]
     );
 
-    await client.query('COMMIT');
-
     return {
       success: true,
       message: 'Lot and all associated unit codes cascade revoked successfully.'
     };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Certify Lot (Certification Body only)
@@ -1393,13 +1318,10 @@ server.post('/api/v1/lots/:id/certify', {
   const { id } = request.params as any;
   const user = request.user as any;
 
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
 
     const lotRes = await lockCertifierLot(client, id, user.orgId);
     if (lotRes.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({
         success: false,
         error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' }
@@ -1410,7 +1332,6 @@ server.post('/api/v1/lots/:id/certify', {
 
     // CERT-02: Certify failed lot -> Rejected
     if (lot.lab_status === 'FAILED' || lot.revocation_status === 'REVOKED') {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: {
@@ -1426,7 +1347,6 @@ server.post('/api/v1/lots/:id/certify', {
     
     // CERT-01: Certify lot without lab report -> Rejected
     if (labCheck.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: {
@@ -1439,7 +1359,6 @@ server.post('/api/v1/lots/:id/certify', {
 
     // CERT-03: Certify already certified lot -> Conflict
     if (lot.product_metadata?.certification_status === 'CERTIFIED') {
-      await client.query('ROLLBACK');
       return reply.status(409).send({
         success: false,
         error: {
@@ -1477,18 +1396,11 @@ server.post('/api/v1/lots/:id/certify', {
     } catch (logErr) {
       server.log.error(logErr as any, 'Failed to append LOT_CERTIFIED event to ledger');
     }
-
-    await client.query('COMMIT');
     return {
       success: true,
       message: 'Lot successfully certified.'
     };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Get all unit codes
@@ -1496,9 +1408,10 @@ server.get('/api/v1/verify/unit-codes', {
   preValidation: [server.authenticate, server.authorize(OPERATIONAL_READ_SPECS)]
 }, async (request, reply) => {
   const user = request.user as any;
+  return withAuthenticatedTenantTx(request, async (client) => {
   let result;
   if (user.orgType === 'PRODUCER') {
-    result = await pgPool.query(
+    result = await client.query(
       `SELECT u.*, l.product_metadata
        FROM unit_codes u
        JOIN lots l ON l.id = u.lot_id
@@ -1510,7 +1423,7 @@ server.get('/api/v1/verify/unit-codes', {
       [user.orgId]
     );
   } else if (user.orgType === 'CERTIFICATION_BODY') {
-    result = await pgPool.query(
+    result = await client.query(
       `SELECT u.*, l.product_metadata
        FROM unit_codes u
        JOIN lots l ON l.id = u.lot_id
@@ -1521,7 +1434,7 @@ server.get('/api/v1/verify/unit-codes', {
       [user.orgId]
     );
   } else if (isSystemAdministrator(user)) {
-    result = await pgPool.query(`
+    result = await client.query(`
       SELECT u.*, l.product_metadata
       FROM unit_codes u
       JOIN lots l ON l.id = u.lot_id
@@ -1546,6 +1459,7 @@ server.get('/api/v1/verify/unit-codes', {
       }))
     }
   };
+  });
 });
 
 // Route: Get all lots
@@ -1553,9 +1467,10 @@ server.get('/api/v1/verify/lots', {
   preValidation: [server.authenticate, server.authorize(LOT_READ_SPECS)]
 }, async (request, reply) => {
   const user = request.user as any;
+  return withAuthenticatedTenantTx(request, async (client) => {
   let result;
   if (user.orgType === 'PRODUCER') {
-    result = await pgPool.query(
+    result = await client.query(
       `SELECT l.*
        FROM lots l
        JOIN budgets b ON b.id = l.budget_id
@@ -1566,7 +1481,7 @@ server.get('/api/v1/verify/lots', {
       [user.orgId]
     );
   } else if (user.orgType === 'CERTIFICATION_BODY') {
-    result = await pgPool.query(
+    result = await client.query(
       `SELECT l.*
        FROM lots l
        JOIN budgets b ON b.id = l.budget_id
@@ -1576,7 +1491,7 @@ server.get('/api/v1/verify/lots', {
       [user.orgId]
     );
   } else if (user.orgType === 'NABL_LABORATORY') {
-    result = await pgPool.query(
+    result = await client.query(
       `SELECT l.*
        FROM lots l
        JOIN organizations o
@@ -1588,7 +1503,7 @@ server.get('/api/v1/verify/lots', {
       [user.orgId]
     );
   } else if (isSystemAdministrator(user)) {
-    result = await pgPool.query('SELECT * FROM lots ORDER BY created_at DESC');
+    result = await client.query('SELECT * FROM lots ORDER BY created_at DESC');
   } else {
     return reply.status(403).send({ success: false, error: { statusCode: 403, code: 'FORBIDDEN', message: 'You do not have permission to list lots.' } });
   }
@@ -1609,6 +1524,7 @@ server.get('/api/v1/verify/lots', {
       }))
     }
   };
+  });
 });
 
 // Route: List Investigations
@@ -1616,9 +1532,10 @@ server.get('/api/v1/verify/investigations', {
   preValidation: [server.authenticate, server.authorize(INVESTIGATION_MUTATION_SPECS)]
 }, async (request, reply) => {
   const user = request.user as any;
+  return withAuthenticatedTenantTx(request, async (client) => {
   const result = isSystemAdministrator(user)
-    ? await pgPool.query('SELECT * FROM investigations ORDER BY created_at DESC')
-    : await pgPool.query(
+    ? await client.query('SELECT * FROM investigations ORDER BY created_at DESC')
+    : await client.query(
         `SELECT i.*
          FROM investigations i
          JOIN unit_codes u ON u.id = i.unit_code_id
@@ -1646,6 +1563,7 @@ server.get('/api/v1/verify/investigations', {
       }))
     }
   };
+  });
 });
 
 // Route: Get Investigation Details
@@ -1654,9 +1572,10 @@ server.get('/api/v1/verify/investigations/:id', {
 }, async (request, reply) => {
   const { id } = request.params as any;
   const user = request.user as any;
+  return withAuthenticatedTenantTx(request, async (client) => {
   const result = isSystemAdministrator(user)
-    ? await pgPool.query('SELECT * FROM investigations WHERE id = $1', [id])
-    : await pgPool.query(
+    ? await client.query('SELECT * FROM investigations WHERE id = $1', [id])
+    : await client.query(
         `SELECT i.*
          FROM investigations i
          JOIN unit_codes u ON u.id = i.unit_code_id
@@ -1691,6 +1610,7 @@ server.get('/api/v1/verify/investigations/:id', {
       }
     }
   };
+  });
 });
 
 // Route: Approve Revocation
@@ -1699,14 +1619,11 @@ server.post('/api/v1/verify/investigations/:id/approve', {
 }, async (request, reply) => {
   const { id } = request.params as any;
   const user = request.user as any;
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
 
     // 1. Fetch Investigation
     const invRes = await lockCertifierInvestigation(client, id, user.orgId);
     if (invRes.rows.length === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({
         success: false,
         error: { statusCode: 404, code: 'NOT_FOUND', message: 'Investigation not found.' }
@@ -1739,7 +1656,6 @@ server.post('/api/v1/verify/investigations/:id/approve', {
     );
 
     // 5. Commit transaction
-    await client.query('COMMIT');
 
     // 6. Log to Transparency Ledger
     try {
@@ -1780,12 +1696,7 @@ server.post('/api/v1/verify/investigations/:id/approve', {
       success: true,
       message: 'Investigation approved and product officially revoked.'
     };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Dismiss Investigation
@@ -1794,14 +1705,11 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
 }, async (request, reply) => {
   const { id } = request.params as any;
   const user = request.user as any;
-  const client = await pgPool.connect();
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
 
     // 1. Fetch Investigation
     const invRes = await lockCertifierInvestigation(client, id, user.orgId);
     if (invRes.rows.length === 0) {
-      await client.query('ROLLBACK');
       return reply.status(404).send({
         success: false,
         error: { statusCode: 404, code: 'NOT_FOUND', message: 'Investigation not found.' }
@@ -1816,8 +1724,6 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
       `UPDATE investigations SET status = 'DISMISSED', updated_at = CURRENT_TIMESTAMP WHERE id = $1`,
       [id]
     );
-
-    await client.query('COMMIT');
 
     // 3. Log to Transparency Ledger
     try {
@@ -1843,12 +1749,7 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
       success: true,
       message: 'Investigation successfully dismissed.'
     };
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
+  });
 });
 
 // Route: Register Lab Results
@@ -1874,11 +1775,9 @@ server.post('/api/v1/verify/lab-results', {
     });
   }
 
-  const client = await pgPool.connect();
   let ledgerEvents: Array<{ event_type: string; payload: Record<string, unknown> }> = [];
   let labResult: any;
-  try {
-    await client.query('BEGIN');
+  return withAuthenticatedTenantTx(request, async (client) => {
 
     const scopedLot = await client.query(
       `SELECT l.id
@@ -1894,7 +1793,6 @@ server.post('/api/v1/verify/lab-results', {
       [lot_id, user.orgId]
     );
     if (scopedLot.rowCount === 0) {
-      await client.query('ROLLBACK');
       return reply.status(403).send({
         success: false,
         error: {
@@ -1906,7 +1804,6 @@ server.post('/api/v1/verify/lab-results', {
     }
 
     if (!lab_name || !test_type || !result_summary || !report_hash) {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: { statusCode: 400, code: 'BAD_REQUEST', message: 'Missing required lab result fields.' }
@@ -1915,7 +1812,6 @@ server.post('/api/v1/verify/lab-results', {
 
     const normalizedSummary = String(result_summary).toUpperCase();
     if (!['PASS', 'PASSED', 'FAIL', 'FAILED'].includes(normalizedSummary)) {
-      await client.query('ROLLBACK');
       return reply.status(400).send({
         success: false,
         error: {
@@ -1933,7 +1829,6 @@ server.post('/api/v1/verify/lab-results', {
       try {
         pdfBuffer = Buffer.from(pdf_content, 'base64');
       } catch {
-        await client.query('ROLLBACK');
         return reply.status(400).send({
           success: false,
           error: {
@@ -1944,7 +1839,6 @@ server.post('/api/v1/verify/lab-results', {
         });
       }
       if (pdfBuffer.length < 4 || pdfBuffer.toString('ascii', 0, 4) !== '%PDF') {
-        await client.query('ROLLBACK');
         return reply.status(400).send({
           success: false,
           error: {
@@ -1956,7 +1850,6 @@ server.post('/api/v1/verify/lab-results', {
       }
       const calculatedHash = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
       if (calculatedHash !== report_hash) {
-        await client.query('ROLLBACK');
         return reply.status(400).send({
           success: false,
           error: {
@@ -1974,7 +1867,6 @@ server.post('/api/v1/verify/lab-results', {
     );
     const isReplacement = existingResult.rowCount !== 0;
     if (isReplacement && existingResult.rows[0].report_hash === report_hash) {
-      await client.query('ROLLBACK');
       return reply.status(409).send({
         success: false,
         error: {
@@ -2058,15 +1950,6 @@ server.post('/api/v1/verify/lab-results', {
         payload: { lot_id, lab_name, test_type, report_hash }
       });
     }
-
-    await client.query('COMMIT');
-  } catch (err) {
-    await client.query('ROLLBACK');
-    throw err;
-  } finally {
-    client.release();
-  }
-
   for (const event of ledgerEvents) {
     try {
       await fetch(LEDGER_URL, {
@@ -2091,6 +1974,7 @@ server.post('/api/v1/verify/lab-results', {
     success: true,
     data: { labResult }
   };
+  });
 });
 
 // Start the server
