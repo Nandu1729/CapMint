@@ -433,6 +433,15 @@ suite('C0 tenant authorization containment', () => {
       `INSERT INTO migrations_log (filename)
        VALUES ('0018_enable_supporting_table_rls.sql')`
     );
+    const finalRlsMigration = await fs.readFile(
+      path.join(ROOT, 'database/migrations/0019_enable_users_and_ledger_rls.sql'),
+      'utf8'
+    );
+    await testPool.query(finalRlsMigration);
+    await testPool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0019_enable_users_and_ledger_rls.sql')`
+    );
     const roleState = await adminPool.query(
       `SELECT rolcanlogin FROM pg_roles WHERE rolname = 'capmint_app'`
     );
@@ -1096,6 +1105,48 @@ suite('C0 tenant authorization containment', () => {
         [ids.producerA, ids.producerB]
       );
       await testPool.query('DELETE FROM lab_results WHERE lot_id = $1', [ids.lotB]);
+    }
+  });
+
+  it('enforces user isolation and append-only ledger immutability', async () => {
+    const userA = crypto.randomUUID();
+    const userB = crypto.randomUUID();
+    const ledgerId = crypto.randomUUID();
+    await testPool.query(
+      `INSERT INTO users (id, organization_id, username, password_hash, role, status)
+       VALUES ($1, $2, $3, 'd3c-a', 'MEMBER', 'ACTIVE'),
+              ($4, $5, $6, 'd3c-b', 'MEMBER', 'ACTIVE')`,
+      [userA, ids.producerOrgA, `d3c_a_${userA}`, userB, ids.producerOrgB, `d3c_b_${userB}`]
+    );
+    await testPool.query(
+      `INSERT INTO log_entries (id, entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
+       VALUES ($1, 'TEST', $1, 'D3C_TEST', repeat('a',64), repeat('0',64), repeat('b',64))`,
+      [ledgerId]
+    );
+    const appPool = new pg.Pool({ connectionString: appDatabaseUrl, max: 1 });
+    const context = { access: 'authenticated' as const, orgId: ids.producerOrgA, isSystemAdmin: false };
+    try {
+      await withTenantTx(appPool, context, async client => {
+        expect((await client.query('SELECT id FROM users WHERE id = $1', [userB])).rowCount).toBe(0);
+        expect((await client.query('UPDATE users SET status = status WHERE id = $1 RETURNING id', [userB])).rowCount).toBe(0);
+        expect((await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [userB])).rowCount).toBe(0);
+        expect((await client.query('UPDATE log_entries SET event_type = event_type WHERE id = $1 RETURNING id', [ledgerId])).rowCount).toBe(0);
+        expect((await client.query('DELETE FROM log_entries WHERE id = $1 RETURNING id', [ledgerId])).rowCount).toBe(0);
+      });
+      await expect(withTenantTx(appPool, context, client => client.query(
+        `INSERT INTO users (organization_id, username, password_hash, role, status)
+         VALUES ($1, $2, 'denied', 'MEMBER', 'ACTIVE')`, [ids.producerOrgB, `d3c_denied_${crypto.randomUUID()}`]
+      ))).rejects.toMatchObject({ code: '42501' });
+      await withTenantTx(appPool, PUBLIC_TENANT_CONTEXT, async client => {
+        expect((await client.query('SELECT id FROM users WHERE id = $1', [userA])).rowCount).toBe(1);
+        expect((await client.query('SELECT id FROM log_entries WHERE id = $1', [ledgerId])).rowCount).toBe(1);
+      });
+      const ownerUpdate = await testPool.query('UPDATE log_entries SET event_type = event_type WHERE id = $1 RETURNING id', [ledgerId]);
+      expect(ownerUpdate.rowCount).toBe(1);
+    } finally {
+      await appPool.end();
+      await testPool.query('DELETE FROM log_entries WHERE id = $1', [ledgerId]);
+      await testPool.query('DELETE FROM users WHERE id IN ($1, $2)', [userA, userB]);
     }
   });
 
