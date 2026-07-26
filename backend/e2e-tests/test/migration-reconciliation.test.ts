@@ -13,6 +13,7 @@ const PREFIX = `capmint_c1_test_${RUN_ID}`;
 const runnerPath = path.join(ROOT, 'playground/run_migrations.js');
 const schemaPath = path.join(ROOT, 'database/schema/schema.sql');
 const baselinePath = path.join(ROOT, 'database/baselines/capmint-baseline-20260725.sql');
+const tenantMigrationPath = path.join(ROOT, 'database/migrations/0011_add_profile_organization_id.sql');
 const allLegacyFiles = [
   '0001_add_certification_status_and_updated_at.sql',
   '0002_add_investigations_table.sql',
@@ -220,7 +221,7 @@ suite('C1 migration reconciliation', () => {
     if (adminPool) await adminPool.end();
   }, 60_000);
 
-  it('bootstraps empty PostgreSQL, records one baseline, applies 0010, and becomes a no-op', async () => {
+  it('bootstraps empty PostgreSQL, records one baseline, applies 0010/0011, and becomes a no-op', async () => {
     const name = databaseName('bootstrap');
     await createDatabase(name);
     try {
@@ -239,7 +240,7 @@ suite('C1 migration reconciliation', () => {
          FROM migrations_log
          ORDER BY id`
       ).then(result => result.rows));
-      expect(rows).toHaveLength(2);
+      expect(rows).toHaveLength(3);
       expect(rows[0]).toMatchObject({
         filename: 'capmint-baseline-20260725.sql',
         application_mode: 'BASELINE',
@@ -250,6 +251,10 @@ suite('C1 migration reconciliation', () => {
       expect(rows[0].checksum_sha256).toMatch(/^[a-f0-9]{64}$/);
       expect(rows[1]).toMatchObject({
         filename: '0010_reconcile_pre_dm03_schema.sql',
+        application_mode: 'EXECUTED'
+      });
+      expect(rows[2]).toMatchObject({
+        filename: '0011_add_profile_organization_id.sql',
         application_mode: 'EXECUTED'
       });
       const baselineState = await withPool(name, pool => pool.query(
@@ -267,13 +272,13 @@ suite('C1 migration reconciliation', () => {
       expect(runRunner(name, ['--apply']).status).toBe(0);
       expect(runRunner(name, ['--check']).status).toBe(0);
       const count = await withPool(name, pool => pool.query('SELECT count(*)::int AS count FROM migrations_log').then(result => result.rows[0].count));
-      expect(count).toBe(2);
+      expect(count).toBe(3);
     } finally {
       await dropDatabase(name);
     }
   }, 60_000);
 
-  it('detects and adopts exact 0007/0009 effects without application-schema DDL', async () => {
+  it('detects and adopts exact 0007/0009/0011 effects without application-schema DDL', async () => {
     const name = databaseName('adoption');
     await createDatabase(name);
     try {
@@ -287,13 +292,15 @@ suite('C1 migration reconciliation', () => {
       expect(plan.status).toBe(2);
       expect(check.parsed.report.actions).toEqual(expect.arrayContaining([
         expect.objectContaining({ action: 'ADOPT', target: '0007_add_producer_brandings_table.sql' }),
-        expect.objectContaining({ action: 'ADOPT', target: '0009_widen_investigations_status_check.sql' })
+        expect.objectContaining({ action: 'ADOPT', target: '0009_widen_investigations_status_check.sql' }),
+        expect.objectContaining({ action: 'ADOPT', target: '0011_add_profile_organization_id.sql' })
       ]));
 
       const adoption = runRunner(name, [
         '--adopt',
         '0007_add_producer_brandings_table.sql',
-        '0009_widen_investigations_status_check.sql'
+        '0009_widen_investigations_status_check.sql',
+        '0011_add_profile_organization_id.sql'
       ]);
       expect(adoption.status, adoption.stderr).toBe(0);
       expect(await schemaFingerprint(name)).toBe(before);
@@ -301,11 +308,15 @@ suite('C1 migration reconciliation', () => {
       const adoptedRows = await withPool(name, pool => pool.query(
         `SELECT filename, application_mode, checksum_sha256, evidence_fingerprint
          FROM migrations_log
-         WHERE filename IN ($1, $2)
+         WHERE filename IN ($1, $2, $3)
          ORDER BY filename`,
-        ['0007_add_producer_brandings_table.sql', '0009_widen_investigations_status_check.sql']
+        [
+          '0007_add_producer_brandings_table.sql',
+          '0009_widen_investigations_status_check.sql',
+          '0011_add_profile_organization_id.sql'
+        ]
       ).then(result => result.rows));
-      expect(adoptedRows).toHaveLength(2);
+      expect(adoptedRows).toHaveLength(3);
       for (const row of adoptedRows) {
         expect(row.application_mode).toBe('ADOPTED');
         expect(row.checksum_sha256).toMatch(/^[a-f0-9]{64}$/);
@@ -349,6 +360,7 @@ suite('C1 migration reconciliation', () => {
       ).then(result => result.rows));
       expect(columnsAfterAdoption).toEqual(columnsBeforeAdoption);
 
+      expect(runRunner(name, ['--adopt', '0011_add_profile_organization_id.sql']).status).toBe(0);
       expect(runRunner(name, ['--apply']).status).toBe(0);
       expect(runRunner(name, ['--check']).status).toBe(0);
 
@@ -399,6 +411,7 @@ suite('C1 migration reconciliation', () => {
       for (const name of [supported, incompatible]) {
         await applySqlFile(name, schemaPath);
         await createLegacyLog(name, allLegacyFiles);
+        expect(runRunner(name, ['--adopt', '0011_add_profile_organization_id.sql']).status).toBe(0);
       }
       await withPool(supported, async pool => {
         await pool.query('ALTER TABLE investigations DROP CONSTRAINT chk_investigations_status');
@@ -430,7 +443,8 @@ suite('C1 migration reconciliation', () => {
       expect(runRunner(name, [
         '--adopt',
         '0007_add_producer_brandings_table.sql',
-        '0009_widen_investigations_status_check.sql'
+        '0009_widen_investigations_status_check.sql',
+        '0011_add_profile_organization_id.sql'
       ]).status).toBe(0);
       const badChecksum = '0'.repeat(64);
       await withPool(name, pool => pool.query(
@@ -481,6 +495,141 @@ suite('C1 migration reconciliation', () => {
       await dropDatabase(name);
     }
   }, 60_000);
+
+  it('backfills matching profiles, quarantines orphans, enforces the FK, and is idempotent', async () => {
+    const name = databaseName('tenant_backfill');
+    await createDatabase(name);
+    try {
+      await applySqlFile(name, baselinePath);
+      await createLegacyLog(name, allLegacyFiles);
+      await withPool(name, async pool => {
+        await pool.query(`
+          INSERT INTO organizations
+            (id, name, type, official_email, status)
+          VALUES
+            ('10000000-0000-0000-0000-000000000011',
+             'C2 Matching Producer',
+             'PRODUCER',
+             'c2-producer@capmint.example',
+             'ACTIVATED'),
+            ('10000000-0000-0000-0000-000000000012',
+             'C2 Matching Certifier',
+             'CERTIFICATION_BODY',
+             'c2-certifier@capmint.example',
+             'ACTIVATED')
+        `);
+        await pool.query(`
+          INSERT INTO producers (id, name, type, registry_references)
+          VALUES (
+            '10000000-0000-0000-0000-000000000011',
+            'C2 Matching Producer',
+            'FARMER',
+            '{}'::jsonb
+          )
+        `);
+        await pool.query(`
+          INSERT INTO certifiers
+            (id, name, accreditation_details, public_key, key_status)
+          VALUES
+            ('10000000-0000-0000-0000-000000000012',
+             'C2 Matching Certifier',
+             '{}'::jsonb,
+             'c2-matching-key',
+             'ACTIVE'),
+            ('10000000-0000-0000-0000-000000000013',
+             'C2 Orphan Certifier',
+             '{}'::jsonb,
+             'c2-orphan-key',
+             'ACTIVE')
+        `);
+      });
+
+      expect(runRunner(name, ['--apply']).status).toBe(0);
+      expect(runRunner(name, ['--apply']).status).toBe(0);
+      expect(runRunner(name, ['--check']).status).toBe(0);
+
+      const ownership = await withPool(name, pool => pool.query(`
+        SELECT 'producer' AS profile_type, id, organization_id
+        FROM producers
+        UNION ALL
+        SELECT 'certifier' AS profile_type, id, organization_id
+        FROM certifiers
+        ORDER BY profile_type, id
+      `).then(result => result.rows));
+      expect(ownership).toEqual([
+        {
+          profile_type: 'certifier',
+          id: '10000000-0000-0000-0000-000000000012',
+          organization_id: '10000000-0000-0000-0000-000000000012'
+        },
+        {
+          profile_type: 'certifier',
+          id: '10000000-0000-0000-0000-000000000013',
+          organization_id: null
+        },
+        {
+          profile_type: 'producer',
+          id: '10000000-0000-0000-0000-000000000011',
+          organization_id: '10000000-0000-0000-0000-000000000011'
+        }
+      ]);
+
+      const constraints = await withPool(name, pool => pool.query(`
+        SELECT conname, convalidated
+        FROM pg_constraint
+        WHERE conname IN (
+          'producers_organization_id_fkey',
+          'certifiers_organization_id_fkey'
+        )
+        ORDER BY conname
+      `).then(result => result.rows));
+      expect(constraints).toEqual([
+        { conname: 'certifiers_organization_id_fkey', convalidated: true },
+        { conname: 'producers_organization_id_fkey', convalidated: true }
+      ]);
+
+      const indexes = await withPool(name, pool => pool.query(`
+        SELECT indexname
+        FROM pg_indexes
+        WHERE schemaname = 'public'
+          AND indexname IN (
+            'idx_producers_organization_id',
+            'idx_certifiers_organization_id'
+          )
+        ORDER BY indexname
+      `).then(result => result.rows.map(row => row.indexname)));
+      expect(indexes).toEqual([
+        'idx_certifiers_organization_id',
+        'idx_producers_organization_id'
+      ]);
+
+      await expect(withPool(name, pool => pool.query(`
+        INSERT INTO producers
+          (id, organization_id, name, type, registry_references)
+        VALUES
+          ('10000000-0000-0000-0000-000000000014',
+           '10000000-0000-0000-0000-000000000099',
+           'C2 Invalid Owner',
+           'FARMER',
+           '{}'::jsonb)
+      `))).rejects.toMatchObject({ code: '23503' });
+
+      const beforeDirectRerun = await schemaFingerprint(name);
+      await applySqlFile(name, tenantMigrationPath);
+      expect(await schemaFingerprint(name)).toBe(beforeDirectRerun);
+
+      await withPool(name, pool => pool.query(
+        'DROP INDEX idx_certifiers_organization_id'
+      ).then(() => undefined));
+      const partial = runRunner(name, ['--check']);
+      expect(partial.status).toBe(2);
+      expect(partial.parsed.report.states['0011_add_profile_organization_id.sql'].status)
+        .toBe('incompatible');
+      expect(runRunner(name, ['--apply']).status).toBe(1);
+    } finally {
+      await dropDatabase(name);
+    }
+  }, 90_000);
 
   it('produces identical normalized schemas from baseline and snapshot paths', async () => {
     const baseline = databaseName('compare_baseline');

@@ -438,6 +438,26 @@ suite('F2 secure bootstrap and development seed', () => {
            WHERE event_type = 'DEVELOPMENT_FIXTURES_SEEDED'`
         )).rows[0].count);
         expect(auditCount).toBe(1);
+        const profileOwnership = (await pool.query(`
+          SELECT 'certifier' AS profile_type, id, organization_id
+          FROM certifiers
+          UNION ALL
+          SELECT 'producer' AS profile_type, id, organization_id
+          FROM producers
+          ORDER BY profile_type
+        `)).rows;
+        expect(profileOwnership).toEqual([
+          {
+            profile_type: 'certifier',
+            id: '00000000-0000-0000-0000-000000000001',
+            organization_id: '00000000-0000-0000-0000-000000000001'
+          },
+          {
+            profile_type: 'producer',
+            id: '00000000-0000-0000-0000-000000000002',
+            organization_id: '00000000-0000-0000-0000-000000000002'
+          }
+        ]);
       });
     } finally {
       await dropDatabase(name);
@@ -502,7 +522,7 @@ suite('F2 secure bootstrap and development seed', () => {
     }
   }, 60_000);
 
-  it('starts auth and CPQ in production without seed DML', async () => {
+  it('starts auth and CPQ without seed DML and writes profile ownership on activation', async () => {
     const name = databaseName('production_start');
     await bootstrapDatabase(name);
     const authPort = await freePort();
@@ -526,6 +546,81 @@ suite('F2 secure bootstrap and development seed', () => {
         producers: 0,
         budgets: 0,
         log_entries: 0
+      });
+
+      const adminPassword = strongPassword();
+      const bootstrap = runNode(bootstrapAdminScript, adminEnvironment(name, adminPassword));
+      expect(bootstrap.status, bootstrap.stderr).toBe(0);
+      const login = await fetch(`http://127.0.0.1:${authPort}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: 'initial-admin', password: adminPassword })
+      });
+      expect(login.status).toBe(200);
+      const adminToken = (await login.json() as any).data.token;
+
+      const activatedOrganizations: Record<string, string> = {};
+      for (const type of ['PRODUCER', 'CERTIFICATION_BODY']) {
+        const suffix = type.toLowerCase().replaceAll('_', '-');
+        const registration = await fetch(`http://127.0.0.1:${authPort}/api/v1/auth/register-org`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: `F2 Activation ${type}`,
+            type,
+            business_reg_details: {
+              tax_id: `F2-TAX-${type}`,
+              registration_number: `F2-REG-${type}`
+            },
+            official_email: `${suffix}@f2-activation.example`,
+            contact_info: {},
+            admin_username: `f2-${suffix}`,
+            admin_password: 'Activation9!'
+          })
+        });
+        expect(registration.status).toBe(201);
+        const organizationId = (await registration.json() as any).data.organization.id;
+        activatedOrganizations[type] = organizationId;
+        const activation = await fetch(
+          `http://127.0.0.1:${authPort}/api/v1/auth/organizations/${organizationId}/status`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${adminToken}`
+            },
+            body: JSON.stringify({ status: 'ACTIVATED' })
+          }
+        );
+        expect(activation.status).toBe(200);
+      }
+
+      await withPool(name, async pool => {
+        const producer = (await pool.query(
+          'SELECT id, organization_id FROM producers WHERE id = $1',
+          [activatedOrganizations.PRODUCER]
+        )).rows[0];
+        const certifier = (await pool.query(
+          'SELECT id, organization_id FROM certifiers WHERE id = $1',
+          [activatedOrganizations.CERTIFICATION_BODY]
+        )).rows[0];
+        expect(producer).toEqual({
+          id: activatedOrganizations.PRODUCER,
+          organization_id: activatedOrganizations.PRODUCER
+        });
+        expect(certifier).toEqual({
+          id: activatedOrganizations.CERTIFICATION_BODY,
+          organization_id: activatedOrganizations.CERTIFICATION_BODY
+        });
+        const systemAdminProfiles = Number((await pool.query(`
+          SELECT count(*)::int AS count
+          FROM organizations organization
+          LEFT JOIN producers producer ON producer.organization_id = organization.id
+          LEFT JOIN certifiers certifier ON certifier.organization_id = organization.id
+          WHERE organization.type = 'SYSTEM_ADMINISTRATOR'
+            AND (producer.id IS NOT NULL OR certifier.id IS NOT NULL)
+        `)).rows[0].count);
+        expect(systemAdminProfiles).toBe(0);
       });
     } finally {
       if (cpq) await stopService(cpq);

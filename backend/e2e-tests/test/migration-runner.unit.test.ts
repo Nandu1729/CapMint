@@ -29,12 +29,12 @@ describe('migration runner metadata and planning primitives', () => {
     expect(() => runner.parseArgs(['--adopt'])).toThrow(/requires one or more/);
   });
 
-  it('loads a monotonic migration set ending in reconciliation migration 0010', () => {
+  it('loads a monotonic migration set ending in tenant migration 0011', () => {
     const result = runner.loadMigrations();
     expect(result.errors).toEqual([]);
-    expect(result.migrations.at(-1)?.filename).toBe('0010_reconcile_pre_dm03_schema.sql');
+    expect(result.migrations.at(-1)?.filename).toBe('0011_add_profile_organization_id.sql');
     expect(result.migrations.map((migration: { version: number }) => migration.version))
-      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     for (const migration of result.migrations) {
       expect(migration.checksum).toMatch(/^[a-f0-9]{64}$/);
     }
@@ -71,5 +71,20 @@ describe('migration runner metadata and planning primitives', () => {
     expect(runner.stableJson({ b: 1, a: ['x'] })).toBe('{"a":["x"],"b":1}');
     expect(runner.evidenceFingerprint({ b: 1, a: ['x'] }))
       .toBe(runner.evidenceFingerprint({ a: ['x'], b: 1 }));
+  });
+
+  it('defines one canonical expected shape for profile organization ownership', () => {
+    expect(runner.PROFILE_ORGANIZATION_STATE).toEqual([
+      {
+        table: 'producers',
+        constraint: 'producers_organization_id_fkey',
+        index: 'idx_producers_organization_id'
+      },
+      {
+        table: 'certifiers',
+        constraint: 'certifiers_organization_id_fkey',
+        index: 'idx_certifiers_organization_id'
+      }
+    ]);
   });
 });
