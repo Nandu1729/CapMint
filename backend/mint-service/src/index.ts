@@ -203,7 +203,14 @@ server.post('/api/v1/mint', {
 
     const capacity = await reserveLotIssuance(client, lot_id, user.orgId, mintCount);
     if (!capacity.ok) {
-      return reply.status(capacity.statusCode).send({ success: false, error: capacity });
+      return reply.status(capacity.statusCode).send({
+        success: false,
+        error: {
+          statusCode: capacity.statusCode,
+          code: capacity.code,
+          message: capacity.message
+        }
+      });
     }
 
     // 4. Generate unique serials, digital link URIs, secure verification URLs, and local QR codes

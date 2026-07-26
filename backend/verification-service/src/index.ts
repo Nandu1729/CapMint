@@ -651,7 +651,14 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
 });
 
 function sendCapacityFailure(reply: FastifyReply, failure: any) {
-  return reply.status(failure.statusCode).send({ success: false, error: failure });
+  return reply.status(failure.statusCode).send({
+    success: false,
+    error: {
+      statusCode: failure.statusCode,
+      code: failure.code,
+      message: failure.message
+    }
+  });
 }
 
 // Route: Public simulation registration for Manufacturer Console (persists generated QR/record in DB)

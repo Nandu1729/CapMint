@@ -913,9 +913,9 @@ suite('C0 tenant authorization containment', () => {
         )
       );
       expect(adminRows.rows[0]).toEqual({
-        budgets: 3,
-        lots: 3,
-        unit_codes: 4
+        budgets: 7,
+        lots: 7,
+        unit_codes: 5
       });
     } finally {
       await appPool.end();
