@@ -4,19 +4,21 @@
 > [AD-002](DECISIONS.md)). Updated at each milestone approval gate. Where this file and
 > the `state/` cards disagree, this file wins until reconciliation.
 >
-> **Last updated:** 2026-07-26 (Review #3 — DM-03 C3b approved)
+> **Last updated:** 2026-07-26 (Review #4 — DM-03 C3c approved; enforceable scope COMPLETE)
 
 ---
 
 ## Current milestone
 
-- **Milestone:** Multi-tenancy data migration — **DM-03**. **C2** APPROVED (Review #1).
-  **C3a** (additive schema + derived-ownership joins) APPROVED (Review #2). **C3b** (lab
-  assignment + lab-result enforcement + investigation write-path + integration allowlists +
-  frontend auth) APPROVED (Review #3). Next: **C3c** (`NOT NULL`/UNIQUE tightening) — the
-  final DM-03 step, **hard-gated on operator resolution of the orphan certifier**.
+- **Milestone:** Multi-tenancy data migration — **DM-03: enforceable scope COMPLETE.**
+  C2 (Review #1) → C3a (Review #2) → C3b (Review #3) → C3c (Review #4) all APPROVED.
+  Tenancy is now *enforced* at the application layer with FK-backed ownership, fail-closed
+  lab controls, and tightened `producers.organization_id` / `investigations.unit_code_id`
+  (`NOT NULL` + unique provenance).
 - **Branch:** `feat/dm03-tenant-column`
-- **HEAD:** `f0b8b9a`
+- **HEAD:** `cff29e6`
+- **Deferred (separately gated):** `certifiers.organization_id NOT NULL` (needs real
+  disposition of the quarantined orphan `...0003`); **DM-04** = PostgreSQL RLS.
 - **Merge-base with `main`:** `767a2f6`
 - **Phase context:** Part of a broader **Security-Hardening + Multi-Tenancy Remediation**
   phase that post-dates (and contradicts) the previously recorded "GA / Production
@@ -37,6 +39,10 @@
 - **Review #3 — DM-03 C3b** (`ee9bccb..f0b8b9a`): APPROVED. Certifier-scoped lab-assignment
   endpoint, fail-closed lab-result enforcement with actor provenance, investigation
   write-path, integration allowlists, frontend auth compatibility.
+- **Review #4 — DM-03 C3c** (`e3c6eec..cff29e6`): APPROVED. Migration `0013` tightens
+  `producers.organization_id` / `investigations.unit_code_id` to `NOT NULL` + unique
+  provenance index, quarantines orphan `...0003`; successor-aware verifiers. **DM-03
+  enforceable scope complete.**
 
 **Pre-governance history (assumed built, not architect-verified):** the CP-000…CP-023
 series recorded in `state/MILESTONES.md`, plus the security-hardening series on the

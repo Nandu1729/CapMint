@@ -141,6 +141,34 @@ not ground truth, until reconciled.
 
 ---
 
+## Review #4 — DM-03 C3c: Constraint Tightening + Orphan Quarantine (DM-03 enforceable scope COMPLETE)
+
+| Field | Value |
+|---|---|
+| **Review Number** | #4 |
+| **Milestone** | DM-03 C3c (final sub-phase of HO-001) |
+| **Branch** | `feat/dm03-tenant-column` |
+| **Commit Range Reviewed** | `e3c6eec..cff29e6` (5 commits: `dba3ab8`, `fc38c1b`, `bc707e9`, `b663e68`, `cff29e6`) |
+| **Architecture Status** | PASS |
+| **Security Status** | PASS |
+| **Migration Status** | PASS |
+| **Testing Status** | PASS (migration unit re-run 8/8 independently; C1 12/12, tenant 14/14, F2 8/8, F1 88/0/0 accepted from Codex report, not re-executed — need disposable Postgres) |
+| **Approved Decisions** | Implements `AD-005` (empty-bootstrap orphan exception); no new AD |
+| **Outstanding Items** | 1. **`certifiers.organization_id NOT NULL`** deferred — needs real orphan disposition (attach/create/delete). 2. **Scale note:** `SET NOT NULL` + unique-index rebuild take ACCESS EXCLUSIVE locks/full scans; fine at current volume, use `NOT VALID CHECK→VALIDATE→SET NOT NULL` + `CREATE UNIQUE INDEX CONCURRENTLY` for large production (per proposal §21). 3. `state/` cards still overstate status (AD-002) — good moment to reconcile. |
+| **Next Review Starts From** | `cff29e6`. No further DM-03 work without a new milestone (certifier-NOT-NULL follow-up, or DM-04 RLS) — both separately gated. |
+
+### Findings (delta only)
+- **Migration `0013` is exceptional.** Shape preflight actively asserts the *deferred* columns (`certifiers.organization_id`, `lab_results.submitted_by_organization_id`, `lots.assigned_laboratory_organization_id`) **stay nullable** — it fails on over-tightening. A `0013_PARTIAL_TIGHTENING` guard ties producer-NOT-NULL ≡ investigation-NOT-NULL ≡ index-unique so no half-applied state passes and re-runs are safe. Data preflight implements AD-005 exactly (empty→0 orphans; else exactly `...0003` with 0 budget refs; status ACTIVE↔REVOKED consistency vs. tightening state). Tightening sets `producers.organization_id`/`investigations.unit_code_id NOT NULL` and replaces the plain index with a unique one (drop-if-not-unique → `CREATE UNIQUE INDEX IF NOT EXISTS`). Quarantine (`key_status→'REVOKED'`) is ID-scoped, budget-ref-guarded, and no-ops on empty bootstrap / re-run.
+- **Successor-aware verifiers are sound.** `verify0011`/`verify0012` tolerate the post-`0013` tightened state **only when the `0013` record exists in `migrations_log`** (anchored on `migration_recorded`, not on column state) — preserving fail-closed detection. `verify0013` is a proper three-state (exact/absent/incompatible) verifier.
+- **Scope discipline held.** No service/authorization/RLS/capacity/signature/ledger/transparency changes; `certifiers.organization_id` remains nullable. Migration + verifier + tests + docs only.
+- **Positive completeness signal.** F1 moved from 83 PASS / 5 PENDING to **88 PASS / 0 PENDING / 0 FAIL** — the previously-pending lab controls are now active and passing.
+- **capmint_dev** applied `0013` via the reviewed runner, ending `SAFE / NO PENDING ACTIONS`; recorded EXECUTED. Hygiene: atomic commits, explicit paths, no attribution, no push.
+
+### Approval
+`APPROVED` — C3c complete. **DM-03's enforceable scope is now COMPLETE (C2 → C3a → C3b → C3c).** Boundary advances to `cff29e6`. Remaining tenancy work is separately gated: the `certifiers.organization_id NOT NULL` follow-up (needs orphan disposition) and DM-04 (PostgreSQL RLS).
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 
