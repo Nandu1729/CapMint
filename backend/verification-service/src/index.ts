@@ -448,7 +448,8 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
     });
   }
 
-  return withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, async (client) => {
+  let investigationLedgerEvent: Record<string, unknown> | null = null;
+  const response = await withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, async (client) => {
   // 1. Query unit code & lot & budget context using public_identifier
   const query = `
     SELECT u.id, u.serial, u.gtin, u.current_state, u.clone_flag,
@@ -598,25 +599,16 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
         codeRecord.id
       ]);
 
-      // Append Investigation Created event to transparency ledger
-      try {
-        await fetch(LEDGER_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
-          body: JSON.stringify({
-            entity_type: 'INVESTIGATION',
-            entity_id: public_identifier,
-            event_type: 'INVESTIGATION_CREATED',
-            payload: {
-              public_identifier,
-              risk_level: finalRisk,
-              reason: 'Clone suspect flag tripped due to anomalous scanning frequency'
-            }
-          })
-        });
-      } catch (logErr) {
-        server.log.error(logErr as any, 'Failed to append INVESTIGATION_CREATED to transparency ledger');
-      }
+      investigationLedgerEvent = {
+        entity_type: 'INVESTIGATION',
+        entity_id: public_identifier,
+        event_type: 'INVESTIGATION_CREATED',
+        payload: {
+          public_identifier,
+          risk_level: finalRisk,
+          reason: 'Clone suspect flag tripped due to anomalous scanning frequency'
+        }
+      };
     }
   }
 
@@ -642,6 +634,19 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
     }
   };
   });
+
+  if (investigationLedgerEvent) {
+    try {
+      await fetch(LEDGER_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
+        body: JSON.stringify(investigationLedgerEvent)
+      });
+    } catch (logErr) {
+      server.log.error(logErr as any, 'Failed to append INVESTIGATION_CREATED to transparency ledger');
+    }
+  }
+  return response;
 });
 
 // Verify a budget's certifier Ed25519 signature (fail closed: false on missing certifier or invalid signature).
@@ -1619,7 +1624,9 @@ server.post('/api/v1/verify/investigations/:id/approve', {
 }, async (request, reply) => {
   const { id } = request.params as any;
   const user = request.user as any;
-  return withAuthenticatedTenantTx(request, async (client) => {
+  let ledgerPublicIdentifier = '';
+  let ledgerReason = '';
+  const response = await withAuthenticatedTenantTx(request, async (client) => {
 
     // 1. Fetch Investigation
     const invRes = await lockCertifierInvestigation(client, id, user.orgId);
@@ -1655,22 +1662,28 @@ server.post('/api/v1/verify/investigations/:id/approve', {
       [id]
     );
 
-    // 5. Commit transaction
+    ledgerPublicIdentifier = pubId;
+    ledgerReason = inv.detection_reason;
+    return {
+      success: true,
+      message: 'Investigation approved and product officially revoked.'
+    };
+  });
 
-    // 6. Log to Transparency Ledger
+  if (ledgerPublicIdentifier) {
     try {
       await fetch(LEDGER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
         body: JSON.stringify({
           entity_type: 'INVESTIGATION',
-          entity_id: pubId,
+          entity_id: ledgerPublicIdentifier,
           event_type: 'INVESTIGATION_APPROVED',
           payload: {
             investigation_id: id,
-            public_identifier: pubId,
+            public_identifier: ledgerPublicIdentifier,
             action: 'REVOCATION_APPROVED',
-            reason: inv.detection_reason
+            reason: ledgerReason
           }
         })
       });
@@ -1680,23 +1693,19 @@ server.post('/api/v1/verify/investigations/:id/approve', {
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
         body: JSON.stringify({
           entity_type: 'PRODUCT',
-          entity_id: pubId,
+          entity_id: ledgerPublicIdentifier,
           event_type: 'PRODUCT_REVOKED',
           payload: {
-            public_identifier: pubId,
-            reason: inv.detection_reason
+            public_identifier: ledgerPublicIdentifier,
+            reason: ledgerReason
           }
         })
       });
     } catch (logErr) {
       server.log.error(logErr as any, 'Failed to append to ledger during approval');
     }
-
-    return {
-      success: true,
-      message: 'Investigation approved and product officially revoked.'
-    };
-  });
+  }
+  return response;
 });
 
 // Route: Dismiss Investigation
@@ -1705,7 +1714,8 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
 }, async (request, reply) => {
   const { id } = request.params as any;
   const user = request.user as any;
-  return withAuthenticatedTenantTx(request, async (client) => {
+  let publicIdentifier: string | null = null;
+  const response = await withAuthenticatedTenantTx(request, async (client) => {
 
     // 1. Fetch Investigation
     const invRes = await lockCertifierInvestigation(client, id, user.orgId);
@@ -1725,18 +1735,25 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
       [id]
     );
 
-    // 3. Log to Transparency Ledger
+    publicIdentifier = pubId;
+    return {
+      success: true,
+      message: 'Investigation successfully dismissed.'
+    };
+  });
+
+  if (publicIdentifier) {
     try {
       await fetch(LEDGER_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
         body: JSON.stringify({
           entity_type: 'INVESTIGATION',
-          entity_id: pubId,
+          entity_id: publicIdentifier,
           event_type: 'INVESTIGATION_DISMISSED',
           payload: {
             investigation_id: id,
-            public_identifier: pubId,
+            public_identifier: publicIdentifier,
             action: 'INVESTIGATION_DISMISSED'
           }
         })
@@ -1744,12 +1761,8 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
     } catch (logErr) {
       server.log.error(logErr as any, 'Failed to append to ledger during dismissal');
     }
-
-    return {
-      success: true,
-      message: 'Investigation successfully dismissed.'
-    };
-  });
+  }
+  return response;
 });
 
 // Route: Register Lab Results
@@ -1777,7 +1790,7 @@ server.post('/api/v1/verify/lab-results', {
 
   let ledgerEvents: Array<{ event_type: string; payload: Record<string, unknown> }> = [];
   let labResult: any;
-  return withAuthenticatedTenantTx(request, async (client) => {
+  const response = await withAuthenticatedTenantTx(request, async (client) => {
 
     const scopedLot = await client.query(
       `SELECT l.id
@@ -1950,6 +1963,13 @@ server.post('/api/v1/verify/lab-results', {
         payload: { lot_id, lab_name, test_type, report_hash }
       });
     }
+    return {
+      success: true,
+      data: { labResult }
+    };
+  });
+
+  if (reply.sent) return response;
   for (const event of ledgerEvents) {
     try {
       await fetch(LEDGER_URL, {
@@ -1970,11 +1990,7 @@ server.post('/api/v1/verify/lab-results', {
     }
   }
 
-  return {
-    success: true,
-    data: { labResult }
-  };
-  });
+  return response;
 });
 
 // Start the server
