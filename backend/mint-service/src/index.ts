@@ -157,6 +157,7 @@ server.post('/api/v1/gs1/validate', async (request, reply) => {
 
 // Verify a budget's certifier Ed25519 signature (fail closed: false on missing certifier or invalid signature).
 async function verifyBudgetAuthority(client: pg.PoolClient, budgetId: string, certifierId: string, approvedQuantity: any, signatureBundle: string): Promise<boolean> {
+  if (typeof signatureBundle !== 'string' || signatureBundle.trim() === '') return false;
   const certRes = await client.query('SELECT public_key FROM certifiers WHERE id = $1', [certifierId]);
   if (certRes.rows.length === 0) return false;
   const message = `budget_id:${budgetId};approved_quantity:${approvedQuantity}`;
@@ -165,6 +166,102 @@ async function verifyBudgetAuthority(client: pg.PoolClient, budgetId: string, ce
   } catch (err) {
     return false;
   }
+}
+
+type CapacityGuardFailure = {
+  ok: false;
+  statusCode: number;
+  code: string;
+  message: string;
+};
+
+type LotIssuanceReservation = {
+  ok: true;
+  lot: any;
+  issuedCount: number;
+};
+
+function capacityFailure(statusCode: number, code: string, message: string): CapacityGuardFailure {
+  return { ok: false, statusCode, code, message };
+}
+
+async function reserveLotIssuance(
+  client: pg.PoolClient,
+  lotId: string,
+  organizationId: string,
+  requestedUnits: number
+): Promise<LotIssuanceReservation | CapacityGuardFailure> {
+  const lotRes = await client.query(
+    `SELECT l.id, l.batch_size, l.budget_id, l.producer_id, l.revocation_status,
+            b.status AS budget_status, b.approved_quantity, b.certifier_id, b.signature_bundle
+     FROM lots l
+     JOIN budgets b ON b.id = l.budget_id
+     JOIN producers p ON p.id = l.producer_id
+     WHERE l.id = $1
+       AND b.producer_id = l.producer_id
+       AND p.organization_id = $2
+     FOR UPDATE OF b, l
+     FOR SHARE OF p`,
+    [lotId, organizationId]
+  );
+  if (lotRes.rowCount === 0) {
+    return capacityFailure(404, 'NOT_FOUND', 'Lot not found.');
+  }
+
+  const lot = lotRes.rows[0];
+  if (lot.revocation_status === 'REVOKED') {
+    return capacityFailure(400, 'REVOKED_LOT', 'Cannot mint codes for a revoked lot.');
+  }
+  if (!['ACTIVE', 'EXHAUSTED'].includes(lot.budget_status)) {
+    return capacityFailure(
+      400,
+      'INACTIVE_BUDGET',
+      `Linked budget status is: ${lot.budget_status}. Cannot issue codes.`
+    );
+  }
+  if (!(await verifyBudgetAuthority(
+    client,
+    lot.budget_id,
+    lot.certifier_id,
+    lot.approved_quantity,
+    lot.signature_bundle
+  ))) {
+    return capacityFailure(
+      400,
+      'INVALID_SIGNATURE',
+      'Budget supply authority could not be cryptographically verified.'
+    );
+  }
+
+  const usageRes = await client.query(
+    `SELECT COUNT(*) FILTER (WHERE u.lot_id = $1)::int AS lot_issued_count,
+            COUNT(u.id)::int AS budget_issued_count
+     FROM lots l
+     LEFT JOIN unit_codes u ON u.lot_id = l.id
+     WHERE l.budget_id = $2`,
+    [lot.id, lot.budget_id]
+  );
+  const lotIssuedCount = Number(usageRes.rows[0].lot_issued_count);
+  const budgetIssuedCount = Number(usageRes.rows[0].budget_issued_count);
+  const lotCeiling = Number(lot.batch_size);
+  const budgetCeiling = Number(lot.approved_quantity);
+
+  if (lotIssuedCount + requestedUnits > lotCeiling) {
+    return capacityFailure(
+      422,
+      'EXCEEDS_LOT_CAPACITY',
+      `Requested ${requestedUnits} unit(s) exceed lot capacity: ${lotIssuedCount}/${lotCeiling} already issued.`
+    );
+  }
+  if (budgetIssuedCount + requestedUnits > budgetCeiling) {
+    return capacityFailure(
+      422,
+      'EXCEEDS_CAPACITY',
+      `Requested ${requestedUnits} unit(s) exceed budget capacity: ${budgetIssuedCount}/${budgetCeiling} already issued.`
+    );
+  }
+
+  return { ok: true, lot, issuedCount: lotIssuedCount };
 }
 
 // Route: Mint Serial Numbers (Minting Engine)
@@ -211,108 +308,20 @@ server.post('/api/v1/mint', {
 
   const client = await pgPool.connect();
   try {
-    // Start Database Transaction to handle capacity checks and generation atomically
     await client.query('BEGIN');
 
-    const lotRes = await client.query(
-      `SELECT l.*
-       FROM lots l
-       JOIN budgets b ON b.id = l.budget_id
-       JOIN producers p ON p.id = l.producer_id
-       WHERE l.id = $1
-         AND b.producer_id = l.producer_id
-         AND p.organization_id = $2
-       FOR UPDATE OF l
-       FOR SHARE OF p`,
-      [lot_id, user.orgId]
-    );
-    if (lotRes.rowCount === 0) {
+    const capacity = await reserveLotIssuance(client, lot_id, user.orgId, mintCount);
+    if (!capacity.ok) {
       await client.query('ROLLBACK');
-      return reply.status(404).send({
-        success: false,
-        error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' }
-      });
-    }
-
-    const lot = lotRes.rows[0];
-    if (lot.revocation_status === 'REVOKED') {
-      await client.query('ROLLBACK');
-      return reply.status(400).send({
+      return reply.status(capacity.statusCode).send({
         success: false,
         error: {
-          statusCode: 400,
-          code: 'REVOKED_LOT',
-          message: 'Cannot mint codes for a revoked lot.'
+          statusCode: capacity.statusCode,
+          code: capacity.code,
+          message: capacity.message
         }
       });
     }
-    const budgetId = lot.budget_id;
-
-    // Lock budget row to prevent double-mint race conditions
-    const budgetRes = await client.query(
-      `SELECT b.*
-       FROM budgets b
-       JOIN producers p ON p.id = b.producer_id
-       WHERE b.id = $1
-         AND p.organization_id = $2
-       FOR UPDATE OF b
-       FOR SHARE OF p`,
-      [budgetId, user.orgId]
-    );
-    if (budgetRes.rowCount === 0) {
-      await client.query('ROLLBACK');
-      return reply.status(404).send({
-        success: false,
-        error: { statusCode: 404, code: 'NOT_FOUND', message: 'Budget linked to Lot not found.' }
-      });
-    }
-
-    const budget = budgetRes.rows[0];
-    if (budget.status !== 'ACTIVE') {
-      await client.query('ROLLBACK');
-      return reply.status(400).send({
-        success: false,
-        error: {
-          statusCode: 400,
-          code: 'INACTIVE_BUDGET',
-          message: `Linked budget status is: ${budget.status}. Cannot draw down capacity.`
-        }
-      });
-    }
-
-    // Verify certifier signature authorizing this budget (defense in depth; fail closed).
-    if (!(await verifyBudgetAuthority(client, budget.id, budget.certifier_id, budget.approved_quantity, budget.signature_bundle))) {
-      await client.query('ROLLBACK');
-      return reply.status(400).send({
-        success: false,
-        error: { statusCode: 400, code: 'INVALID_SIGNATURE', message: 'Budget supply authority could not be cryptographically verified.' }
-      });
-    }
-
-    const approved = parseFloat(budget.approved_quantity);
-    const consumed = parseFloat(budget.consumed_quantity);
-    const remaining = approved - consumed;
-
-    if (remaining < mintCount) {
-      await client.query('ROLLBACK');
-      return reply.status(422).send({
-        success: false,
-        error: {
-          statusCode: 422,
-          code: 'EXCEEDS_CAPACITY',
-          message: `Mint count of ${mintCount} exceeds remaining budget capacity of ${remaining}.`
-        }
-      });
-    }
-
-    // 3. Deduct budget capacity
-    const newConsumed = consumed + mintCount;
-    const newRemaining = approved - newConsumed;
-    const newStatus = newRemaining === 0 ? 'EXHAUSTED' : 'ACTIVE';
-    await client.query(
-      `UPDATE budgets SET consumed_quantity = $1, status = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3`,
-      [newConsumed, newStatus, budgetId]
-    );
 
     // 4. Generate unique serials, digital link URIs, secure verification URLs, and local QR codes
     const serialsList: string[] = [];
