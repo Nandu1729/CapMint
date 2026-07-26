@@ -31,6 +31,10 @@ const BASE = {
 };
 
 const ids = {
+  producerOrgA: crypto.randomUUID(),
+  producerOrgB: crypto.randomUUID(),
+  certifierOrgA: crypto.randomUUID(),
+  certifierOrgB: crypto.randomUUID(),
   producerA: crypto.randomUUID(),
   producerB: crypto.randomUUID(),
   certifierA: crypto.randomUUID(),
@@ -183,10 +187,10 @@ async function insertFixtures(): Promise<void> {
   try {
     await client.query('BEGIN');
     const orgs = [
-      [ids.producerA, 'C0 Producer A', 'PRODUCER', 'producer-a@c0.test'],
-      [ids.producerB, 'C0 Producer B', 'PRODUCER', 'producer-b@c0.test'],
-      [ids.certifierA, 'C0 Certifier A', 'CERTIFICATION_BODY', 'certifier-a@c0.test'],
-      [ids.certifierB, 'C0 Certifier B', 'CERTIFICATION_BODY', 'certifier-b@c0.test'],
+      [ids.producerOrgA, 'C0 Producer A', 'PRODUCER', 'producer-a@c0.test'],
+      [ids.producerOrgB, 'C0 Producer B', 'PRODUCER', 'producer-b@c0.test'],
+      [ids.certifierOrgA, 'C0 Certifier A', 'CERTIFICATION_BODY', 'certifier-a@c0.test'],
+      [ids.certifierOrgB, 'C0 Certifier B', 'CERTIFICATION_BODY', 'certifier-b@c0.test'],
       [ids.labA, 'C0 Laboratory A', 'NABL_LABORATORY', 'lab-a@c0.test'],
       [ids.labB, 'C0 Laboratory B', 'NABL_LABORATORY', 'lab-b@c0.test'],
       [ids.systemAdmin, 'C0 System Administrator', 'SYSTEM_ADMINISTRATOR', 'system-admin@c0.test']
@@ -201,21 +205,21 @@ async function insertFixtures(): Promise<void> {
     }
 
     await client.query(
-      `INSERT INTO producers (id, name, type, registry_references)
-       VALUES ($1, 'C0 Producer A', 'FARMER', '{}'),
-              ($2, 'C0 Producer B', 'FARMER', '{}')`,
-      [ids.producerA, ids.producerB]
+      `INSERT INTO producers (id, name, type, registry_references, organization_id)
+       VALUES ($1, 'C0 Producer A', 'FARMER', '{}', $2),
+              ($3, 'C0 Producer B', 'FARMER', '{}', $4)`,
+      [ids.producerA, ids.producerOrgA, ids.producerB, ids.producerOrgB]
     );
     await client.query(
-      `INSERT INTO certifiers (id, name, accreditation_details, public_key, key_status)
-       VALUES ($1, 'C0 Certifier A', '{}', $3, 'ACTIVE'),
-              ($2, 'C0 Certifier B', '{}', $3, 'ACTIVE')`,
-      [ids.certifierA, ids.certifierB, certifierPublicKey]
+      `INSERT INTO certifiers (id, name, accreditation_details, public_key, key_status, organization_id)
+       VALUES ($1, 'C0 Certifier A', '{}', $5, 'ACTIVE', $2),
+              ($3, 'C0 Certifier B', '{}', $5, 'ACTIVE', $4)`,
+      [ids.certifierA, ids.certifierOrgA, ids.certifierB, ids.certifierOrgB, certifierPublicKey]
     );
     await client.query(
       `INSERT INTO users (id, organization_id, username, password_hash, role, status)
        VALUES ($1, $2, $3, 'integration-only', 'MEMBER', 'ACTIVE')`,
-      [ids.assigneeA, ids.certifierA, `assignee_${ids.assigneeA}`]
+      [ids.assigneeA, ids.certifierOrgA, `assignee_${ids.assigneeA}`]
     );
 
     const activeSignatureA = crypto.sign(
@@ -290,10 +294,10 @@ async function insertFixtures(): Promise<void> {
     await client.query(
       `INSERT INTO investigations
          (id, product_name, public_identifier, risk_level, status, detection_reason,
-          manufacturer, current_product_status, evidence)
+          manufacturer, current_product_status, evidence, unit_code_id)
        VALUES
-         ($1, 'C0 Product A', $2, 'HIGH', 'OPEN', 'C0 test', 'Producer A', 'ACTIVE', '{}'),
-         ($3, 'C0 Product B', $4, 'HIGH', 'OPEN', 'C0 test', 'Producer B', 'ACTIVE', '{}')`,
+         ($1, 'C0 Product A', $2, 'HIGH', 'OPEN', 'C0 test', 'Producer A', 'ACTIVE', '{}', $2),
+         ($3, 'C0 Product B', $4, 'HIGH', 'OPEN', 'C0 test', 'Producer B', 'ACTIVE', '{}', $4)`,
       [ids.investigationA, ids.codeA, ids.investigationB, ids.codeB]
     );
     await client.query('COMMIT');
@@ -316,6 +320,7 @@ async function mutationSnapshot() {
        (SELECT jsonb_build_object('status', status, 'notes', case_notes, 'timeline', evidence_timeline)
           FROM investigations WHERE id = $3) AS investigation_a,
        (SELECT count(*)::int FROM lab_results WHERE lot_id = $2) AS lab_results,
+       (SELECT count(*)::int FROM budgets) AS budget_count,
        (SELECT count(*)::int FROM log_entries) AS ledger_entries`,
     [ids.budgetA, ids.lotA, ids.investigationA]
   );
@@ -366,15 +371,15 @@ suite('C0 tenant authorization containment', () => {
     await startService('resolver', 'backend/resolver-service/src/index.ts');
     await insertFixtures();
 
-    tokens.producerA = signToken(ids.producerA, 'PRODUCER');
-    tokens.producerB = signToken(ids.producerB, 'PRODUCER');
-    tokens.certifierA = signToken(ids.certifierA, 'CERTIFICATION_BODY');
-    tokens.certifierB = signToken(ids.certifierB, 'CERTIFICATION_BODY');
+    tokens.producerA = signToken(ids.producerOrgA, 'PRODUCER');
+    tokens.producerB = signToken(ids.producerOrgB, 'PRODUCER');
+    tokens.certifierA = signToken(ids.certifierOrgA, 'CERTIFICATION_BODY');
+    tokens.certifierB = signToken(ids.certifierOrgB, 'CERTIFICATION_BODY');
     tokens.labA = signToken(ids.labA, 'NABL_LABORATORY');
     tokens.labB = signToken(ids.labB, 'NABL_LABORATORY');
     tokens.systemAdmin = signToken(ids.systemAdmin, 'SYSTEM_ADMINISTRATOR');
     tokens.systemAdminMember = signToken(ids.systemAdmin, 'SYSTEM_ADMINISTRATOR', 'MEMBER');
-    tokens.invalidRole = signToken(ids.producerA, 'PRODUCER', 'VIEWER');
+    tokens.invalidRole = signToken(ids.producerOrgA, 'PRODUCER', 'VIEWER');
   }, 60_000);
 
   afterAll(async () => {
@@ -427,10 +432,24 @@ suite('C0 tenant authorization containment', () => {
       requestJson(BASE.verification, '/api/v1/lots', {
         method: 'POST', token: tokens.producerB,
         body: { budget_id: ids.budgetA, batch_size: 1, product_metadata: {} }
+      }),
+      requestJson(BASE.cpq, '/api/v1/budgets', {
+        method: 'POST',
+        token: tokens.producerB,
+        body: {
+          producer_id: ids.producerA,
+          certifier_id: ids.certifierB,
+          source_unit_type: 'UNIT_COUNT',
+          approved_quantity: 5,
+          yield_assumptions: { crop: `forged-${crypto.randomUUID()}` },
+          signature_bundle: 'pending',
+          effective_start_date: new Date().toISOString(),
+          effective_end_date: new Date(Date.now() + 86_400_000).toISOString()
+        }
       })
     ];
     const results = await Promise.all(attempts);
-    expect(results.map(result => result.status)).toEqual([404, 404, 404, 404, 404]);
+    expect(results.map(result => result.status)).toEqual([404, 404, 404, 404, 404, 404]);
     expect(await mutationSnapshot()).toEqual(before);
   });
 
@@ -568,6 +587,20 @@ suite('C0 tenant authorization containment', () => {
   });
 
   it('preserves valid same-tenant and intentional public workflows', async () => {
+    expect((await requestJson(BASE.cpq, '/api/v1/budgets', {
+      method: 'POST',
+      token: tokens.producerA,
+      body: {
+        producer_id: ids.producerA,
+        certifier_id: ids.certifierA,
+        source_unit_type: 'UNIT_COUNT',
+        approved_quantity: 5,
+        yield_assumptions: { crop: `same-tenant-${crypto.randomUUID()}` },
+        signature_bundle: 'pending',
+        effective_start_date: new Date().toISOString(),
+        effective_end_date: new Date(Date.now() + 86_400_000).toISOString()
+      }
+    })).status).toBe(201);
     expect((await requestJson(BASE.cpq, `/api/v1/budgets/${ids.budgetActivateA}/activate`, {
       method: 'POST', token: tokens.certifierA, body: {}
     })).status).toBe(200);

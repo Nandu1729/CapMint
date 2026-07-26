@@ -14,6 +14,7 @@ const runnerPath = path.join(ROOT, 'playground/run_migrations.js');
 const schemaPath = path.join(ROOT, 'database/schema/schema.sql');
 const baselinePath = path.join(ROOT, 'database/baselines/capmint-baseline-20260725.sql');
 const tenantMigrationPath = path.join(ROOT, 'database/migrations/0011_add_profile_organization_id.sql');
+const relationshipMigrationPath = path.join(ROOT, 'database/migrations/0012_add_derived_tenant_relationships.sql');
 const allLegacyFiles = [
   '0001_add_certification_status_and_updated_at.sql',
   '0002_add_investigations_table.sql',
@@ -221,7 +222,7 @@ suite('C1 migration reconciliation', () => {
     if (adminPool) await adminPool.end();
   }, 60_000);
 
-  it('bootstraps empty PostgreSQL, records one baseline, applies 0010/0011, and becomes a no-op', async () => {
+  it('bootstraps empty PostgreSQL, records one baseline, applies 0010/0011/0012, and becomes a no-op', async () => {
     const name = databaseName('bootstrap');
     await createDatabase(name);
     try {
@@ -240,7 +241,7 @@ suite('C1 migration reconciliation', () => {
          FROM migrations_log
          ORDER BY id`
       ).then(result => result.rows));
-      expect(rows).toHaveLength(3);
+      expect(rows).toHaveLength(4);
       expect(rows[0]).toMatchObject({
         filename: 'capmint-baseline-20260725.sql',
         application_mode: 'BASELINE',
@@ -255,6 +256,10 @@ suite('C1 migration reconciliation', () => {
       });
       expect(rows[2]).toMatchObject({
         filename: '0011_add_profile_organization_id.sql',
+        application_mode: 'EXECUTED'
+      });
+      expect(rows[3]).toMatchObject({
+        filename: '0012_add_derived_tenant_relationships.sql',
         application_mode: 'EXECUTED'
       });
       const baselineState = await withPool(name, pool => pool.query(
@@ -272,13 +277,13 @@ suite('C1 migration reconciliation', () => {
       expect(runRunner(name, ['--apply']).status).toBe(0);
       expect(runRunner(name, ['--check']).status).toBe(0);
       const count = await withPool(name, pool => pool.query('SELECT count(*)::int AS count FROM migrations_log').then(result => result.rows[0].count));
-      expect(count).toBe(3);
+      expect(count).toBe(4);
     } finally {
       await dropDatabase(name);
     }
   }, 60_000);
 
-  it('detects and adopts exact 0007/0009/0011 effects without application-schema DDL', async () => {
+  it('detects and adopts exact 0007/0009/0011/0012 effects without application-schema DDL', async () => {
     const name = databaseName('adoption');
     await createDatabase(name);
     try {
@@ -293,14 +298,16 @@ suite('C1 migration reconciliation', () => {
       expect(check.parsed.report.actions).toEqual(expect.arrayContaining([
         expect.objectContaining({ action: 'ADOPT', target: '0007_add_producer_brandings_table.sql' }),
         expect.objectContaining({ action: 'ADOPT', target: '0009_widen_investigations_status_check.sql' }),
-        expect.objectContaining({ action: 'ADOPT', target: '0011_add_profile_organization_id.sql' })
+        expect.objectContaining({ action: 'ADOPT', target: '0011_add_profile_organization_id.sql' }),
+        expect.objectContaining({ action: 'ADOPT', target: '0012_add_derived_tenant_relationships.sql' })
       ]));
 
       const adoption = runRunner(name, [
         '--adopt',
         '0007_add_producer_brandings_table.sql',
         '0009_widen_investigations_status_check.sql',
-        '0011_add_profile_organization_id.sql'
+        '0011_add_profile_organization_id.sql',
+        '0012_add_derived_tenant_relationships.sql'
       ]);
       expect(adoption.status, adoption.stderr).toBe(0);
       expect(await schemaFingerprint(name)).toBe(before);
@@ -308,15 +315,16 @@ suite('C1 migration reconciliation', () => {
       const adoptedRows = await withPool(name, pool => pool.query(
         `SELECT filename, application_mode, checksum_sha256, evidence_fingerprint
          FROM migrations_log
-         WHERE filename IN ($1, $2, $3)
+         WHERE filename IN ($1, $2, $3, $4)
          ORDER BY filename`,
         [
           '0007_add_producer_brandings_table.sql',
           '0009_widen_investigations_status_check.sql',
-          '0011_add_profile_organization_id.sql'
+          '0011_add_profile_organization_id.sql',
+          '0012_add_derived_tenant_relationships.sql'
         ]
       ).then(result => result.rows));
-      expect(adoptedRows).toHaveLength(3);
+      expect(adoptedRows).toHaveLength(4);
       for (const row of adoptedRows) {
         expect(row.application_mode).toBe('ADOPTED');
         expect(row.checksum_sha256).toMatch(/^[a-f0-9]{64}$/);
@@ -360,7 +368,7 @@ suite('C1 migration reconciliation', () => {
       ).then(result => result.rows));
       expect(columnsAfterAdoption).toEqual(columnsBeforeAdoption);
 
-      expect(runRunner(name, ['--adopt', '0011_add_profile_organization_id.sql']).status).toBe(0);
+      expect(runRunner(name, ['--adopt', '0011_add_profile_organization_id.sql', '0012_add_derived_tenant_relationships.sql']).status).toBe(0);
       expect(runRunner(name, ['--apply']).status).toBe(0);
       expect(runRunner(name, ['--check']).status).toBe(0);
 
@@ -411,7 +419,7 @@ suite('C1 migration reconciliation', () => {
       for (const name of [supported, incompatible]) {
         await applySqlFile(name, schemaPath);
         await createLegacyLog(name, allLegacyFiles);
-        expect(runRunner(name, ['--adopt', '0011_add_profile_organization_id.sql']).status).toBe(0);
+        expect(runRunner(name, ['--adopt', '0011_add_profile_organization_id.sql', '0012_add_derived_tenant_relationships.sql']).status).toBe(0);
       }
       await withPool(supported, async pool => {
         await pool.query('ALTER TABLE investigations DROP CONSTRAINT chk_investigations_status');
@@ -444,7 +452,8 @@ suite('C1 migration reconciliation', () => {
         '--adopt',
         '0007_add_producer_brandings_table.sql',
         '0009_widen_investigations_status_check.sql',
-        '0011_add_profile_organization_id.sql'
+        '0011_add_profile_organization_id.sql',
+        '0012_add_derived_tenant_relationships.sql'
       ]).status).toBe(0);
       const badChecksum = '0'.repeat(64);
       await withPool(name, pool => pool.query(
@@ -630,6 +639,163 @@ suite('C1 migration reconciliation', () => {
       await dropDatabase(name);
     }
   }, 90_000);
+
+  it('backfills exact investigation links, validates C3a relationships, rejects drift, and is idempotent', async () => {
+    const name = databaseName('derived_tenancy');
+    const unmatchedName = databaseName('derived_unmatched');
+    await createDatabase(name);
+    await createDatabase(unmatchedName);
+    try {
+      await applySqlFile(name, baselinePath);
+      await createLegacyLog(name, allLegacyFiles);
+      await withPool(name, async pool => {
+        await pool.query(`
+          INSERT INTO organizations
+            (id, name, type, official_email, status)
+          VALUES
+            ('20000000-0000-0000-0000-000000000001', 'C3a Producer Org', 'PRODUCER', 'c3a-producer@capmint.example', 'ACTIVATED'),
+            ('20000000-0000-0000-0000-000000000002', 'C3a Certifier Org', 'CERTIFICATION_BODY', 'c3a-certifier@capmint.example', 'ACTIVATED')
+        `);
+        await pool.query(`
+          INSERT INTO producers (id, name, type, registry_references)
+          VALUES
+            ('20000000-0000-0000-0000-000000000001', 'C3a Producer', 'FARMER', '{}'::jsonb),
+            ('20000000-0000-0000-0000-000000000003', 'C3a Other Producer', 'FARMER', '{}'::jsonb)
+        `);
+        await pool.query(`
+          INSERT INTO certifiers (id, name, accreditation_details, public_key, key_status)
+          VALUES ('20000000-0000-0000-0000-000000000002', 'C3a Certifier', '{}'::jsonb, 'c3a-key', 'ACTIVE')
+        `);
+        await pool.query(`
+          INSERT INTO budgets
+            (id, producer_id, certifier_id, source_unit_type, approved_quantity,
+             yield_assumptions, signature_bundle, effective_start_date, effective_end_date, status)
+          VALUES
+            ('20000000-0000-0000-0000-000000000010',
+             '20000000-0000-0000-0000-000000000001',
+             '20000000-0000-0000-0000-000000000002',
+             'UNIT_COUNT', 10, '{}'::jsonb, 'c3a-signature',
+             CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 year', 'ACTIVE')
+        `);
+        await pool.query(`
+          INSERT INTO lots
+            (id, producer_id, budget_id, product_metadata, batch_size, processing_dates)
+          VALUES
+            ('20000000-0000-0000-0000-000000000020',
+             '20000000-0000-0000-0000-000000000001',
+             '20000000-0000-0000-0000-000000000010',
+             '{}'::jsonb, 10, '{}'::jsonb)
+        `);
+        await pool.query(`
+          INSERT INTO unit_codes
+            (id, lot_id, serial, gtin, digital_link_uri, public_identifier, verification_url)
+          VALUES
+            ('20000000-0000-0000-0000-000000000030',
+             '20000000-0000-0000-0000-000000000020',
+             'C3A-UNIT', '00000000000000', 'https://id.c3a/unit',
+             '20000000-0000-0000-0000-000000000031', 'https://verify.c3a/unit')
+        `);
+        await pool.query(`
+          INSERT INTO investigations
+            (id, product_name, public_identifier, risk_level, status, detection_reason,
+             manufacturer, current_product_status, evidence)
+          VALUES
+            ('20000000-0000-0000-0000-000000000040', 'C3a Product',
+             '20000000-0000-0000-0000-000000000031', 'HIGH', 'OPEN',
+             'C3a test', 'C3a Producer', 'ACTIVE', '{}'::jsonb)
+        `);
+        await pool.query(`
+          INSERT INTO lab_results
+            (lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
+          VALUES
+            ('20000000-0000-0000-0000-000000000020', 'Legacy Lab', 'Purity',
+             'PASS', 'c3a-hash', 'c3a-report')
+        `);
+      });
+
+      expect(runRunner(name, ['--apply']).status).toBe(0);
+      expect(runRunner(name, ['--apply']).status).toBe(0);
+      expect(runRunner(name, ['--check']).status).toBe(0);
+
+      const state = await withPool(name, pool => pool.query(`
+        SELECT
+          (SELECT unit_code_id FROM investigations WHERE id = '20000000-0000-0000-0000-000000000040') AS unit_code_id,
+          (SELECT submitted_by_organization_id FROM lab_results WHERE lot_id = '20000000-0000-0000-0000-000000000020') AS submitted_by,
+          (SELECT assigned_laboratory_organization_id FROM lots WHERE id = '20000000-0000-0000-0000-000000000020') AS assigned_laboratory,
+          (SELECT count(*)::int FROM pg_constraint
+           WHERE conname = ANY(ARRAY[
+             'budgets_id_producer_id_key',
+             'lots_budget_id_producer_id_fkey',
+             'investigations_unit_code_id_fkey',
+             'lab_results_submitted_by_organization_id_fkey',
+             'lots_assigned_laboratory_organization_id_fkey'
+           ]) AND convalidated) AS validated_constraints,
+          (SELECT count(*)::int FROM pg_indexes
+           WHERE schemaname = 'public'
+             AND indexname = ANY(ARRAY[
+               'idx_investigations_unit_code_id',
+               'idx_lab_results_submitted_by_organization_id',
+               'idx_lots_assigned_laboratory_organization_id'
+             ])) AS relationship_indexes
+      `).then(result => result.rows[0]));
+      expect(state).toEqual({
+        unit_code_id: '20000000-0000-0000-0000-000000000030',
+        submitted_by: null,
+        assigned_laboratory: null,
+        validated_constraints: 5,
+        relationship_indexes: 3
+      });
+
+      await expect(withPool(name, pool => pool.query(
+        `UPDATE investigations
+         SET unit_code_id = '20000000-0000-0000-0000-000000000099'
+         WHERE id = '20000000-0000-0000-0000-000000000040'`
+      ))).rejects.toMatchObject({ code: '23503' });
+      await expect(withPool(name, pool => pool.query(
+        `UPDATE lab_results
+         SET submitted_by_organization_id = '20000000-0000-0000-0000-000000000099'
+         WHERE lot_id = '20000000-0000-0000-0000-000000000020'`
+      ))).rejects.toMatchObject({ code: '23503' });
+      await expect(withPool(name, pool => pool.query(`
+        INSERT INTO lots
+          (id, producer_id, budget_id, product_metadata, batch_size, processing_dates)
+        VALUES
+          ('20000000-0000-0000-0000-000000000021',
+           '20000000-0000-0000-0000-000000000003',
+           '20000000-0000-0000-0000-000000000010',
+           '{}'::jsonb, 1, '{}'::jsonb)
+      `))).rejects.toMatchObject({ code: '23503' });
+
+      const beforeDirectRerun = await schemaFingerprint(name);
+      await applySqlFile(name, relationshipMigrationPath);
+      expect(await schemaFingerprint(name)).toBe(beforeDirectRerun);
+
+      await applySqlFile(unmatchedName, baselinePath);
+      await createLegacyLog(unmatchedName, allLegacyFiles);
+      await withPool(unmatchedName, pool => pool.query(`
+        INSERT INTO investigations
+          (product_name, public_identifier, risk_level, status, detection_reason,
+           manufacturer, current_product_status, evidence)
+        VALUES
+          ('Unmatched Product', '20000000-0000-0000-0000-000000000099',
+           'HIGH', 'OPEN', 'Unmatched test', 'Unknown', 'ACTIVE', '{}'::jsonb)
+      `).then(() => undefined));
+      const unmatchedApply = runRunner(unmatchedName, ['--apply']);
+      expect(unmatchedApply.status).toBe(1);
+      expect(unmatchedApply.stderr).toContain('0012_UNMATCHED_INVESTIGATIONS');
+      const unmatchedColumn = await withPool(unmatchedName, pool => pool.query(`
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'investigations'
+          AND column_name = 'unit_code_id'
+      `).then(result => result.rowCount));
+      expect(unmatchedColumn).toBe(0);
+    } finally {
+      await dropDatabase(name);
+      await dropDatabase(unmatchedName);
+    }
+  }, 120_000);
 
   it('produces identical normalized schemas from baseline and snapshot paths', async () => {
     const baseline = databaseName('compare_baseline');
