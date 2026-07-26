@@ -496,14 +496,15 @@ server.post('/api/v1/auth/organizations/:id/status', {
     if (status === 'ACTIVATED') {
       if (org.type === 'PRODUCER') {
         await client.query(`
-          INSERT INTO producers (id, name, type, registry_references)
-          VALUES ($1, $2, 'FARMER', '{}')
+          INSERT INTO producers (id, organization_id, name, type, registry_references)
+          VALUES ($1, $1, $2, 'FARMER', '{}')
           ON CONFLICT (id) DO NOTHING
         `, [org.id, org.name]);
       } else if (org.type === 'CERTIFICATION_BODY') {
         await client.query(`
-          INSERT INTO certifiers (id, name, accreditation_details, public_key, key_status)
-          VALUES ($1, $2, '{}', 'pk_temp_key', 'ACTIVE')
+          INSERT INTO certifiers
+            (id, organization_id, name, accreditation_details, public_key, key_status)
+          VALUES ($1, $1, $2, '{}', 'pk_temp_key', 'ACTIVE')
           ON CONFLICT (id) DO NOTHING
         `, [org.id, org.name]);
       }

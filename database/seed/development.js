@@ -189,12 +189,12 @@ async function exactFixtureState(client, configuration) {
     [USERS.map(row => row.id)]
   )).rows;
   const certifier = (await client.query(
-    `SELECT id, name, public_key, key_status
+    `SELECT id, organization_id, name, public_key, key_status
      FROM certifiers WHERE id = $1`,
     [ORGANIZATIONS[0].id]
   )).rows[0];
   const producer = (await client.query(
-    `SELECT id, name, type, registry_references
+    `SELECT id, organization_id, name, type, registry_references
      FROM producers WHERE id = $1`,
     [ORGANIZATIONS[1].id]
   )).rows[0];
@@ -250,10 +250,12 @@ async function exactFixtureState(client, configuration) {
   const storedPublicKey = crypto.createPublicKey(certifier.public_key);
   const message = `budget_id:${BUDGET_ID};approved_quantity:${APPROVED_QUANTITY}`;
   return certifier.id === ORGANIZATIONS[0].id
+    && certifier.organization_id === ORGANIZATIONS[0].id
     && certifier.name === ORGANIZATIONS[0].name
     && certifier.key_status === 'ACTIVE'
     && publicKeyFingerprint(storedPublicKey) === publicKeyFingerprint(configuration.publicKey)
     && producer.id === ORGANIZATIONS[1].id
+    && producer.organization_id === ORGANIZATIONS[1].id
     && producer.name === ORGANIZATIONS[1].name
     && producer.type === 'FARMER'
     && JSON.stringify(producer.registry_references) === '{}'
@@ -323,13 +325,14 @@ async function seedDevelopment(environment = process.env, dependencies = {}) {
         );
       }
       await client.query(
-        `INSERT INTO certifiers (id, name, accreditation_details, public_key, key_status)
-         VALUES ($1, $2, '{}'::jsonb, $3, 'ACTIVE')`,
+        `INSERT INTO certifiers
+           (id, organization_id, name, accreditation_details, public_key, key_status)
+         VALUES ($1, $1, $2, '{}'::jsonb, $3, 'ACTIVE')`,
         [ORGANIZATIONS[0].id, ORGANIZATIONS[0].name, configuration.canonicalPublicKey]
       );
       await client.query(
-        `INSERT INTO producers (id, name, type, registry_references)
-         VALUES ($1, $2, 'FARMER', '{}'::jsonb)`,
+        `INSERT INTO producers (id, organization_id, name, type, registry_references)
+         VALUES ($1, $1, $2, 'FARMER', '{}'::jsonb)`,
         [ORGANIZATIONS[1].id, ORGANIZATIONS[1].name]
       );
       for (const user of USERS) {
