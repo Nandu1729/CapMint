@@ -129,6 +129,10 @@ const INVESTIGATION_MUTATION_SPECS = [
   ...CERTIFIER_OPERATION_SPECS,
   SYSTEM_ADMIN_SPEC
 ];
+const LOT_READ_SPECS = [
+  ...OPERATIONAL_READ_SPECS,
+  ...LAB_OPERATION_SPECS
+];
 
 // Initialize PostgreSQL Client Pool
 const DATABASE_URL = process.env.DATABASE_URL || (process.env.NODE_ENV === 'test' ? 'postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_dev' : '');
@@ -157,6 +161,24 @@ async function lockCertifierLot(client: pg.PoolClient, lotId: string, organizati
      WHERE l.id = $1
        AND c.organization_id = $2
      FOR UPDATE OF l, b
+     FOR SHARE OF c`,
+    [lotId, organizationId]
+  );
+}
+
+async function lockCertifierLotForLaboratoryAssignment(
+  client: pg.PoolClient,
+  lotId: string,
+  organizationId: string
+) {
+  return client.query(
+    `SELECT l.id, l.assigned_laboratory_organization_id
+     FROM lots l
+     JOIN budgets b ON b.id = l.budget_id
+     JOIN certifiers c ON c.id = b.certifier_id
+     WHERE l.id = $1
+       AND c.organization_id = $2
+     FOR UPDATE OF l
      FOR SHARE OF c`,
     [lotId, organizationId]
   );
@@ -896,6 +918,88 @@ server.post('/api/v1/lots', {
   }
 });
 
+// Route: Assign an activated NABL laboratory to a certifier-controlled lot
+server.post('/api/v1/lots/:id/assign-laboratory', {
+  preValidation: [server.authenticate, server.authorize(CERTIFIER_OPERATION_SPECS)]
+}, async (request, reply) => {
+  const { id } = request.params as any;
+  const { laboratory_organization_id } = request.body as any;
+  const user = request.user as any;
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  if (!uuidPattern.test(id || '') || !uuidPattern.test(laboratory_organization_id || '')) {
+    return reply.status(400).send({
+      success: false,
+      error: {
+        statusCode: 400,
+        code: 'BAD_REQUEST',
+        message: 'A valid laboratory_organization_id is required.'
+      }
+    });
+  }
+
+  const client = await pgPool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const lotResult = await lockCertifierLotForLaboratoryAssignment(client, id, user.orgId);
+    if (lotResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({
+        success: false,
+        error: { statusCode: 404, code: 'NOT_FOUND', message: 'Lot not found.' }
+      });
+    }
+
+    const laboratoryResult = await client.query(
+      `SELECT id
+       FROM organizations
+       WHERE id = $1
+         AND type = 'NABL_LABORATORY'
+         AND status = 'ACTIVATED'
+       FOR SHARE`,
+      [laboratory_organization_id]
+    );
+    if (laboratoryResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(404).send({
+        success: false,
+        error: {
+          statusCode: 404,
+          code: 'NOT_FOUND',
+          message: 'Activated laboratory not found.'
+        }
+      });
+    }
+
+    if (lotResult.rows[0].assigned_laboratory_organization_id !== laboratory_organization_id) {
+      await client.query(
+        `UPDATE lots
+         SET assigned_laboratory_organization_id = $2,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [id, laboratory_organization_id]
+      );
+    }
+
+    await client.query('COMMIT');
+    return {
+      success: true,
+      data: {
+        lot: {
+          id,
+          assigned_laboratory_organization_id: laboratory_organization_id
+        }
+      }
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+});
+
 // Route: Export Lot Unit Codes as CSV
 server.get('/api/v1/lots/:id/export/csv', {
   preValidation: [server.authenticate, server.authorize(OPERATIONAL_READ_SPECS)]
@@ -1446,7 +1550,7 @@ server.get('/api/v1/verify/unit-codes', {
 
 // Route: Get all lots
 server.get('/api/v1/verify/lots', {
-  preValidation: [server.authenticate, server.authorize(OPERATIONAL_READ_SPECS)]
+  preValidation: [server.authenticate, server.authorize(LOT_READ_SPECS)]
 }, async (request, reply) => {
   const user = request.user as any;
   let result;
@@ -1468,6 +1572,18 @@ server.get('/api/v1/verify/lots', {
        JOIN budgets b ON b.id = l.budget_id
        JOIN certifiers c ON c.id = b.certifier_id
        WHERE c.organization_id = $1
+       ORDER BY l.created_at DESC`,
+      [user.orgId]
+    );
+  } else if (user.orgType === 'NABL_LABORATORY') {
+    result = await pgPool.query(
+      `SELECT l.*
+       FROM lots l
+       JOIN organizations o
+         ON o.id = l.assigned_laboratory_organization_id
+       WHERE l.assigned_laboratory_organization_id = $1
+         AND o.type = 'NABL_LABORATORY'
+         AND o.status = 'ACTIVATED'
        ORDER BY l.created_at DESC`,
       [user.orgId]
     );
@@ -1739,33 +1855,242 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
 server.post('/api/v1/verify/lab-results', {
   preValidation: [server.authenticate, server.authorize(LAB_OPERATION_SPECS)]
 }, async (request, reply) => {
+  const {
+    lot_id,
+    lab_name,
+    test_type,
+    result_summary,
+    report_hash,
+    report_reference,
+    pdf_content
+  } = request.body as any;
   const user = request.user as any;
-  const authClient = await pgPool.connect();
-  try {
-    // Validate lab identity and certifier trust chain status
-    const labOrg = await authClient.query('SELECT status FROM organizations WHERE id = $1 AND type = \'NABL_LABORATORY\'', [user.orgId]);
-    if (labOrg.rows.length === 0 || labOrg.rows[0].status !== 'ACTIVATED') {
-      return reply.status(403).send({
-        success: false,
-        error: { statusCode: 403, code: 'FORBIDDEN', message: 'Laboratory is not activated in the trust registry.' }
-      });
-    }
-  } finally {
-    authClient.release();
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  if (!uuidPattern.test(lot_id || '')) {
+    return reply.status(400).send({
+      success: false,
+      error: { statusCode: 400, code: 'BAD_REQUEST', message: 'A valid lot_id is required.' }
+    });
   }
 
-  // C0 fails closed because the current schema has no trusted lot-to-laboratory
-  // assignment. Do not inspect or process client-supplied report data before C2
-  // introduces the approved assignment relationship.
-  return reply.status(403).send({
-    success: false,
-    error: {
-      statusCode: 403,
-      code: 'LAB_ASSIGNMENT_REQUIRED',
-      message: 'This lot has no trusted laboratory assignment.'
-    }
-  });
+  const client = await pgPool.connect();
+  let ledgerEvents: Array<{ event_type: string; payload: Record<string, unknown> }> = [];
+  let labResult: any;
+  try {
+    await client.query('BEGIN');
 
+    const scopedLot = await client.query(
+      `SELECT l.id
+       FROM lots l
+       JOIN organizations o
+         ON o.id = l.assigned_laboratory_organization_id
+       WHERE l.id = $1
+         AND l.assigned_laboratory_organization_id = $2
+         AND o.type = 'NABL_LABORATORY'
+         AND o.status = 'ACTIVATED'
+       FOR UPDATE OF l
+       FOR SHARE OF o`,
+      [lot_id, user.orgId]
+    );
+    if (scopedLot.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return reply.status(403).send({
+        success: false,
+        error: {
+          statusCode: 403,
+          code: 'LAB_ASSIGNMENT_REQUIRED',
+          message: 'This lot has no trusted laboratory assignment.'
+        }
+      });
+    }
+
+    if (!lab_name || !test_type || !result_summary || !report_hash) {
+      await client.query('ROLLBACK');
+      return reply.status(400).send({
+        success: false,
+        error: { statusCode: 400, code: 'BAD_REQUEST', message: 'Missing required lab result fields.' }
+      });
+    }
+
+    const normalizedSummary = String(result_summary).toUpperCase();
+    if (!['PASS', 'PASSED', 'FAIL', 'FAILED'].includes(normalizedSummary)) {
+      await client.query('ROLLBACK');
+      return reply.status(400).send({
+        success: false,
+        error: {
+          statusCode: 400,
+          code: 'BAD_REQUEST',
+          message: 'result_summary must be PASSED or FAILED.'
+        }
+      });
+    }
+    const dbResultSummary = normalizedSummary === 'PASS' || normalizedSummary === 'PASSED' ? 'PASS' : 'FAIL';
+    const lotLabStatus = dbResultSummary === 'PASS' ? 'PASSED' : 'FAILED';
+
+    if (pdf_content) {
+      let pdfBuffer: Buffer;
+      try {
+        pdfBuffer = Buffer.from(pdf_content, 'base64');
+      } catch {
+        await client.query('ROLLBACK');
+        return reply.status(400).send({
+          success: false,
+          error: {
+            statusCode: 400,
+            code: 'INVALID_PDF_CONTENT',
+            message: 'Failed to decode and validate PDF content.'
+          }
+        });
+      }
+      if (pdfBuffer.length < 4 || pdfBuffer.toString('ascii', 0, 4) !== '%PDF') {
+        await client.query('ROLLBACK');
+        return reply.status(400).send({
+          success: false,
+          error: {
+            statusCode: 400,
+            code: 'INVALID_PDF',
+            message: 'Uploaded file is not a valid PDF document.'
+          }
+        });
+      }
+      const calculatedHash = crypto.createHash('sha256').update(pdfBuffer).digest('hex');
+      if (calculatedHash !== report_hash) {
+        await client.query('ROLLBACK');
+        return reply.status(400).send({
+          success: false,
+          error: {
+            statusCode: 400,
+            code: 'HASH_MISMATCH',
+            message: 'Uploaded PDF SHA-256 hash validation failed.'
+          }
+        });
+      }
+    }
+
+    const existingResult = await client.query(
+      'SELECT id, report_hash FROM lab_results WHERE lot_id = $1 FOR UPDATE',
+      [lot_id]
+    );
+    const isReplacement = existingResult.rowCount !== 0;
+    if (isReplacement && existingResult.rows[0].report_hash === report_hash) {
+      await client.query('ROLLBACK');
+      return reply.status(409).send({
+        success: false,
+        error: {
+          statusCode: 409,
+          code: 'CONFLICT',
+          message: 'A lab report with the same hash already exists for this lot.'
+        }
+      });
+    }
+
+    const result = isReplacement
+      ? await client.query(
+          `UPDATE lab_results
+           SET lab_name = $2,
+               test_type = $3,
+               result_summary = $4,
+               report_hash = $5,
+               report_reference = $6,
+               submitted_by_organization_id = $7,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE lot_id = $1
+           RETURNING id, lot_id, lab_name, test_type, result_summary,
+                     report_hash, report_reference, created_at, updated_at`,
+          [lot_id, lab_name, test_type, dbResultSummary, report_hash, report_reference || '', user.orgId]
+        )
+      : await client.query(
+          `INSERT INTO lab_results
+             (id, lot_id, lab_name, test_type, result_summary, report_hash,
+              report_reference, submitted_by_organization_id)
+           VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7)
+           RETURNING id, lot_id, lab_name, test_type, result_summary,
+                     report_hash, report_reference, created_at, updated_at`,
+          [lot_id, lab_name, test_type, dbResultSummary, report_hash, report_reference || '', user.orgId]
+        );
+    labResult = result.rows[0];
+
+    await client.query(
+      `UPDATE lots
+       SET lab_status = $2,
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $1`,
+      [lot_id, lotLabStatus]
+    );
+
+    if (isReplacement) {
+      ledgerEvents.push({
+        event_type: 'LOT_LAB_TEST_REPLACED',
+        payload: { lot_id, lab_name, test_type, report_hash }
+      });
+    }
+
+    if (dbResultSummary === 'FAIL') {
+      await client.query(
+        `UPDATE unit_codes
+         SET current_state = 'REVOKED',
+             revoked_at = CURRENT_TIMESTAMP
+         WHERE lot_id = $1`,
+        [lot_id]
+      );
+      await client.query(
+        `UPDATE lots
+         SET revocation_status = 'REVOKED',
+             product_metadata = product_metadata
+               || jsonb_build_object(
+                    'revocation_reason',
+                    'Laboratory test failed: ' || $2::text,
+                    'revocation_date',
+                    CURRENT_TIMESTAMP
+                  ),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1`,
+        [lot_id, test_type]
+      );
+      ledgerEvents.push({
+        event_type: 'LOT_LAB_TEST_FAILED_CASCADING_REVOCATION',
+        payload: { lot_id, lab_name, test_type, report_hash }
+      });
+    } else {
+      ledgerEvents.push({
+        event_type: 'LOT_LAB_TEST_PASSED',
+        payload: { lot_id, lab_name, test_type, report_hash }
+      });
+    }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  for (const event of ledgerEvents) {
+    try {
+      await fetch(LEDGER_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + SERVICE_TOKEN
+        },
+        body: JSON.stringify({
+          entity_type: 'LOT',
+          entity_id: lot_id,
+          event_type: event.event_type,
+          payload: event.payload
+        })
+      });
+    } catch (logErr) {
+      server.log.error(logErr as any, 'Failed to append laboratory event to ledger');
+    }
+  }
+
+  return {
+    success: true,
+    data: { labResult }
+  };
 });
 
 // Start the server
