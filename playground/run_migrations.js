@@ -141,6 +141,23 @@ const APP_ROLE_STATE = {
   tablePrivileges: ['DELETE', 'INSERT', 'SELECT', 'UPDATE'],
   sequencePrivileges: ['SELECT', 'USAGE']
 };
+const IDENTITY_RLS_STATE = {
+  tables: ['certifiers', 'organizations', 'producers'],
+  policies: [
+    { table_name: 'certifiers', policy_name: 'certifiers_tenant_delete', command: 'DELETE', signature: '61718ef66df96f152a652c8db85c5c13f339f2feace75d263d7584950c504325' },
+    { table_name: 'certifiers', policy_name: 'certifiers_tenant_insert', command: 'INSERT', signature: '2c3329f3ec1710c4283c91755233aee58d1b12e6daf19b6aed798f07ac4c49a7' },
+    { table_name: 'certifiers', policy_name: 'certifiers_tenant_select', command: 'SELECT', signature: '097247cf1995c681d241f92afd6548629335b594871a63ed7fae2b20fb1278e6' },
+    { table_name: 'certifiers', policy_name: 'certifiers_tenant_update', command: 'UPDATE', signature: '698a82369ca54d4ed185197b0d5e380a4349cf19d3213267e458883aad30bb69' },
+    { table_name: 'organizations', policy_name: 'organizations_tenant_delete', command: 'DELETE', signature: 'd550a8d85820aa2944bf9d15dbebbefb6e358c192e71bfca2708a62e455ad9d8' },
+    { table_name: 'organizations', policy_name: 'organizations_tenant_insert', command: 'INSERT', signature: '14574a98c879db427a8f2085c2bf7bcf849cc3404f758cf251c831c44adfcbe5' },
+    { table_name: 'organizations', policy_name: 'organizations_tenant_select', command: 'SELECT', signature: 'bb7d4d8f8246bc5b4bbb870081df7fbde9ed50fe8537c532fe16446c0a716c28' },
+    { table_name: 'organizations', policy_name: 'organizations_tenant_update', command: 'UPDATE', signature: 'bf65a68db78c42877c208dca9001ec4b1776c4a28faf1bfab8e00d716ed8f85b' },
+    { table_name: 'producers', policy_name: 'producers_tenant_delete', command: 'DELETE', signature: '61718ef66df96f152a652c8db85c5c13f339f2feace75d263d7584950c504325' },
+    { table_name: 'producers', policy_name: 'producers_tenant_insert', command: 'INSERT', signature: '2c3329f3ec1710c4283c91755233aee58d1b12e6daf19b6aed798f07ac4c49a7' },
+    { table_name: 'producers', policy_name: 'producers_tenant_select', command: 'SELECT', signature: 'ae5ba74e9d07fb8f9d54913125a4fb8ccac99ba5cd9a09920caf94afe0229439' },
+    { table_name: 'producers', policy_name: 'producers_tenant_update', command: 'UPDATE', signature: '698a82369ca54d4ed185197b0d5e380a4349cf19d3213267e458883aad30bb69' }
+  ]
+};
 const CORE_TABLES = [
   'organizations',
   'users',
@@ -1116,6 +1133,23 @@ async function verify0015(client) {
     };
   }
 
+  const successorEvidence = await readIdentityRlsEvidence(client);
+  if (successorEvidence.migration_recorded
+    && identityRlsExact(successorEvidence)
+    && appRoleSecurityExact(evidence)
+    && appRoleGrantsExact(evidence)) {
+    const combinedEvidence = {
+      ...evidence,
+      successor: successorEvidence
+    };
+    return {
+      status: 'exact',
+      summary: 'Non-owner capmint_app D1 grants remain exact with recorded 0016 identity-table RLS enforcement.',
+      evidence: combinedEvidence,
+      fingerprint: evidenceFingerprint(combinedEvidence)
+    };
+  }
+
   const noDatabaseEffects = evidence.database_privileges.length === 0
     && evidence.schema_privileges.length === 0
     && evidence.table_privileges.length === 0
@@ -1134,6 +1168,140 @@ async function verify0015(client) {
   return {
     status: 'incompatible',
     summary: 'capmint_app security/grants are partial or incompatible, or RLS enforcement is already present.',
+    evidence,
+    fingerprint: evidenceFingerprint(evidence)
+  };
+}
+
+function normalizePolicyExpression(value) {
+  if (value === null || value === undefined) return null;
+  return value
+    .replace(/::text/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function policyExpressionSignature(policy) {
+  return sha256([
+    policy.command,
+    normalizePolicyExpression(policy.using_expression) || '',
+    normalizePolicyExpression(policy.check_expression) || ''
+  ].join('|'));
+}
+
+async function readIdentityRlsEvidence(client) {
+  const evidence = {
+    migration_recorded: false,
+    rls_tables: [],
+    policies: []
+  };
+  if (await tableExists(client, 'migrations_log')) {
+    evidence.migration_recorded = (await client.query(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM migrations_log
+         WHERE filename = '0016_enable_identity_table_rls.sql'
+       ) AS recorded`
+    )).rows[0].recorded;
+  }
+  evidence.rls_tables = (await client.query(
+    `SELECT relation.relname AS table_name,
+            relation.relrowsecurity AS enabled,
+            relation.relforcerowsecurity AS forced
+     FROM pg_class AS relation
+     JOIN pg_namespace AS namespace
+       ON namespace.oid = relation.relnamespace
+     WHERE namespace.nspname = 'public'
+       AND relation.relkind IN ('r', 'p')
+       AND (relation.relrowsecurity OR relation.relforcerowsecurity)
+     ORDER BY relation.relname`
+  )).rows;
+  evidence.policies = (await client.query(
+    `SELECT tablename AS table_name,
+            policyname AS policy_name,
+            permissive,
+            roles,
+            cmd AS command,
+            qual AS using_expression,
+            with_check AS check_expression
+     FROM pg_policies
+     WHERE schemaname = 'public'
+     ORDER BY tablename, policyname`
+  )).rows.map(policy => ({
+    ...policy,
+    roles: Array.isArray(policy.roles)
+      ? policy.roles
+      : policy.roles.slice(1, -1).split(',').filter(Boolean),
+    using_expression: normalizePolicyExpression(policy.using_expression),
+    check_expression: normalizePolicyExpression(policy.check_expression),
+    signature: policyExpressionSignature(policy)
+  }));
+  return evidence;
+}
+
+function identityPolicyShapeExact(policy, expected) {
+  const expressionsPresent = expected.command === 'INSERT'
+    ? policy.using_expression === null && policy.check_expression !== null
+    : expected.command === 'UPDATE'
+      ? policy.using_expression !== null && policy.check_expression !== null
+      : policy.using_expression !== null && policy.check_expression === null;
+  const expressions = [
+    policy.using_expression,
+    policy.check_expression
+  ].filter(Boolean);
+  const safeTenantExpressions = expressions.every(expression =>
+    expression.includes("NULLIF(current_setting('app.current_organization_id', true), '')")
+      && expression.includes('::uuid')
+      && expression.includes("current_setting('app.actor_is_system_admin', true) = 'on'"));
+
+  return policy.table_name === expected.table_name
+    && policy.policy_name === expected.policy_name
+    && policy.command === expected.command
+    && policy.permissive === 'PERMISSIVE'
+    && stableJson(policy.roles) === stableJson(['capmint_app'])
+    && expressionsPresent
+    && safeTenantExpressions
+    && (!expected.signature || policy.signature === expected.signature);
+}
+
+function identityRlsExact(evidence) {
+  const tablesExact = stableJson(evidence.rls_tables) === stableJson(
+    IDENTITY_RLS_STATE.tables.map(tableName => ({
+      table_name: tableName,
+      enabled: true,
+      forced: false
+    }))
+  );
+  return tablesExact
+    && evidence.policies.length === IDENTITY_RLS_STATE.policies.length
+    && evidence.policies.every((policy, index) =>
+      identityPolicyShapeExact(policy, IDENTITY_RLS_STATE.policies[index]));
+}
+
+async function verify0016(client) {
+  const evidence = await readIdentityRlsEvidence(client);
+
+  if (identityRlsExact(evidence)) {
+    return {
+      status: 'exact',
+      summary: 'RLS and the exact capmint_app policy set are enabled on the three direct-organization identity tables.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  if (evidence.rls_tables.length === 0 && evidence.policies.length === 0) {
+    return {
+      status: 'absent',
+      summary: 'Identity-table RLS and policies are absent.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  return {
+    status: 'incompatible',
+    summary: 'Identity-table RLS is partial, forced, unexpected, or has a non-exact policy set.',
     evidence,
     fingerprint: evidenceFingerprint(evidence)
   };
@@ -1311,7 +1479,8 @@ const STATE_VERIFIERS = new Map([
   ['0012_add_derived_tenant_relationships.sql', verify0012],
   ['0013_tighten_tenant_constraints.sql', verify0013],
   ['0014_tighten_certifier_organization_id.sql', verify0014],
-  ['0015_add_capmint_app_role.sql', verify0015]
+  ['0015_add_capmint_app_role.sql', verify0015],
+  ['0016_enable_identity_table_rls.sql', verify0016]
 ]);
 
 async function readMetadata(client) {
@@ -1758,6 +1927,7 @@ module.exports = {
   DERIVED_TENANCY_STATE,
   CERTIFIER_NOT_NULL_STATE,
   APP_ROLE_STATE,
+  IDENTITY_RLS_STATE,
   PROFILE_ORGANIZATION_STATE,
   TENANCY_TIGHTENING_STATE,
   TOOL_VERSION,
@@ -1777,5 +1947,6 @@ module.exports = {
   verify0012,
   verify0013,
   verify0014,
-  verify0015
+  verify0015,
+  verify0016
 };
