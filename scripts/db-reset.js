@@ -22,6 +22,8 @@
 
 'use strict';
 
+require('dotenv').config();
+
 const { spawnSync } = require('child_process');
 const { Client } = require('pg');
 
