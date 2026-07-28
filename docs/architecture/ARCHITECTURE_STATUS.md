@@ -17,13 +17,17 @@
   (owner runs migrations/bootstrap/seed unimpeded), fail-closed on empty GUC, with a per-request
   `withTenantTx` tenant-context lifecycle as non-owner role `capmint_app`. Cross-tenant denial
   is proven at the DB layer; the transparency ledger is immutable to the app role.
-- **Integration branch:** `feat/post-dm03-integration` (**A**)
-- **HEAD:** `7f7cd320`
+- **Integration line:** `develop` (== `feat/post-dm03-integration`), **pushed to `origin/develop`**
+  for frontend + backend integration testing. Requires `npm ci` (node_modules untracked) and a
+  `.env` with the `capmint_app` `DATABASE_URL`.
+- **HEAD:** `e5f80f2e`
 - **Integrated into A:** item 1 (`certifiers.organization_id NOT NULL`, migration `0014`) ·
   DM-04 D1–D3c (migrations `0015`–`0019`, `packages/shared/tenant-db.js`) · M1 repo hygiene
   (`node_modules` untracked, docs reconciled) · capacity/over-issuance fix + shared
   `packages/shared/capacity.js` guard.
-- **Merge-base with `main`:** `767a2f6` — **merging A into `main` is a separate, un-taken decision.**
+- **`main`:** unchanged at `767a2f6`. Promotion **`develop → main`** is a separate decision, gated
+  on a pre-production hardening pass (transparency-ledger external anchoring + bounded security
+  review) after integration testing on `develop`.
 - **Tracked follow-ups (separately gated, not started):** (1) **transparency-ledger hardening**
   — external anchoring (the unused `published_anchor_reference`), append-identity restriction,
   append-serialization scale; (2) **process fix** — do not apply unapproved feature-branch
