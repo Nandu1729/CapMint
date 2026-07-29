@@ -101,9 +101,14 @@ server.post('/api/v1/log', { preValidation: [server.authenticate] }, async (requ
 
   return withTenantTx(pgPool, tenantContextFromUser(request.user as any), async (client) => {
 
-    // 1. Fetch the latest log entry to lock the chain tail and get previous hash
+    // 1. Serialize appends and read the chain tail. log_entries is immutable (no UPDATE
+    // policy), so SELECT ... FOR UPDATE returns zero rows under RLS for the non-owner app
+    // role. Take the same SHARE ROW EXCLUSIVE table lock the registration definer uses to
+    // serialize all appends, then read the tail with a plain SELECT (permitted by the
+    // log_entries SELECT policy).
+    await client.query('LOCK TABLE log_entries IN SHARE ROW EXCLUSIVE MODE');
     const latestRes = await client.query(
-      'SELECT current_hash FROM log_entries ORDER BY created_at DESC, id DESC LIMIT 1 FOR UPDATE'
+      'SELECT current_hash FROM log_entries ORDER BY created_at DESC, id DESC LIMIT 1'
     );
     
     let previousHash = '0000000000000000000000000000000000000000000000000000000000000000';
@@ -234,9 +239,14 @@ async function handleAppendLog(request: any, reply: any, client: pg.PoolClient) 
     });
   }
 
-    // 1. Fetch the latest log entry to lock the chain tail and get previous hash
+    // 1. Serialize appends and read the chain tail. log_entries is immutable (no UPDATE
+    // policy), so SELECT ... FOR UPDATE returns zero rows under RLS for the non-owner app
+    // role. Take the same SHARE ROW EXCLUSIVE table lock the registration definer uses to
+    // serialize all appends, then read the tail with a plain SELECT (permitted by the
+    // log_entries SELECT policy).
+    await client.query('LOCK TABLE log_entries IN SHARE ROW EXCLUSIVE MODE');
     const latestRes = await client.query(
-      'SELECT current_hash FROM log_entries ORDER BY created_at DESC, id DESC LIMIT 1 FOR UPDATE'
+      'SELECT current_hash FROM log_entries ORDER BY created_at DESC, id DESC LIMIT 1'
     );
     
     let previousHash = '0000000000000000000000000000000000000000000000000000000000000000';
