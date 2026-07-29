@@ -4,7 +4,7 @@
 > [AD-002](DECISIONS.md)). Updated at each milestone approval gate. Where this file and
 > the `state/` cards disagree, this file wins until reconciliation.
 >
-> **Last updated:** 2026-07-29 (Review #14 — DM-04 RLS **runtime-verified** via the live smoke gate as `capmint_app` (YELLOW); provisioning fixes integrated; four tracked defects opened)
+> **Last updated:** 2026-07-29 (Review #15 — canonical non-owner service DB role + startup guard; **defect #1 CLOSED**. Review #14 — DM-04 RLS **runtime-verified** via the live smoke gate as `capmint_app` (YELLOW))
 
 ---
 
@@ -20,7 +20,7 @@
 - **Integration line:** `develop` (== `feat/post-dm03-integration`), **pushed to `origin/develop`**
   for frontend + backend integration testing. Requires `npm ci` (node_modules untracked) and a
   `.env` with the `capmint_app` `DATABASE_URL`.
-- **HEAD:** `3c287868` (smoke-gate provisioning fixes integrated; Review #14)
+- **HEAD:** `fa6df817` (Review #15 — canonical non-owner service DB role + startup guard; defect #1 closed)
 - **RLS runtime status:** **VERIFIED (Review #14).** The first genuine `capmint_app` run
   (services as the non-owner role, `rolbypassrls=false`) passed the live frontend→API→RLS
   smoke (Attempt 05, YELLOW). Architect re-verified at the DB layer: fail-closed for a foreign
@@ -35,12 +35,11 @@
   on a pre-production hardening pass (transparency-ledger external anchoring + bounded security
   review) after integration testing on `develop`.
 - **Tracked defects from the smoke gate (Review #14; triage before `develop→main`):**
-  1. **CRITICAL (config-integrity)** — per-service `backend/*/.env` shadow the root `.env`
-     (each service's `dotenv.config()` loads its own CWD file), defaulting `DATABASE_URL` to the
-     **owner** role → RLS **off**; they also carry the blacklisted `7ee5…` certifier key.
-     Local-only (never in git). A deploy following the root-`.env` docs would run RLS-disabled.
-     Currently masked only by `backend/*/.env → ../../.env` symlinks. Needs a canonical single-env
-     model + key purge. **Top priority.**
+  1. ~~CRITICAL (config-integrity) — per-service `.env` shadow root, defaulting services to the
+     owner role → RLS off.~~ **RESOLVED (Review #15, `fa6df817`).** All seven services now load the
+     repo-root `.env` (CWD-independent) and a startup guard refuses to bind unless the role is
+     `capmint_app` (non-super, non-BYPASSRLS, non-RLS-table-owner); per-service `.env`/symlinks
+     removed; blacklisted key purged.
   2. **F-org (medium)** — `organizations_tenant_select` is world-readable under the public/empty-GUC
      path, broader than its own ACTIVATED-certifier/lab directory clause. Latent (no public
      org-listing endpoint); provenance data unaffected. Tighten or confirm intentional.
@@ -114,7 +113,7 @@ confirmed the asserted closures.
 |---|---|---|
 | Over-issuance guard historically bypassed on primary UI path `/verify/register` | High | **Closed** — smoke Attempt 05 exercised `/verify/register` + mint; lot/budget capacity guards rejected over-issuance (422) under `capmint_app`/RLS. |
 | Multi-tenancy isolation incomplete until `organization_id` + RLS land everywhere | High | **Closed** — DM-04 RLS enforced and **runtime-verified** as `capmint_app` (Review #14). |
-| Services default to owner role (RLS off) via stale per-service `.env` | High | **Open (Review #14, top priority)** — masked only by symlinks; canonical single-env model + key purge needed before `develop→main`. |
+| Services default to owner role (RLS off) via stale per-service `.env` | High | **Closed (Review #15)** — canonical root-`.env` load + fail-fast owner-role startup guard on all seven services; per-service `.env`/symlinks removed; key purged. |
 | `organizations` public/empty-GUC read broader than intended (F-org) | Medium | **Open (Review #14)** — latent; tighten policy or confirm intentional. |
 | Documentation drift eroding trust in project memory | Medium | Contained by AD-002; reconciliation outstanding. |
 | Declared-but-empty services overstate architecture | Medium | Open. |

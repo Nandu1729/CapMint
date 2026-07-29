@@ -260,6 +260,48 @@ Evidence: `docs/smoke/DM04_RLS_SMOKE_REPORT.md` (Attempt 05) + preserved attempt
 
 ---
 
+## Review #15 — HO-004: Canonical non-owner service DB role + startup guard (closes defect #1)
+
+| Field | Value |
+|---|---|
+| **Review Number** | #15 |
+| **Milestone** | HO-004 — eliminate the per-service `.env` owner-role shadowing (Review #14 tracked defect #1, CRITICAL config-integrity) |
+| **Branch** | `fix/canonical-service-env` → merged into `feat/post-dm03-integration` (`develop`) |
+| **Commit Range Reviewed** | `3c287868..fa6df817` — `81c1444a` (fix) + merge `fa6df817` |
+| **Architecture Status** | PASS |
+| **Security Status** | PASS (verified live) |
+| **Migration Status** | N/A |
+| **Testing Status** | PASS — 27 e2e/unit + service tests green; HO-002 rerun RLS A–D=0; architect re-verified the guard query live |
+| **Approved Decisions** | none new |
+| **Outstanding Items** | Tracked defects F-org, P1a, P1b remain (defect #1 now closed). |
+| **Next Review Starts From** | `fa6df817`. |
+
+### Findings (delta only)
+- **Deterministic root-env load.** All seven services replaced bare `dotenv.config()` with
+  `dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) })`, resolving
+  to the repo-root `.env` from both `src/` (dev/`tsx`) and `dist/` (prod/`node`) — CWD-independent.
+  Per-service `.env` files and the smoke-run symlinks are **gone** (verified absent on disk).
+- **Fail-fast owner-role guard.** New `assertRlsServiceRole(pool, serviceName)` in
+  `packages/shared/tenant-db.js` runs at each service's `start()` **before** `listen()`; it
+  refuses to bind unless `current_user = 'capmint_app'` **and** `rolsuper=false` **and**
+  `rolbypassrls=false` **and** the role owns **no** RLS-enabled table. Architect ran the exact
+  guard query live: `capmint_app` → SAFE; any owner/super/bypass identity → refused.
+- **Uniform application.** `integration-service` (previously no DB dependency) gains a `pg` pool
+  solely to assert the role — defense-in-depth uniformity (all services prove non-owner), plus a
+  fail-fast on missing `DATABASE_URL`. Acceptable added startup dependency.
+- **Key hygiene.** Blacklisted `7ee5…` key material purged from local env; only the intentional
+  seed denylist fingerprint remains in `development.js`. `.env.example`/`CONTRIBUTING.md` updated
+  to document the canonical model.
+- **Hygiene.** Single atomic security commit; no attribution; no `.env`/`.codex`/smoke artifact
+  committed (only `.env.example` template).
+
+### Approval
+`APPROVED` — **the critical config-integrity defect #1 is CLOSED.** Services can no longer
+silently run as the RLS-bypassing owner; the durable fix supersedes the symlink workaround.
+Boundary advances to `fa6df817`. F-org, P1a, P1b remain separately gated.
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 

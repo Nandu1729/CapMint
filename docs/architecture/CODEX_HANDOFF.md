@@ -17,7 +17,7 @@
 | [HO-001](#ho-001-dm-03-c3--tenancy-enforcement) | DM-03 C3 — Tenancy Enforcement | DM-03 C3 | 2026-07-26 | HANDED-OFF |
 | [HO-002](#ho-002-dm-04-rls-end-to-end-smoke-test) | DM-04 RLS End-to-End Smoke Test | DM-04 smoke gate | 2026-07-28 | EXECUTED (Review #14) |
 | [HO-003](#ho-003-smoke-gate-provisioning-remediation) | Smoke-gate provisioning remediation (+ re-runs) | DM-04 smoke gate | 2026-07-28 | EXECUTED (Review #14) |
-| [HO-004](#ho-004-canonical-service-env--purge-blacklisted-key) | Canonical service env + purge blacklisted key | Post-smoke defect #1 | 2026-07-29 | HANDED-OFF |
+| [HO-004](#ho-004-canonical-service-env--purge-blacklisted-key) | Canonical service env + purge blacklisted key | Post-smoke defect #1 | 2026-07-29 | EXECUTED (Review #15) |
 
 ---
 
@@ -211,8 +211,8 @@ exposed is carried forward as tracked defect #1 → HO-004.
 
 ## HO-004: Canonical service env + purge blacklisted key
 
-- **Spec ID:** HO-004 · **Milestone:** post-smoke defect #1 (config-integrity) · **Date:** 2026-07-29 · **Status:** HANDED-OFF
-- **Related Review:** #14 (tracked defect 1)
+- **Spec ID:** HO-004 · **Milestone:** post-smoke defect #1 (config-integrity) · **Date:** 2026-07-29 · **Status:** EXECUTED (Review #15, `fa6df817`)
+- **Related Review:** #14 (tracked defect 1) → closed by #15
 
 ### Objective
 Eliminate the latent tenant-isolation bypass: each backend service loads `backend/<svc>/.env`
