@@ -22,6 +22,8 @@
 
 'use strict';
 
+require('dotenv').config();
+
 const { spawnSync } = require('child_process');
 const { Client } = require('pg');
 
@@ -64,7 +66,7 @@ if (!['localhost', '127.0.0.1', '::1'].includes(host)) {
 
 console.log(`Plan — reset LOCAL dev database "${dbName}" on ${host}:`);
 console.log('  1. terminate connections, DROP DATABASE, CREATE DATABASE');
-console.log('  2. node playground/run_migrations.js --apply        (owner URL)');
+console.log('  2. node playground/run_migrations.js --bootstrap    (owner URL)');
 console.log(`  3. provision capmint_app LOGIN                       (${process.env.CAPMINT_APP_PASSWORD ? 'yes' : 'skipped — CAPMINT_APP_PASSWORD unset'})`);
 console.log(`  4. npm run seed:development                          (${process.env.CAPMINT_DEVELOPMENT_SEED_PASSWORD ? 'yes' : 'skipped — seed env unset'})`);
 
@@ -97,7 +99,7 @@ async function main() {
   await admin.end();
 
   console.log('Applying migrations (owner)...');
-  runStep('node', ['playground/run_migrations.js', '--apply'], { DATABASE_URL: adminUrl });
+  runStep('node', ['playground/run_migrations.js', '--bootstrap'], { DATABASE_URL: adminUrl });
 
   if (process.env.CAPMINT_APP_PASSWORD) {
     console.log('Provisioning capmint_app LOGIN...');
