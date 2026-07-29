@@ -2,9 +2,14 @@ import Fastify from 'fastify';
 import pg from 'pg';
 import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
-import { PUBLIC_TENANT_CONTEXT, withTenantTx } from '../../../packages/shared/tenant-db.js';
+import { fileURLToPath } from 'node:url';
+import {
+  assertRlsServiceRole,
+  PUBLIC_TENANT_CONTEXT,
+  withTenantTx
+} from '../../../packages/shared/tenant-db.js';
 
-dotenv.config();
+dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
 const server = Fastify({
   logger: true
@@ -127,6 +132,7 @@ server.get('/01/:gtin/21/:serial', async (request, reply) => {
 // Start the server
 const start = async () => {
   try {
+    await assertRlsServiceRole(pgPool, 'resolver-service');
     const port = parseInt(process.env.PORT || '8084', 10);
     await server.listen({ port, host: '0.0.0.0' });
     server.log.info(`Resolver service listening on port ${port}`);

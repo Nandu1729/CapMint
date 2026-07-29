@@ -4,9 +4,14 @@ import pg from 'pg';
 import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
-import { tenantContextFromUser, withTenantTx } from '../../../packages/shared/tenant-db.js';
+import { fileURLToPath } from 'node:url';
+import {
+  assertRlsServiceRole,
+  tenantContextFromUser,
+  withTenantTx
+} from '../../../packages/shared/tenant-db.js';
 
-dotenv.config();
+dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -757,6 +762,7 @@ server.post('/api/v1/budgets/:id/revision', {
 // Start the server
 const start = async () => {
   try {
+    await assertRlsServiceRole(pgPool, 'cpq-service');
     const port = parseInt(process.env.PORT || '8082', 10);
     
     await server.listen({ port, host: '0.0.0.0' });

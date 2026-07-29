@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import pg from 'pg';
 import {
+  assertRlsServiceRole,
   PUBLIC_TENANT_CONTEXT,
   withTenantTx
 } from '../../../packages/shared/tenant-db.js';
@@ -35,6 +36,45 @@ describe('withTenantTx fail-closed contract', () => {
       )
     ).rejects.toThrow('requires an organization');
     expect(connect).not.toHaveBeenCalled();
+  });
+});
+
+describe('service database role startup guard', () => {
+  function rolePool(identity: Record<string, unknown>) {
+    const release = vi.fn();
+    const query = vi.fn().mockResolvedValue({ rowCount: 1, rows: [identity] });
+    const connect = vi.fn().mockResolvedValue({ query, release });
+    return { pool: { connect }, connect, query, release };
+  }
+
+  it('accepts only the non-owner capmint_app role', async () => {
+    const fake = rolePool({
+      role_name: 'capmint_app',
+      rolsuper: false,
+      rolbypassrls: false,
+      owns_rls_table: false
+    });
+
+    await expect(assertRlsServiceRole(fake.pool as any, 'test-service')).resolves.toEqual({
+      roleName: 'capmint_app',
+      isSuperuser: false,
+      bypassesRls: false,
+      ownsRlsTable: false
+    });
+    expect(fake.release).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['owner role', { role_name: 'capmint_admin', rolsuper: false, rolbypassrls: false, owns_rls_table: true }],
+    ['superuser', { role_name: 'capmint_app', rolsuper: true, rolbypassrls: false, owns_rls_table: false }],
+    ['BYPASSRLS role', { role_name: 'capmint_app', rolsuper: false, rolbypassrls: true, owns_rls_table: false }]
+  ])('rejects an unsafe %s', async (_label, identity) => {
+    const fake = rolePool(identity);
+
+    await expect(assertRlsServiceRole(fake.pool as any, 'test-service')).rejects.toThrow(
+      'refuses unsafe database role'
+    );
+    expect(fake.release).toHaveBeenCalledOnce();
   });
 });
 

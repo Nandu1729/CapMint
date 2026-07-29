@@ -4,13 +4,15 @@ import bcrypt from 'fastify-bcrypt';
 import pg from 'pg';
 import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'node:url';
 import {
+  assertRlsServiceRole,
   PUBLIC_TENANT_CONTEXT,
   tenantContextFromUser,
   withTenantTx
 } from '../../../packages/shared/tenant-db.js';
 
-dotenv.config();
+dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
 import crypto from 'crypto';
 
@@ -760,6 +762,7 @@ server.get('/api/v1/auth/users', {
 const start = async () => {
   try {
     await server.ready();
+    await assertRlsServiceRole(pgPool, 'auth-service');
     const port = parseInt(process.env.PORT || '8081', 10);
 
     await server.listen({ port, host: '0.0.0.0' });

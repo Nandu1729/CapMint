@@ -4,14 +4,16 @@ import jwt from '@fastify/jwt';
 import pg from 'pg';
 import { Redis } from 'ioredis';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'node:url';
 import {
+  assertRlsServiceRole,
   PUBLIC_TENANT_CONTEXT,
   tenantContextFromUser,
   withTenantTx
 } from '../../../packages/shared/tenant-db.js';
 import { reserveBudgetCapacity, reserveLotIssuance } from '../../../packages/shared/capacity.js';
 
-dotenv.config();
+dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
 const LEDGER_URL = process.env.TRANSPARENCY_SERVICE_URL || 'http://localhost:8085/api/v1/log';
 
@@ -1882,6 +1884,7 @@ server.post('/api/v1/verify/lab-results', {
 // Start the server
 const start = async () => {
   try {
+    await assertRlsServiceRole(pgPool, 'verification-service');
     const port = parseInt(process.env.PORT || '8086', 10);
 
     await server.listen({ port, host: '0.0.0.0' });
