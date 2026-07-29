@@ -97,6 +97,11 @@ const PRODUCER_OPERATION_SPECS = [
   { orgType: 'PRODUCER', role: 'MEMBER' }
 ];
 
+// Standard health check route
+server.get('/health', async () => {
+  return { status: 'healthy', service: 'mint-service' };
+});
+
 // Initialize PostgreSQL Client Pool
 const DATABASE_URL = process.env.DATABASE_URL || '';
 if (!DATABASE_URL) {

@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getHaversineDistance } from '../src/index.js';
+import {
+  getHaversineDistance,
+  isWellFormedUuid
+} from '../src/index.js';
 
 // Mock DB pool
 vi.mock('pg', () => {
@@ -37,15 +40,16 @@ describe('Verification Service Logic Tests', () => {
     expect(dist).toBeLessThan(350);
   });
 
-  it('validates public identifier UUID formatting checks', () => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[45][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    
-    // Correct format
-    expect(uuidRegex.test('a4692173-ddd7-4c90-a713-4ee7a9e5255f')).toBe(true);
-    
-    // Sequential/Invalid formats
-    expect(uuidRegex.test('CM-000001')).toBe(false);
-    expect(uuidRegex.test('CM-000002')).toBe(false);
-    expect(uuidRegex.test('invalid-uuid')).toBe(false);
+  it('accepts any well-formed PostgreSQL UUID, including seed sentinels', () => {
+    expect(isWellFormedUuid('a4692173-ddd7-4c90-a713-4ee7a9e5255f'))
+      .toBe(true);
+    expect(isWellFormedUuid('00000000-0000-0000-0000-000000000004'))
+      .toBe(true);
+    expect(isWellFormedUuid('00000000-0000-0000-0000-000000000050'))
+      .toBe(true);
+
+    expect(isWellFormedUuid('CM-000001')).toBe(false);
+    expect(isWellFormedUuid('invalid-uuid')).toBe(false);
+    expect(isWellFormedUuid(null)).toBe(false);
   });
 });

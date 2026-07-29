@@ -311,6 +311,17 @@ async function runIteration(iteration: number): Promise<void> {
       INTEGRATION_SERVICE_PORT: String(PORTS.integration)
     });
 
+    for (const [name, port] of Object.entries(PORTS)) {
+      const health = await fetch(`http://127.0.0.1:${port}/health`);
+      expect(health.status, `${name} health endpoint`).toBe(200);
+      if (name === 'mint') {
+        expect(await health.json()).toEqual({
+          status: 'healthy',
+          service: 'mint-service'
+        });
+      }
+    }
+
     const suitePath = path.join(ROOT, 'playground/test_runner.js');
     const result = spawnSync(process.execPath, [suitePath], {
       cwd: ROOT,

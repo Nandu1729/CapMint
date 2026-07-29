@@ -603,6 +603,135 @@ suite('F2 secure bootstrap and development seed', () => {
     }
   }, 120_000);
 
+  it('accepts seed sentinel UUIDs through laboratory assignment and submission', async () => {
+    const name = databaseName('sentinel_uuid_flow');
+    await bootstrapDatabase(name);
+    const authPort = await freePort();
+    const verificationPort = await freePort();
+    let auth: ChildProcessWithoutNullStreams | undefined;
+    let verification: ChildProcessWithoutNullStreams | undefined;
+    let appRoleProvisioned = false;
+    try {
+      const keyPair = generateKeyPair();
+      const password = strongPassword();
+      const seed = runNode(
+        developmentSeedScript,
+        developmentEnvironment(name, keyPair, password)
+      );
+      expect(seed.status, seed.stderr).toBe(0);
+
+      const appDatabaseUrl = await provisionAppRole(name);
+      appRoleProvisioned = true;
+      const commonEnvironment = {
+        NODE_ENV: 'integration',
+        DATABASE_URL: appDatabaseUrl,
+        REDIS_URL: process.env.REDIS_URL!,
+        JWT_SECRET: crypto.randomBytes(48).toString('base64url'),
+        TRANSPARENCY_SERVICE_URL: 'http://127.0.0.1:9/api/v1/log'
+      };
+      auth = await startService(
+        'backend/auth-service/src/index.ts',
+        authPort,
+        commonEnvironment
+      );
+      verification = await startService(
+        'backend/verification-service/src/index.ts',
+        verificationPort,
+        commonEnvironment
+      );
+
+      const login = async (username: string): Promise<string> => {
+        const response = await fetch(
+          `http://127.0.0.1:${authPort}/api/v1/auth/login`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          }
+        );
+        expect(response.status).toBe(200);
+        return (await response.json() as any).data.token;
+      };
+      const certifierToken = await login('certifier');
+      const laboratoryToken = await login('lab');
+      const isolationToken = await login('lab-isolation');
+      const lotId = '00000000-0000-0000-0000-000000000050';
+      const laboratoryId = '00000000-0000-0000-0000-000000000004';
+
+      const assignment = await fetch(
+        `http://127.0.0.1:${verificationPort}/api/v1/lots/${lotId}/assign-laboratory`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${certifierToken}`
+          },
+          body: JSON.stringify({
+            laboratory_organization_id: laboratoryId
+          })
+        }
+      );
+      expect(assignment.status).toBe(200);
+      expect((await assignment.json() as any).data.lot).toEqual({
+        id: lotId,
+        assigned_laboratory_organization_id: laboratoryId
+      });
+
+      const pdf = Buffer.from('%PDF-1.4 sentinel UUID laboratory report');
+      const labResultBody = {
+        lot_id: lotId,
+        lab_name: 'NABL Accredited Labs India',
+        test_type: 'Purity',
+        result_summary: 'PASSED',
+        report_hash: crypto.createHash('sha256').update(pdf).digest('hex'),
+        report_reference: 'sentinel-report.pdf',
+        pdf_content: pdf.toString('base64')
+      };
+      const accepted = await fetch(
+        `http://127.0.0.1:${verificationPort}/api/v1/verify/lab-results`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${laboratoryToken}`
+          },
+          body: JSON.stringify(labResultBody)
+        }
+      );
+      expect(accepted.status).toBe(200);
+
+      const isolated = await fetch(
+        `http://127.0.0.1:${verificationPort}/api/v1/verify/lab-results`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${isolationToken}`
+          },
+          body: JSON.stringify(labResultBody)
+        }
+      );
+      expect(isolated.status).toBe(403);
+      expect((await isolated.json() as any).error.code)
+        .toBe('LAB_ASSIGNMENT_REQUIRED');
+
+      const sentinelPublicIdentifier = await fetch(
+        `http://127.0.0.1:${verificationPort}/api/v1/verify/v/${lotId}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        }
+      );
+      expect(sentinelPublicIdentifier.status).toBe(404);
+    } finally {
+      if (verification) await stopService(verification);
+      if (auth) await stopService(auth);
+      if (appRoleProvisioned) await deprovisionAppRole();
+      await dropDatabase(name);
+    }
+  }, 120_000);
+
   it('rejects mismatched and compromised development keys before database writes', async () => {
     const name = databaseName('key_rejection');
     await bootstrapDatabase(name);
