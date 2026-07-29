@@ -19,7 +19,7 @@
 | [HO-003](#ho-003-smoke-gate-provisioning-remediation) | Smoke-gate provisioning remediation (+ re-runs) | DM-04 smoke gate | 2026-07-28 | EXECUTED (Review #14) |
 | [HO-004](#ho-004-canonical-service-env--purge-blacklisted-key) | Canonical service env + purge blacklisted key | Post-smoke defect #1 | 2026-07-29 | EXECUTED (Review #15) |
 | [HO-005](#ho-005-tighten-organizations-public-read-f-org) | Tighten organizations public read (F-org) | Post-smoke defect #2 | 2026-07-29 | EXECUTED (Review #16) |
-| [HO-006](#ho-006-close-p1a-uuid-validators--p1b-mint-health) | Close P1a (UUID validators) + P1b (mint /health) | Post-smoke defects P1a/P1b | 2026-07-29 | HANDED-OFF |
+| [HO-006](#ho-006-close-p1a-uuid-validators--p1b-mint-health) | Close P1a (UUID validators) + P1b (mint /health) | Post-smoke defects P1a/P1b | 2026-07-29 | EXECUTED (Review #17) |
 
 ---
 
@@ -274,7 +274,7 @@ Validated on a disposable DB; `capmint_dev` untouched.
 
 ## HO-006: Close P1a (UUID validators) + P1b (mint /health)
 
-- **Spec ID:** HO-006 · **Milestone:** post-smoke defects P1a/P1b · **Date:** 2026-07-29 · **Status:** HANDED-OFF
+- **Spec ID:** HO-006 · **Milestone:** post-smoke defects P1a/P1b · **Date:** 2026-07-29 · **Status:** EXECUTED (Review #17, `0fee1579`)
 - **Related Review:** #14 (tracked defects P1a, P1b)
 
 ### Objective

@@ -352,6 +352,43 @@ Boundary advances to `4891d54a`. P1a and P1b remain.
 
 ---
 
+## Review #17 — HO-006: P1a (UUID validators) + P1b (mint /health) — defect ledger cleared
+
+| Field | Value |
+|---|---|
+| **Review Number** | #17 |
+| **Milestone** | HO-006 — the two remaining low-severity smoke-gate defects (Review #14 P1a, P1b) |
+| **Branch** | `fix/ho-006-uuid-health` → merged into `feat/post-dm03-integration` (`develop`) |
+| **Commit Range Reviewed** | `4891d54a..0fee1579` — `13a214af` (verify) + `60e877dd` (mint) + merge `0fee1579` |
+| **Architecture Status** | PASS |
+| **Security Status** | PASS (format-guard only; authorization unchanged) |
+| **Migration Status** | N/A |
+| **Testing Status** | PASS — tests added (`bootstrap-seed` +129, `verification.test` +26, `compliance-suite` +11) |
+| **Approved Decisions** | none new |
+| **Outstanding Items** | **None from the smoke gate** — ledger cleared. |
+| **Next Review Starts From** | `0fee1579`. |
+
+### Findings (delta only)
+- **P1a — validators standardized (not re-seed; see HO-006 rationale).** A single exported
+  `isWellFormedUuid()` helper (well-formed form matching PostgreSQL's `uuid` type and `cpq:463`)
+  replaces all three RFC version/variant-strict regexes in `verification-service`
+  (`public_identifier`, `assign-laboratory` lot id + `laboratory_organization_id`, `lab-results`
+  `lot_id`). No version/variant-strict pattern remains; null/malformed still 400; **no
+  authorization/ownership/RLS logic touched** — the tenancy gate is unchanged. Unblocks the
+  seeded lab/lot fixtures.
+- **P1b — mint `/health`.** `mint-service` now serves `{status:'healthy', service:'mint-service'}`,
+  matching the other six services; all eight processes report health.
+- **Hygiene.** Two atomic commits, no attribution, no `.env`/`.codex`; branch linear on `develop`.
+
+### Approval
+`APPROVED` — **the entire smoke-gate defect ledger is now closed** (defect #1 per-service env,
+#2 F-org, P1a, P1b). DM-04 RLS is runtime-verified and all findings from the live smoke are
+resolved. Boundary advances to `0fee1579`. Recommended before `develop→main`: a `db:reset` +
+short smoke re-run on `develop` to confirm `0020` + the assigned-lab success path live; then the
+**observability** milestone.
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 

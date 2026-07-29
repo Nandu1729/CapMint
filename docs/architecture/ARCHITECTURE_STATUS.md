@@ -4,7 +4,7 @@
 > [AD-002](DECISIONS.md)). Updated at each milestone approval gate. Where this file and
 > the `state/` cards disagree, this file wins until reconciliation.
 >
-> **Last updated:** 2026-07-29 (Review #16 — F-org tightened organizations public read via a definer registration path, **defect #2 CLOSED**. #15 — canonical non-owner service DB role, defect #1 closed. #14 — DM-04 RLS runtime-verified (YELLOW))
+> **Last updated:** 2026-07-29 (Review #17 — P1a/P1b closed; **all smoke-gate defects resolved**. #16 F-org (defect #2). #15 canonical service DB role (defect #1). #14 DM-04 RLS runtime-verified (YELLOW))
 
 ---
 
@@ -20,7 +20,7 @@
 - **Integration line:** `develop` (== `feat/post-dm03-integration`), **pushed to `origin/develop`**
   for frontend + backend integration testing. Requires `npm ci` (node_modules untracked) and a
   `.env` with the `capmint_app` `DATABASE_URL`.
-- **HEAD:** `4891d54a` (Review #16 — F-org: tightened organizations public read via definer registration; defect #2 closed)
+- **HEAD:** `0fee1579` (Review #17 — P1a/P1b closed; **all four smoke-gate defects resolved**)
 - **RLS runtime status:** **VERIFIED (Review #14).** The first genuine `capmint_app` run
   (services as the non-owner role, `rolbypassrls=false`) passed the live frontend→API→RLS
   smoke (Attempt 05, YELLOW). Architect re-verified at the DB layer: fail-closed for a foreign
@@ -44,9 +44,14 @@
      **RESOLVED (Review #16, `4891d54a`).** Migration `0020` moves registration's cross-tenant
      work into a hardened `SECURITY DEFINER` function and drops the blanket clause; the public
      path now sees only the ACTIVATED certifier/lab directory. Ledger chain preserved.
-  3. **P1a (low)** — seed non-RFC UUIDs (`…0004`, `…0050`) rejected by strict `[1-5]/[89ab]`
-     lab-route validators; blocks only the assigned-lab-success case.
-  4. **P1b (low)** — `mint-service` has no `/health` route.
+  3. ~~P1a — seed non-RFC UUIDs rejected by strict lab-route validators.~~ **RESOLVED (Review #17,
+     `0fee1579`)** — shared `isWellFormedUuid()` helper accepts any well-formed UUID (as PostgreSQL
+     does); authorization unchanged.
+  4. ~~P1b — `mint-service` has no `/health`.~~ **RESOLVED (Review #17)** — `/health` added; all
+     eight processes report health.
+
+  **→ All four smoke-gate defects are now closed.** Remaining pre-production work is the tracked
+  follow-ups below plus the observability milestone.
 - **Tracked follow-ups (separately gated, not started):** (1) **transparency-ledger hardening**
   — external anchoring (the unused `published_anchor_reference`), append-identity restriction,
   append-serialization scale; (2) **process fix** — do not apply unapproved feature-branch
