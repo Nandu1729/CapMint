@@ -24,6 +24,16 @@ npm ci                    # install all workspace dependencies
 See `.env.example` for every variable the services read, including the **DM-04 role
 split** (services connect as `capmint_app`; migrations/seed use `capmint_admin`).
 
+The repo-root `.env` is the only backend environment file. Every service resolves that
+exact path regardless of its workspace current directory. Do not create
+`backend/*-service/.env` files or symlinks. Service startup queries PostgreSQL before
+binding its port and refuses any role other than `capmint_app`, as well as any superuser,
+`BYPASSRLS` role, or owner of an RLS-enabled table.
+
+For development fixtures, generate one fresh Ed25519 keypair and use it for both
+`CAPMINT_DEVELOPMENT_CERTIFIER_PRIVATE_KEY` / `_PUBLIC_KEY` and
+`CERTIFIER_PRIVATE_KEY` / `_PUBLIC_KEY`. Never reuse fixture or compromised key material.
+
 ## Database & migration discipline (non-negotiable)
 
 Migrations are validated on **disposable databases** until architect-approved. **Do NOT
@@ -41,22 +51,21 @@ rebuildable, not precious); do not edit `migrations_log` by hand.
 - Runner: `playground/run_migrations.js` — modes `--check`, `--plan`, `--apply`,
   `--adopt`, `--bootstrap`. It does **not** create the database itself.
 
-### Reprovisioning `capmint_dev` (shape)
+### Reprovisioning `capmint_dev`
 
 Because of the DM-04 role split, run migrations/seed as the **owner** (`capmint_admin`) and
 the services as `capmint_app`:
 
-1. Drop and recreate the `capmint_dev` database (owner/superuser connection).
-2. Apply migrations with `DATABASE_URL` set to the **admin** URL
-   (`node playground/run_migrations.js --apply`), ending `SAFE / NO PENDING ACTIONS`.
-3. Provision the app login once `0015` exists:
-   `ALTER ROLE capmint_app LOGIN PASSWORD '<capmint_app_password>';`
-4. Seed development fixtures as the owner (`CAPMINT_ALLOW_DEVELOPMENT_SEED=1`,
-   `NODE_ENV=development`, admin `DATABASE_URL`): `npm run seed:development`.
-
-> A guarded `npm run db:reset` wrapper — using `CAPMINT_EXPECTED_DATABASE_PREFIX` to refuse
-> dropping any database whose name is not a dev database — is a planned follow-up so this
-> is a single safe command.
+1. Configure the local repo-root `.env`, including matching `DATABASE_URL`
+   (`capmint_app`) / `CAPMINT_APP_PASSWORD`, owner-only `ADMIN_DATABASE_URL`, development
+   seed password, and one aligned Ed25519 keypair.
+2. Preview the guarded local-only reset with `npm run db:reset`; confirm app LOGIN and seed
+   are both enabled in the plan.
+3. Run `npm run db:reset -- --yes`. It recreates the empty database, bootstraps the
+   immutable baseline, applies newer migrations as `capmint_admin`, provisions
+   `capmint_app` LOGIN, and seeds development fixtures as the owner.
+4. Run `npm run dev`. All seven services load only the root `.env` and fail closed unless
+   PostgreSQL identifies the runtime connection as the safe `capmint_app` role.
 
 ## Commits
 

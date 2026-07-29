@@ -1,8 +1,11 @@
 import Fastify, { FastifyReply, FastifyRequest } from 'fastify';
 import jwt from '@fastify/jwt'; // provided via npm-workspace hoisting
 import dotenv from 'dotenv';
+import pg from 'pg';
+import { fileURLToPath } from 'node:url';
+import { assertRlsServiceRole } from '../../../packages/shared/tenant-db.js';
 
-dotenv.config();
+dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -12,6 +15,15 @@ declare module 'fastify' {
 
 const server = Fastify({
   logger: true
+});
+
+const DATABASE_URL = process.env.DATABASE_URL || '';
+if (!DATABASE_URL) {
+  console.error('FATAL: DATABASE_URL is not set. Refusing to start without the RLS service role.');
+  process.exit(1);
+}
+const pgPool = new pg.Pool({
+  connectionString: DATABASE_URL
 });
 
 // Configure JWT plugin. Fail closed: never fall back to a hardcoded secret in real environments.
@@ -192,6 +204,7 @@ server.get('/api/v1/integrations/tracenet/certificates/:licenseId', {
 // Start the server
 const start = async () => {
   try {
+    await assertRlsServiceRole(pgPool, 'integration-service');
     const port = parseInt(process.env.PORT || '8087', 10);
     await server.listen({ port, host: '0.0.0.0' });
     server.log.info(`Integration service listening on port ${port}`);

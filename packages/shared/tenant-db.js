@@ -16,6 +16,56 @@ export function tenantContextFromUser(user) {
   };
 }
 
+export async function assertRlsServiceRole(pool, serviceName) {
+  if (!pool || typeof pool.connect !== 'function') {
+    throw new Error('RLS service role assertion requires a PostgreSQL pool.');
+  }
+  if (typeof serviceName !== 'string' || serviceName.trim() === '') {
+    throw new Error('RLS service role assertion requires a service name.');
+  }
+
+  const client = await pool.connect();
+  try {
+    const result = await client.query(`
+      SELECT current_user AS role_name,
+             role.rolsuper,
+             role.rolbypassrls,
+             EXISTS (
+               SELECT 1
+               FROM pg_class AS relation
+               WHERE relation.relrowsecurity
+                 AND pg_get_userbyid(relation.relowner) = current_user
+             ) AS owns_rls_table
+      FROM pg_roles AS role
+      WHERE role.rolname = current_user
+    `);
+    const identity = result.rows[0];
+    const unsafe =
+      result.rowCount !== 1 ||
+      identity.role_name !== 'capmint_app' ||
+      identity.rolsuper === true ||
+      identity.rolbypassrls === true ||
+      identity.owns_rls_table === true;
+
+    if (unsafe) {
+      const roleName = identity?.role_name || 'unknown';
+      throw new Error(
+        `${serviceName} refuses unsafe database role "${roleName}"; ` +
+        'runtime services require the non-owner, non-bypass role capmint_app.'
+      );
+    }
+
+    return Object.freeze({
+      roleName: identity.role_name,
+      isSuperuser: false,
+      bypassesRls: false,
+      ownsRlsTable: false
+    });
+  } finally {
+    client.release();
+  }
+}
+
 function resolveContext(context) {
   if (!context || typeof context !== 'object') {
     throw new Error('Tenant database context is required.');

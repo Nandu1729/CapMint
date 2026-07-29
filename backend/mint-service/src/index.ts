@@ -5,10 +5,15 @@ import { Redis } from 'ioredis';
 import qr from 'qrcode';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
-import { tenantContextFromUser, withTenantTx } from '../../../packages/shared/tenant-db.js';
+import { fileURLToPath } from 'node:url';
+import {
+  assertRlsServiceRole,
+  tenantContextFromUser,
+  withTenantTx
+} from '../../../packages/shared/tenant-db.js';
 import { reserveLotIssuance } from '../../../packages/shared/capacity.js';
 
-dotenv.config();
+dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -286,6 +291,7 @@ server.get('/api/v1/qr/generate', async (request, reply) => {
 // Start the server
 const start = async () => {
   try {
+    await assertRlsServiceRole(pgPool, 'mint-service');
     const port = parseInt(process.env.PORT || '8083', 10);
     await server.listen({ port, host: '0.0.0.0' });
     server.log.info(`Mint service listening on port ${port}`);

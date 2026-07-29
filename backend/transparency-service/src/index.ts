@@ -4,13 +4,15 @@ import pg from 'pg';
 import { Redis } from 'ioredis';
 import crypto from 'crypto';
 import dotenv from 'dotenv';
+import { fileURLToPath } from 'node:url';
 import {
+  assertRlsServiceRole,
   PUBLIC_TENANT_CONTEXT,
   tenantContextFromUser,
   withTenantTx
 } from '../../../packages/shared/tenant-db.js';
 
-dotenv.config();
+dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -281,6 +283,7 @@ server.post('/log/api/v1/log', { preValidation: [server.authenticate] }, (reques
 // Start the server
 const start = async () => {
   try {
+    await assertRlsServiceRole(pgPool, 'transparency-service');
     const port = parseInt(process.env.PORT || '8085', 10);
 
     // Seed genesis block if table is empty
