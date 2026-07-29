@@ -19,6 +19,7 @@
 | [HO-003](#ho-003-smoke-gate-provisioning-remediation) | Smoke-gate provisioning remediation (+ re-runs) | DM-04 smoke gate | 2026-07-28 | EXECUTED (Review #14) |
 | [HO-004](#ho-004-canonical-service-env--purge-blacklisted-key) | Canonical service env + purge blacklisted key | Post-smoke defect #1 | 2026-07-29 | EXECUTED (Review #15) |
 | [HO-005](#ho-005-tighten-organizations-public-read-f-org) | Tighten organizations public read (F-org) | Post-smoke defect #2 | 2026-07-29 | EXECUTED (Review #16) |
+| [HO-006](#ho-006-close-p1a-uuid-validators--p1b-mint-health) | Close P1a (UUID validators) + P1b (mint /health) | Post-smoke defects P1a/P1b | 2026-07-29 | HANDED-OFF |
 
 ---
 
@@ -268,6 +269,43 @@ directory. Partial `UNIQUE` indexes on tax_id/registration_number add defense-in
 signature re-pinned with successor-aware `verify0016` + exact `verify0020` (checksum guard
 untouched). `auth` `register-org` calls the function and maps `23505`/`REGISTRATION_EXISTS`→409.
 Validated on a disposable DB; `capmint_dev` untouched.
+
+---
+
+## HO-006: Close P1a (UUID validators) + P1b (mint /health)
+
+- **Spec ID:** HO-006 · **Milestone:** post-smoke defects P1a/P1b · **Date:** 2026-07-29 · **Status:** HANDED-OFF
+- **Related Review:** #14 (tracked defects P1a, P1b)
+
+### Objective
+Close the two remaining low-severity smoke-gate defects. No migration, no RLS/auth-logic change.
+
+### Design decision — relax validators, not re-seed
+P1a is fixable two ways: (a) relax the over-strict UUID validators, or (b) change the seed's
+sentinel IDs (`…0004`, `…0050`, …) to version-4 UUIDs. **Chose (a).** Rationale: (b) has a large
+blast radius (the sentinel IDs are referenced by the seed self-check, many tests, and migration
+constants that must all agree), whereas (a) touches ~3 lines in one service; and (a) is *more
+correct* — the app was stricter than PostgreSQL's `uuid` type, and the version/variant nibble
+adds no security (tenancy is enforced by the RLS/ownership joins, not the UUID version).
+
+### P1a — standardize UUID param validation
+Replace the RFC version/variant-strict regexes in `backend/verification-service/src/index.ts`
+(`:442` public_identifier, `:812` assign-laboratory lot id + `laboratory_organization_id`,
+`:1670` lab-results `lot_id`) with the well-formed form
+`/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i` (as `cpq:463` and PostgreSQL
+`uuid` already accept). Prefer a shared `isWellFormedUuid()` helper. Format guard only — no
+authorization/ownership/RLS change.
+
+### P1b — mint `/health`
+Add to `backend/mint-service/src/index.ts` (before `server.listen`):
+`server.get('/health', async () => ({ status: 'healthy', service: 'mint-service' }));`
+
+### Acceptance
+All eight processes return `/health` 200; HO-002 smoke flow 6 completes the previously-blocked
+pair (certifier assigns lot to seeded lab org `…0004` → `lab` submits `/verify/lab-results`
+success → `lab-isolation` 403); builds + existing tests green; add tests for the assigned-lab
+success path and mint `/health`. Feature branch off `develop`; validate on a disposable DB
+(`capmint_dev` untouched); no AI attribution; Conventional Commits; no `.env`/`.codex` committed.
 
 ---
 
