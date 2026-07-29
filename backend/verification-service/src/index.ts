@@ -305,6 +305,13 @@ export function getHaversineDistance(lat1: number, lon1: number, lat2: number, l
   return R * c;
 }
 
+const WELL_FORMED_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isWellFormedUuid(value: unknown): value is string {
+  return typeof value === 'string' && WELL_FORMED_UUID_PATTERN.test(value);
+}
+
 // Standard health check route
 server.get('/health', async () => {
   return { status: 'healthy', service: 'verification-service' };
@@ -438,9 +445,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
   const { public_identifier } = request.params as any;
   const { lat, lon, device_metadata } = request.body as any;
 
-  // Validate UUIDv4 format
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[45][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  if (!public_identifier || !uuidRegex.test(public_identifier)) {
+  if (!isWellFormedUuid(public_identifier)) {
     return reply.status(400).send({
       success: false,
       error: {
@@ -809,9 +814,9 @@ server.post('/api/v1/lots/:id/assign-laboratory', {
   const { id } = request.params as any;
   const { laboratory_organization_id } = (request.body || {}) as any;
   const user = request.user as any;
-  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-  if (!uuidPattern.test(id || '') || !uuidPattern.test(laboratory_organization_id || '')) {
+  if (!isWellFormedUuid(id)
+    || !isWellFormedUuid(laboratory_organization_id)) {
     return reply.status(400).send({
       success: false,
       error: {
@@ -1667,9 +1672,8 @@ server.post('/api/v1/verify/lab-results', {
     pdf_content
   } = (request.body || {}) as any;
   const user = request.user as any;
-  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-  if (!uuidPattern.test(lot_id || '')) {
+  if (!isWellFormedUuid(lot_id)) {
     return reply.status(400).send({
       success: false,
       error: { statusCode: 400, code: 'BAD_REQUEST', message: 'A valid lot_id is required.' }
