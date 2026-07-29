@@ -223,6 +223,43 @@ merging A into `main` is a separate decision.
 
 ---
 
+## Review #14 — DM-04 RLS live smoke gate + provisioning fixes (RLS runtime-verified)
+
+| Field | Value |
+|---|---|
+| **Review Number** | #14 |
+| **Milestone** | The smoke gate: verify the live frontend→API→RLS path with services running as the non-owner `capmint_app`. Compliance suites already passed; runtime enforcement was unverified. |
+| **Branch** | `fix/smoke-provisioning-blockers` → merged into `feat/post-dm03-integration` (`develop`) |
+| **Commit Range Reviewed** | `7f7cd320..3c287868` — four fixes (`b9a80823`, `3ba6ed95`, `8b0bc6f5`, `8a9f3fab`) + integration merge `3c287868` |
+| **Architecture Status** | PASS |
+| **Security Status** | PASS (tenant isolation runtime-verified) **with tracked findings** (see below) |
+| **Migration Status** | N/A (no migration; `db:reset` now uses `--bootstrap`) |
+| **Testing Status** | PASS — Attempt 05 YELLOW; architect re-verified RLS live against `capmint_dev` as `capmint_app` |
+| **Approved Decisions** | none new |
+| **Outstanding Items** | Four tracked defects (below); `develop→main` still gated. |
+| **Next Review Starts From** | `3c287868`. |
+
+### What the gate found (five attempts, RED→YELLOW)
+- **Provisioning was broken and had never been run end-to-end.** `db:reset` called `run_migrations.js --apply` on a freshly-**emptied** DB; migration `0001` `ALTER`s `lots`, which only the immutable baseline (cutoff `0009`) creates → `relation "lots" does not exist`. Fixed to `--bootstrap` (`b9a80823`). Also: stale lockfile missing the `@capmint/shared` workspace broke `npm ci` (`3ba6ed95`); a global `PORT=8080` in `.env.example` collided across services (`8b0bc6f5`); `db:reset`/seed read `process.env` without dotenv, so the literal-`\n` dev certifier PEM never expanded (`8a9f3fab`).
+- **Critical — attempts 03–04 "RLS clean" were FALSE POSITIVES.** Each service starts via `npm run dev --workspace=…`, so its `dotenv.config()` loads `backend/<svc>/.env` — **not** the root `.env`. Those stale local files set `DATABASE_URL=…capmint_admin` (the **owner**, which bypasses ENABLE-not-FORCE RLS) and carried the project's own blacklisted certifier key (`7ee5…`, the seed's `COMPROMISED_PUBLIC_KEY_FINGERPRINT`) → CPQ signed with `7ee5` while the DB public key was `bfda` → `INVALID_SIGNATURE`, and RLS was bypassed entirely. Per-service `.env` are untracked and **never in git history** (no committed-secret incident). Unblocked for the run by symlinking each `backend/<svc>/.env → ../../.env` (config only).
+- **Attempt 05 (first genuine `capmint_app` run): YELLOW.** Runtime proof captured 4 `capmint_app` connections (auth/CPQ/verification/mint) in `pg_stat_activity`; none used `capmint_admin`. All nine flows pass except the assigned-lab **success** case (blocked by P1a). RLS scan A/B/C/D = 0, HTTP 500 = 0.
+
+### Architect independent DB verification (as `capmint_app`, live)
+`capmint_app`: `rolsuper=false`, `rolbypassrls=false`. Tenant-**data** isolation confirmed at the DB layer: bogus tenant → 0 budgets / 0 lots / 0 unit_codes (fail-closed); producer org → own rows; public/empty-GUC → only public-code-registered rows. **DM-04 tenant-provenance isolation is real in live execution.**
+
+### Findings / tracked defects (delta)
+1. **CRITICAL (config-integrity) — per-service `.env` shadow the root `.env` and default services to the owner role.** Services run with RLS **off** unless each `backend/*/.env` is aligned to the non-owner root config; a deploy following the documented root-`.env` model would run RLS-disabled. Local-only (no git incident). Durable fix: canonical single-env strategy + purge the blacklisted key. Currently masked only by symlinks.
+2. **F-org (medium, defense-in-depth) — `organizations_tenant_select` is world-readable under the public/empty-GUC path** (`OR NULLIF(app.current_organization_id,'') IS NULL` exposes all 7 orgs, defeating the policy's own narrower ACTIVATED-certifier/lab directory clause). Latent — no public endpoint enumerates orgs (`GET /auth/organizations` is `SYSTEM_ADMINISTRATOR`-only) — but contradicts fail-closed intent. Provenance data unaffected.
+3. **P1a (low) — seed fixtures use non-RFC UUIDs** (e.g. lab org `…0004`, lot `…0050`; version/variant nibble `0`) that the strict `[1-5]/[89ab]` validators on `/assign-laboratory` and lab routes reject, while lenient budget-route regexes accept them. Blocks only the assigned-lab-success positive case.
+4. **P1b (low, cosmetic) — `mint-service` has no `/health` route** (the other seven do). Not an RLS blocker.
+
+Evidence: `docs/smoke/DM04_RLS_SMOKE_REPORT.md` (Attempt 05) + preserved attempts 01–04.
+
+### Approval
+`APPROVED` — **smoke gate PASSED (YELLOW); DM-04 RLS is runtime-verified as `capmint_app`.** The four provisioning fixes are integrated at `3c287868`. The four tracked defects do not reopen DM-04's tenant-data isolation but must be triaged before `develop→main`; the per-service `.env` config-integrity issue (#1) is the top priority. Boundary advances to `3c287868`.
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 

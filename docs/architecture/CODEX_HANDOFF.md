@@ -15,6 +15,9 @@
 | Spec ID | Title | Milestone | Date | Status |
 |---|---|---|---|---|
 | [HO-001](#ho-001-dm-03-c3--tenancy-enforcement) | DM-03 C3 — Tenancy Enforcement | DM-03 C3 | 2026-07-26 | HANDED-OFF |
+| [HO-002](#ho-002-dm-04-rls-end-to-end-smoke-test) | DM-04 RLS End-to-End Smoke Test | DM-04 smoke gate | 2026-07-28 | EXECUTED (Review #14) |
+| [HO-003](#ho-003-smoke-gate-provisioning-remediation) | Smoke-gate provisioning remediation (+ re-runs) | DM-04 smoke gate | 2026-07-28 | EXECUTED (Review #14) |
+| [HO-004](#ho-004-canonical-service-env--purge-blacklisted-key) | Canonical service env + purge blacklisted key | Post-smoke defect #1 | 2026-07-29 | HANDED-OFF |
 
 ---
 
@@ -166,6 +169,80 @@ statement with no equal-ID fallback; (c) the §28 attack tests prove denied acti
 nothing; (d) scope discipline — no RLS, no capacity/signature changes, transparency-service
 untouched. Each sub-phase gets its own entry in
 [ARCHITECT_REVIEW_HISTORY.md](../../ARCHITECT_REVIEW_HISTORY.md).
+
+---
+
+## HO-002: DM-04 RLS End-to-End Smoke Test
+
+- **Spec ID:** HO-002 · **Milestone:** DM-04 smoke gate · **Date:** 2026-07-28 · **Status:** EXECUTED (Review #14)
+- **Related Review:** #14 · **Evidence:** `docs/smoke/DM04_RLS_SMOKE_REPORT.md` (Attempt 05) + attempts 01–04
+
+### Objective
+Verification gate (no product code): run the app end-to-end with services as the non-owner
+`capmint_app` and confirm the live frontend→API→RLS path — login, org registration,
+budget→lot→mint (+ capacity), public scan/verify, lab assignment/fail-closed result,
+investigation, cross-tenant negatives, ledger — watching for `42501`, empty-where-data-
+expected, cross-tenant leak, and fail-open on empty GUC. Codex must stop and report on any
+defect, never loosen RLS or bypass `withTenantTx` to pass a step.
+
+### Outcome
+Surfaced that provisioning had never run end-to-end (led to HO-003) and, critically, that the
+services were loading stale per-service `.env` and running as the RLS-bypassing **owner** —
+making early "RLS clean" results false positives. After remediation, Attempt 05 = **YELLOW**:
+genuine `capmint_app` RLS run, all reachable flows clean, only tracked non-RLS defects P1a/P1b.
+
+---
+
+## HO-003: Smoke-gate provisioning remediation
+
+- **Spec ID:** HO-003 · **Milestone:** DM-04 smoke gate · **Date:** 2026-07-28 · **Status:** EXECUTED (Review #14)
+- **Related Review:** #14 · **Branch:** `fix/smoke-provisioning-blockers` → merged `3c287868`
+
+### Objective
+Fix the provisioning blockers HO-002 uncovered, then re-run the smoke test. Delivered as four
+atomic fixes: `db:reset --bootstrap` for an empty DB (`b9a80823`); lockfile `@capmint/shared`
+workspace (`3ba6ed95`); remove the global `PORT` from `.env.example` (`8b0bc6f5`); `db:reset`
+loads `.env` so dev certifier PEMs expand (`8a9f3fab`). Follow-up config-only re-runs aligned
+the certifier keypair and pointed each `backend/*/.env` at the root `.env` via symlink, which
+finally produced a genuine `capmint_app` run (Attempt 05). The per-service `.env` shadowing it
+exposed is carried forward as tracked defect #1 → HO-004.
+
+---
+
+## HO-004: Canonical service env + purge blacklisted key
+
+- **Spec ID:** HO-004 · **Milestone:** post-smoke defect #1 (config-integrity) · **Date:** 2026-07-29 · **Status:** HANDED-OFF
+- **Related Review:** #14 (tracked defect 1)
+
+### Objective
+Eliminate the latent tenant-isolation bypass: each backend service loads `backend/<svc>/.env`
+(CWD-relative `dotenv.config()`), and those stale local files set `DATABASE_URL` to the
+**owner** role (RLS bypassed under ENABLE-not-FORCE) and carry the project's own blacklisted
+certifier key (`7ee5…`). A deploy following the documented root-`.env` model runs with RLS
+**off**. The symlink workaround from the smoke run is not a durable fix.
+
+### Required outcome
+- Services load a **single authoritative env** as the non-owner `capmint_app`, with no
+  per-service override capable of silently selecting the owner role. Options for the engineer
+  to choose and justify: (a) point each service's `dotenv.config()` at the repo-root `.env`
+  (e.g. `path` resolved to root / find-up), removing per-service `.env`; or (b) a documented
+  per-service env strategy that is generated from one source and asserted non-owner. Prefer the
+  smallest change that makes the loaded role deterministic.
+- **Purge the blacklisted `7ee5…` key** from all local env material; regenerate dev keys.
+- Add a **fail-fast guard**: on startup a service must refuse to run if its effective DB role
+  is the owner / `rolbypassrls=true` (defense-in-depth so RLS can never be silently bypassed).
+- Update `.env.example` / `CONTRIBUTING.md` to document the canonical model unambiguously.
+
+### Acceptance
+`db:reset -- --yes` then `npm run dev`; prove via `pg_stat_activity` that **every** started
+service connects as `capmint_app` with no symlink workaround; the owner-role startup guard
+rejects an owner `DATABASE_URL`; re-run the HO-002 smoke and confirm the RLS scan stays clean.
+Then (F-org, P1a, P1b remain separately gated).
+
+### Constraints
+Feature branch off `develop`. No AI attribution; Conventional Commits; explicit path staging;
+no `--no-verify`; do not commit `.codex/` or any `.env`. Do not weaken RLS policies or the
+migration checksum guard.
 
 ---
 

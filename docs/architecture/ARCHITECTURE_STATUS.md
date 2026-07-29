@@ -4,7 +4,7 @@
 > [AD-002](DECISIONS.md)). Updated at each milestone approval gate. Where this file and
 > the `state/` cards disagree, this file wins until reconciliation.
 >
-> **Last updated:** 2026-07-26 (Reviews #5–#13 — certifier NOT NULL + DM-04 RLS COMPLETE + M1 hygiene + capacity fix; all four merged into A)
+> **Last updated:** 2026-07-29 (Review #14 — DM-04 RLS **runtime-verified** via the live smoke gate as `capmint_app` (YELLOW); provisioning fixes integrated; four tracked defects opened)
 
 ---
 
@@ -20,7 +20,13 @@
 - **Integration line:** `develop` (== `feat/post-dm03-integration`), **pushed to `origin/develop`**
   for frontend + backend integration testing. Requires `npm ci` (node_modules untracked) and a
   `.env` with the `capmint_app` `DATABASE_URL`.
-- **HEAD:** `e5f80f2e`
+- **HEAD:** `3c287868` (smoke-gate provisioning fixes integrated; Review #14)
+- **RLS runtime status:** **VERIFIED (Review #14).** The first genuine `capmint_app` run
+  (services as the non-owner role, `rolbypassrls=false`) passed the live frontend→API→RLS
+  smoke (Attempt 05, YELLOW). Architect re-verified at the DB layer: fail-closed for a foreign
+  tenant (0 budgets/lots/unit_codes), scoped for the real tenant, public-code-only for the
+  consumer path. Earlier "RLS clean" reads (Attempts 03–04) were **false positives** — services
+  had loaded stale per-service `.env` and run as the RLS-bypassing owner (see tracked defect 1).
 - **Integrated into A:** item 1 (`certifiers.organization_id NOT NULL`, migration `0014`) ·
   DM-04 D1–D3c (migrations `0015`–`0019`, `packages/shared/tenant-db.js`) · M1 repo hygiene
   (`node_modules` untracked, docs reconciled) · capacity/over-issuance fix + shared
@@ -28,6 +34,19 @@
 - **`main`:** unchanged at `767a2f6`. Promotion **`develop → main`** is a separate decision, gated
   on a pre-production hardening pass (transparency-ledger external anchoring + bounded security
   review) after integration testing on `develop`.
+- **Tracked defects from the smoke gate (Review #14; triage before `develop→main`):**
+  1. **CRITICAL (config-integrity)** — per-service `backend/*/.env` shadow the root `.env`
+     (each service's `dotenv.config()` loads its own CWD file), defaulting `DATABASE_URL` to the
+     **owner** role → RLS **off**; they also carry the blacklisted `7ee5…` certifier key.
+     Local-only (never in git). A deploy following the root-`.env` docs would run RLS-disabled.
+     Currently masked only by `backend/*/.env → ../../.env` symlinks. Needs a canonical single-env
+     model + key purge. **Top priority.**
+  2. **F-org (medium)** — `organizations_tenant_select` is world-readable under the public/empty-GUC
+     path, broader than its own ACTIVATED-certifier/lab directory clause. Latent (no public
+     org-listing endpoint); provenance data unaffected. Tighten or confirm intentional.
+  3. **P1a (low)** — seed non-RFC UUIDs (`…0004`, `…0050`) rejected by strict `[1-5]/[89ab]`
+     lab-route validators; blocks only the assigned-lab-success case.
+  4. **P1b (low)** — `mint-service` has no `/health` route.
 - **Tracked follow-ups (separately gated, not started):** (1) **transparency-ledger hardening**
   — external anchoring (the unused `published_anchor_reference`), append-identity restriction,
   append-serialization scale; (2) **process fix** — do not apply unapproved feature-branch
@@ -93,8 +112,10 @@ confirmed the asserted closures.
 
 | Risk | Severity | Status |
 |---|---|---|
-| Over-issuance guard historically bypassed on primary UI path `/verify/register` | High | Claimed addressed (`6b57685`); **verify the `/verify/register` path specifically** in Review #1. |
-| Multi-tenancy isolation incomplete until `organization_id` + RLS land everywhere | High | In progress (DM03); RLS only *prepared*, not enforced. |
+| Over-issuance guard historically bypassed on primary UI path `/verify/register` | High | **Closed** — smoke Attempt 05 exercised `/verify/register` + mint; lot/budget capacity guards rejected over-issuance (422) under `capmint_app`/RLS. |
+| Multi-tenancy isolation incomplete until `organization_id` + RLS land everywhere | High | **Closed** — DM-04 RLS enforced and **runtime-verified** as `capmint_app` (Review #14). |
+| Services default to owner role (RLS off) via stale per-service `.env` | High | **Open (Review #14, top priority)** — masked only by symlinks; canonical single-env model + key purge needed before `develop→main`. |
+| `organizations` public/empty-GUC read broader than intended (F-org) | Medium | **Open (Review #14)** — latent; tighten policy or confirm intentional. |
 | Documentation drift eroding trust in project memory | Medium | Contained by AD-002; reconciliation outstanding. |
 | Declared-but-empty services overstate architecture | Medium | Open. |
 | No monitoring/observability | Medium | Open. |
