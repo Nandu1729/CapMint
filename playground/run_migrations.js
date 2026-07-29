@@ -150,7 +150,7 @@ const IDENTITY_RLS_STATE = {
     { table_name: 'certifiers', policy_name: 'certifiers_tenant_update', command: 'UPDATE', signature: '698a82369ca54d4ed185197b0d5e380a4349cf19d3213267e458883aad30bb69' },
     { table_name: 'organizations', policy_name: 'organizations_tenant_delete', command: 'DELETE', signature: 'd550a8d85820aa2944bf9d15dbebbefb6e358c192e71bfca2708a62e455ad9d8' },
     { table_name: 'organizations', policy_name: 'organizations_tenant_insert', command: 'INSERT', signature: '14574a98c879db427a8f2085c2bf7bcf849cc3404f758cf251c831c44adfcbe5' },
-    { table_name: 'organizations', policy_name: 'organizations_tenant_select', command: 'SELECT', signature: 'bb7d4d8f8246bc5b4bbb870081df7fbde9ed50fe8537c532fe16446c0a716c28' },
+    { table_name: 'organizations', policy_name: 'organizations_tenant_select', command: 'SELECT', signature: '15a8d09ca5e6a2673ae3399542d58ab70e7218ae39dc8cd659766fd096a04677' },
     { table_name: 'organizations', policy_name: 'organizations_tenant_update', command: 'UPDATE', signature: 'bf65a68db78c42877c208dca9001ec4b1776c4a28faf1bfab8e00d716ed8f85b' },
     { table_name: 'producers', policy_name: 'producers_tenant_delete', command: 'DELETE', signature: '61718ef66df96f152a652c8db85c5c13f339f2feace75d263d7584950c504325' },
     { table_name: 'producers', policy_name: 'producers_tenant_insert', command: 'INSERT', signature: '2c3329f3ec1710c4283c91755233aee58d1b12e6daf19b6aed798f07ac4c49a7' },
@@ -271,6 +271,38 @@ const FINAL_RLS_STATE = {
     { table_name: 'users', policy_name: 'users_tenant_insert', command: 'INSERT', signature: 'fd9dc535e9b3f7785f2cc9033fb7bf6bf5875b9f803dd301a0fd18d04c70312a' },
     { table_name: 'users', policy_name: 'users_tenant_select', command: 'SELECT', signature: '0371001700d9fca78dc2944dab2abd44586d8366e026050f8830be0f2ee8aec8' },
     { table_name: 'users', policy_name: 'users_tenant_update', command: 'UPDATE', signature: '698a82369ca54d4ed185197b0d5e380a4349cf19d3213267e458883aad30bb69' }
+  ]
+};
+const PRE_0020_ORGANIZATIONS_SELECT_SIGNATURE =
+  'bb7d4d8f8246bc5b4bbb870081df7fbde9ed50fe8537c532fe16446c0a716c28';
+const ORGANIZATION_PUBLIC_READ_STATE = {
+  migration: '0020_tighten_organizations_public_read.sql',
+  policy: {
+    table_name: 'organizations',
+    policy_name: 'organizations_tenant_select',
+    command: 'SELECT',
+    signature:
+      '15a8d09ca5e6a2673ae3399542d58ab70e7218ae39dc8cd659766fd096a04677'
+  },
+  registrationFunction: {
+    function_name: 'capmint_register_organization',
+    identity_arguments:
+      'p_name text, p_type text, p_business_reg_details jsonb, p_official_email text, p_contact_info jsonb, p_admin_username text, p_admin_password_hash text',
+    result_type: 'TABLE(organization jsonb, admin_user jsonb)',
+    source_signature:
+      'ff3b8a0f3ef80e9653f292a044f381dddef7a3275879d357d03361bcfeb8ef7c'
+  },
+  indexes: [
+    {
+      index_name: 'organizations_registration_number_unique',
+      index_definition:
+        "CREATE UNIQUE INDEX organizations_registration_number_unique ON public.organizations USING btree (((business_reg_details ->> 'registration_number'::text))) WHERE (business_reg_details ? 'registration_number'::text)"
+    },
+    {
+      index_name: 'organizations_tax_id_unique',
+      index_definition:
+        "CREATE UNIQUE INDEX organizations_tax_id_unique ON public.organizations USING btree (((business_reg_details ->> 'tax_id'::text))) WHERE (business_reg_details ? 'tax_id'::text)"
+    }
   ]
 };
 const CORE_TABLES = [
@@ -1301,7 +1333,27 @@ async function verify0015(client) {
     };
   }
 
-  if (supportingSuccessorEvidence.final_migration_recorded
+  if (supportingSuccessorEvidence.organization_public_read_migration_recorded) {
+    const organizationReadEvidence =
+      await readOrganizationPublicReadEvidence(client);
+    if (organizationPublicReadExact(organizationReadEvidence)
+      && appRoleSecurityExact(evidence)
+      && appRoleGrantsExact(evidence)) {
+      const combinedEvidence = {
+        ...evidence,
+        successor: organizationReadEvidence
+      };
+      return {
+        status: 'exact',
+        summary: 'Non-owner capmint_app D1 grants remain exact with recorded 0020 tightened organization-directory reads.',
+        evidence: combinedEvidence,
+        fingerprint: evidenceFingerprint(combinedEvidence)
+      };
+    }
+  }
+
+  if (!supportingSuccessorEvidence.organization_public_read_migration_recorded
+    && supportingSuccessorEvidence.final_migration_recorded
     && finalRlsExact(supportingSuccessorEvidence)
     && appRoleSecurityExact(evidence) && appRoleGrantsExact(evidence)) {
     return { status: 'exact', summary: 'Non-owner capmint_app D1 grants remain exact with recorded 0019 complete RLS enforcement.', evidence: { ...evidence, successor: supportingSuccessorEvidence }, fingerprint: evidenceFingerprint({ ...evidence, successor: supportingSuccessorEvidence }) };
@@ -1352,6 +1404,7 @@ async function readIdentityRlsEvidence(client) {
     provenance_migration_recorded: false,
     supporting_migration_recorded: false,
     final_migration_recorded: false,
+    organization_public_read_migration_recorded: false,
     rls_tables: [],
     policies: []
   };
@@ -1372,7 +1425,16 @@ async function readIdentityRlsEvidence(client) {
          FROM migrations_log
          WHERE filename = '0018_enable_supporting_table_rls.sql'
        ) AS supporting_recorded,
-       EXISTS (SELECT 1 FROM migrations_log WHERE filename = '0019_enable_users_and_ledger_rls.sql') AS final_recorded`
+       EXISTS (
+         SELECT 1
+         FROM migrations_log
+         WHERE filename = '0019_enable_users_and_ledger_rls.sql'
+       ) AS final_recorded,
+       EXISTS (
+         SELECT 1
+         FROM migrations_log
+         WHERE filename = '0020_tighten_organizations_public_read.sql'
+       ) AS organization_public_read_recorded`
     )).rows[0];
     evidence.migration_recorded = migrationRecords.identity_recorded;
     evidence.provenance_migration_recorded =
@@ -1380,6 +1442,8 @@ async function readIdentityRlsEvidence(client) {
     evidence.supporting_migration_recorded =
       migrationRecords.supporting_recorded;
     evidence.final_migration_recorded = migrationRecords.final_recorded;
+    evidence.organization_public_read_migration_recorded =
+      migrationRecords.organization_public_read_recorded;
   }
   evidence.rls_tables = (await client.query(
     `SELECT relation.relname AS table_name,
@@ -1512,7 +1576,24 @@ function identityPolicyShapeExact(policy, expected) {
     && (!expected.signature || policy.signature === expected.signature);
 }
 
-function identityRlsExact(evidence) {
+function identityPoliciesForEvidence(evidence) {
+  if (evidence.organization_public_read_migration_recorded) {
+    return IDENTITY_RLS_STATE.policies;
+  }
+  return IDENTITY_RLS_STATE.policies.map(policy =>
+    policy.table_name === 'organizations'
+      && policy.policy_name === 'organizations_tenant_select'
+      ? {
+          ...policy,
+          signature: PRE_0020_ORGANIZATIONS_SELECT_SIGNATURE
+        }
+      : policy);
+}
+
+function identityRlsExact(
+  evidence,
+  expectedPolicies = identityPoliciesForEvidence(evidence)
+) {
   const tablesExact = stableJson(evidence.rls_tables) === stableJson(
     IDENTITY_RLS_STATE.tables.map(tableName => ({
       table_name: tableName,
@@ -1521,9 +1602,9 @@ function identityRlsExact(evidence) {
     }))
   );
   return tablesExact
-    && evidence.policies.length === IDENTITY_RLS_STATE.policies.length
+    && evidence.policies.length === expectedPolicies.length
     && evidence.policies.every((policy, index) =>
-      identityPolicyShapeExact(policy, IDENTITY_RLS_STATE.policies[index]));
+      identityPolicyShapeExact(policy, expectedPolicies[index]));
 }
 
 function provenanceHelperShapeExact(routine, expected) {
@@ -1561,7 +1642,7 @@ function provenanceRlsExact(evidence) {
     forced: false
   }));
   const expectedPolicies = [
-    ...IDENTITY_RLS_STATE.policies,
+    ...identityPoliciesForEvidence(evidence),
     ...PROVENANCE_RLS_STATE.policies
   ].sort((left, right) =>
     left.table_name.localeCompare(right.table_name)
@@ -1605,7 +1686,7 @@ function supportingRlsExact(evidence) {
     forced: false
   }));
   const expectedPolicies = [
-    ...IDENTITY_RLS_STATE.policies,
+    ...identityPoliciesForEvidence(evidence),
     ...PROVENANCE_RLS_STATE.policies,
     ...SUPPORTING_RLS_STATE.policies
   ].sort((left, right) =>
@@ -1643,9 +1724,12 @@ function supportingRlsEffectsAbsent(evidence) {
     );
 }
 
-function finalRlsExact(evidence) {
+function finalRlsExact(
+  evidence,
+  identityPolicies = identityPoliciesForEvidence(evidence)
+) {
   const tables = [...IDENTITY_RLS_STATE.tables, ...PROVENANCE_RLS_STATE.tables, ...SUPPORTING_RLS_STATE.tables, ...FINAL_RLS_STATE.tables].sort().map(table_name => ({ table_name, enabled: true, forced: false }));
-  const policies = [...IDENTITY_RLS_STATE.policies, ...PROVENANCE_RLS_STATE.policies, ...SUPPORTING_RLS_STATE.policies, ...FINAL_RLS_STATE.policies].sort((a,b) => a.table_name.localeCompare(b.table_name) || a.policy_name.localeCompare(b.policy_name));
+  const policies = [...identityPolicies, ...PROVENANCE_RLS_STATE.policies, ...SUPPORTING_RLS_STATE.policies, ...FINAL_RLS_STATE.policies].sort((a,b) => a.table_name.localeCompare(b.table_name) || a.policy_name.localeCompare(b.policy_name));
   const helpers = [...PROVENANCE_RLS_STATE.helpers, ...SUPPORTING_RLS_STATE.helpers].sort((a,b) => a.function_name.localeCompare(b.function_name) || a.identity_arguments.localeCompare(b.identity_arguments));
   return stableJson(evidence.rls_tables) === stableJson(tables)
     && evidence.policies.length === policies.length
@@ -1670,6 +1754,154 @@ function finalRlsExact(evidence) {
 function finalRlsEffectsAbsent(evidence) {
   return evidence.rls_tables.every(table => !FINAL_RLS_STATE.tables.includes(table.table_name))
     && evidence.policies.every(policy => !FINAL_RLS_STATE.tables.includes(policy.table_name));
+}
+
+async function readOrganizationPublicReadEvidence(client) {
+  const evidence = await readSupportingRlsEvidence(client);
+  evidence.registration_functions = (await client.query(
+    `SELECT routine.proname AS function_name,
+            pg_get_function_identity_arguments(routine.oid)
+              AS identity_arguments,
+            pg_get_function_result(routine.oid) AS result_type,
+            routine.prosecdef AS security_definer,
+            CASE routine.provolatile
+              WHEN 'i' THEN 'IMMUTABLE'
+              WHEN 's' THEN 'STABLE'
+              ELSE 'VOLATILE'
+            END AS volatility,
+            pg_get_userbyid(routine.proowner) AS owner,
+            language.lanname AS language,
+            COALESCE(routine.proconfig, ARRAY[]::text[]) AS configuration,
+            routine.prosrc AS source,
+            COALESCE(
+              (
+                SELECT json_agg(
+                  json_build_object(
+                    'grantee',
+                    CASE
+                      WHEN privilege.grantee = 0 THEN 'PUBLIC'
+                      ELSE pg_get_userbyid(privilege.grantee)
+                    END,
+                    'privilege_type',
+                    privilege.privilege_type
+                  )
+                  ORDER BY
+                    CASE
+                      WHEN privilege.grantee = 0 THEN 'PUBLIC'
+                      ELSE pg_get_userbyid(privilege.grantee)
+                    END,
+                    privilege.privilege_type
+                )
+                FROM aclexplode(
+                  COALESCE(
+                    routine.proacl,
+                    acldefault('f', routine.proowner)
+                  )
+                ) AS privilege
+              ),
+              '[]'::json
+            ) AS privileges
+     FROM pg_proc AS routine
+     JOIN pg_namespace AS namespace
+       ON namespace.oid = routine.pronamespace
+     JOIN pg_language AS language
+       ON language.oid = routine.prolang
+     WHERE namespace.nspname = 'public'
+       AND routine.proname = 'capmint_register_organization'
+     ORDER BY pg_get_function_identity_arguments(routine.oid)`
+  )).rows.map(routine => ({
+    ...routine,
+    source_signature: functionSourceSignature(routine)
+  }));
+  evidence.organization_unique_indexes = (await client.query(
+    `SELECT index_relation.relname AS index_name,
+            index_state.indisunique AS unique,
+            index_state.indisvalid AS valid,
+            index_state.indisready AS ready,
+            pg_get_indexdef(index_state.indexrelid) AS index_definition
+     FROM pg_index AS index_state
+     JOIN pg_class AS index_relation
+       ON index_relation.oid = index_state.indexrelid
+     JOIN pg_namespace AS namespace
+       ON namespace.oid = index_relation.relnamespace
+     WHERE namespace.nspname = 'public'
+       AND index_relation.relname IN (
+         'organizations_registration_number_unique',
+         'organizations_tax_id_unique'
+       )
+     ORDER BY index_relation.relname`
+  )).rows;
+  return evidence;
+}
+
+function registrationFunctionExact(routine) {
+  const expected = ORGANIZATION_PUBLIC_READ_STATE.registrationFunction;
+  const allowedGrantees = new Set(['capmint_admin', 'capmint_app']);
+  const appExecute = routine.privileges.some(privilege =>
+    privilege.grantee === 'capmint_app'
+      && privilege.privilege_type === 'EXECUTE');
+  const privilegesExact = routine.privileges.length > 0
+    && routine.privileges.every(privilege =>
+      allowedGrantees.has(privilege.grantee)
+        && privilege.privilege_type === 'EXECUTE');
+
+  return routine.function_name === expected.function_name
+    && routine.identity_arguments === expected.identity_arguments
+    && routine.result_type === expected.result_type
+    && routine.security_definer
+    && routine.volatility === 'VOLATILE'
+    && routine.owner === 'capmint_admin'
+    && routine.language === 'plpgsql'
+    && stableJson(routine.configuration) === stableJson(['search_path=public'])
+    && routine.source_signature === expected.source_signature
+    && appExecute
+    && privilegesExact
+    && !routine.privileges.some(privilege => privilege.grantee === 'PUBLIC');
+}
+
+function organizationPublicReadExact(evidence) {
+  const indexesExact =
+    evidence.organization_unique_indexes.length
+      === ORGANIZATION_PUBLIC_READ_STATE.indexes.length
+    && evidence.organization_unique_indexes.every((index, position) => {
+      const expected = ORGANIZATION_PUBLIC_READ_STATE.indexes[position];
+      return index.index_name === expected.index_name
+        && index.unique
+        && index.valid
+        && index.ready
+        && index.index_definition === expected.index_definition;
+    });
+  const organizationPolicy = evidence.policies.find(policy =>
+    policy.table_name === ORGANIZATION_PUBLIC_READ_STATE.policy.table_name
+      && policy.policy_name
+        === ORGANIZATION_PUBLIC_READ_STATE.policy.policy_name);
+
+  return finalRlsExact(evidence, IDENTITY_RLS_STATE.policies)
+    && organizationPolicy?.signature
+      === ORGANIZATION_PUBLIC_READ_STATE.policy.signature
+    && !organizationPolicy.using_expression.includes(
+      "NULLIF(current_setting('app.current_organization_id', true), '') IS NULL"
+    )
+    && evidence.registration_functions.length === 1
+    && registrationFunctionExact(evidence.registration_functions[0])
+    && indexesExact;
+}
+
+function organizationPublicReadEffectsAbsent(evidence) {
+  const organizationPolicy = evidence.policies.find(policy =>
+    policy.table_name === ORGANIZATION_PUBLIC_READ_STATE.policy.table_name
+      && policy.policy_name
+        === ORGANIZATION_PUBLIC_READ_STATE.policy.policy_name);
+  return evidence.registration_functions.length === 0
+    && evidence.organization_unique_indexes.length === 0
+    && (
+      organizationPolicy === undefined
+      || (
+        organizationPolicy.command === 'SELECT'
+        && organizationPolicy.signature
+          === PRE_0020_ORGANIZATIONS_SELECT_SIGNATURE
+      )
+    );
 }
 
 async function verify0016(client) {
@@ -1707,7 +1939,22 @@ async function verify0016(client) {
     };
   }
 
-  if (supportingSuccessorEvidence.final_migration_recorded && finalRlsExact(supportingSuccessorEvidence)) {
+  if (supportingSuccessorEvidence.organization_public_read_migration_recorded) {
+    const organizationReadEvidence =
+      await readOrganizationPublicReadEvidence(client);
+    if (organizationPublicReadExact(organizationReadEvidence)) {
+      return {
+        status: 'exact',
+        summary: 'Identity-table RLS remains exact with recorded 0020 tightened organization-directory reads.',
+        evidence: organizationReadEvidence,
+        fingerprint: evidenceFingerprint(organizationReadEvidence)
+      };
+    }
+  }
+
+  if (!supportingSuccessorEvidence.organization_public_read_migration_recorded
+    && supportingSuccessorEvidence.final_migration_recorded
+    && finalRlsExact(supportingSuccessorEvidence)) {
     return { status: 'exact', summary: 'Identity-table RLS remains exact with recorded 0019 complete enforcement.', evidence: supportingSuccessorEvidence, fingerprint: evidenceFingerprint(supportingSuccessorEvidence) };
   }
 
@@ -1751,7 +1998,22 @@ async function verify0017(client) {
     };
   }
 
-  if (successorEvidence.final_migration_recorded && finalRlsExact(successorEvidence)) {
+  if (successorEvidence.organization_public_read_migration_recorded) {
+    const organizationReadEvidence =
+      await readOrganizationPublicReadEvidence(client);
+    if (organizationPublicReadExact(organizationReadEvidence)) {
+      return {
+        status: 'exact',
+        summary: 'Provenance-chain RLS remains exact with recorded 0020 tightened organization-directory reads.',
+        evidence: organizationReadEvidence,
+        fingerprint: evidenceFingerprint(organizationReadEvidence)
+      };
+    }
+  }
+
+  if (!successorEvidence.organization_public_read_migration_recorded
+    && successorEvidence.final_migration_recorded
+    && finalRlsExact(successorEvidence)) {
     return { status: 'exact', summary: 'Provenance-chain RLS remains exact with recorded 0019 complete enforcement.', evidence: successorEvidence, fingerprint: evidenceFingerprint(successorEvidence) };
   }
 
@@ -1784,7 +2046,22 @@ async function verify0018(client) {
     };
   }
 
-  if (evidence.final_migration_recorded && finalRlsExact(evidence)) {
+  if (evidence.organization_public_read_migration_recorded) {
+    const organizationReadEvidence =
+      await readOrganizationPublicReadEvidence(client);
+    if (organizationPublicReadExact(organizationReadEvidence)) {
+      return {
+        status: 'exact',
+        summary: 'Supporting-table RLS remains exact with recorded 0020 tightened organization-directory reads.',
+        evidence: organizationReadEvidence,
+        fingerprint: evidenceFingerprint(organizationReadEvidence)
+      };
+    }
+  }
+
+  if (!evidence.organization_public_read_migration_recorded
+    && evidence.final_migration_recorded
+    && finalRlsExact(evidence)) {
     return { status: 'exact', summary: 'Supporting-table RLS remains exact with recorded 0019 complete enforcement.', evidence, fingerprint: evidenceFingerprint(evidence) };
   }
 
@@ -1807,9 +2084,53 @@ async function verify0018(client) {
 
 async function verify0019(client) {
   const evidence = await readSupportingRlsEvidence(client);
+  if (evidence.organization_public_read_migration_recorded) {
+    const organizationReadEvidence =
+      await readOrganizationPublicReadEvidence(client);
+    if (organizationPublicReadExact(organizationReadEvidence)) {
+      return {
+        status: 'exact',
+        summary: 'Complete RLS remains exact with recorded 0020 tightened organization-directory reads.',
+        evidence: organizationReadEvidence,
+        fingerprint: evidenceFingerprint(organizationReadEvidence)
+      };
+    }
+    return {
+      status: 'incompatible',
+      summary: 'Recorded 0020 organization-directory read enforcement is partial or non-exact.',
+      evidence: organizationReadEvidence,
+      fingerprint: evidenceFingerprint(organizationReadEvidence)
+    };
+  }
   if (finalRlsExact(evidence)) return { status: 'exact', summary: 'All 13 application tables have exact RLS coverage; the ledger is append-only for capmint_app.', evidence, fingerprint: evidenceFingerprint(evidence) };
   if (finalRlsEffectsAbsent(evidence)) return { status: 'absent', summary: 'Users and ledger RLS effects are absent.', evidence, fingerprint: evidenceFingerprint(evidence) };
   return { status: 'incompatible', summary: 'Users/ledger RLS is partial, forced, unexpected, or non-exact.', evidence, fingerprint: evidenceFingerprint(evidence) };
+}
+
+async function verify0020(client) {
+  const evidence = await readOrganizationPublicReadEvidence(client);
+  if (organizationPublicReadExact(evidence)) {
+    return {
+      status: 'exact',
+      summary: 'Organization public reads, registration definer function, and partial uniqueness indexes are exact.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+  if (organizationPublicReadEffectsAbsent(evidence)) {
+    return {
+      status: 'absent',
+      summary: 'The 0020 registration function, uniqueness indexes, and tightened organization read are absent.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+  return {
+    status: 'incompatible',
+    summary: 'Organization public-read tightening is partial or non-exact.',
+    evidence,
+    fingerprint: evidenceFingerprint(evidence)
+  };
 }
 
 async function verify0013(client) {
@@ -1987,8 +2308,9 @@ const STATE_VERIFIERS = new Map([
   ['0015_add_capmint_app_role.sql', verify0015],
   ['0016_enable_identity_table_rls.sql', verify0016],
   ['0017_enable_provenance_chain_rls.sql', verify0017],
-  ['0018_enable_supporting_table_rls.sql', verify0018]
-  ,['0019_enable_users_and_ledger_rls.sql', verify0019]
+  ['0018_enable_supporting_table_rls.sql', verify0018],
+  ['0019_enable_users_and_ledger_rls.sql', verify0019],
+  ['0020_tighten_organizations_public_read.sql', verify0020]
 ]);
 
 async function readMetadata(client) {
@@ -2439,6 +2761,7 @@ module.exports = {
   PROVENANCE_RLS_STATE,
   SUPPORTING_RLS_STATE,
   FINAL_RLS_STATE,
+  ORGANIZATION_PUBLIC_READ_STATE,
   PROFILE_ORGANIZATION_STATE,
   TENANCY_TIGHTENING_STATE,
   TOOL_VERSION,
@@ -2462,5 +2785,6 @@ module.exports = {
   verify0016,
   verify0017,
   verify0018,
-  verify0019
+  verify0019,
+  verify0020
 };

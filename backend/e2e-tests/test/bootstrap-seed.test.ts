@@ -8,6 +8,10 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import pg from 'pg';
+import {
+  PUBLIC_TENANT_CONTEXT,
+  withTenantTx
+} from '../../../packages/shared/tenant-db.js';
 
 const require = createRequire(import.meta.url);
 const bcrypt = require('bcryptjs') as {
@@ -468,6 +472,7 @@ suite('F2 secure bootstrap and development seed', () => {
   it('gates development fixtures, validates keys, signs the budget, and is idempotent', async () => {
     const name = databaseName('development');
     await bootstrapDatabase(name);
+    let appRoleProvisioned = false;
     try {
       const keyPair = generateKeyPair();
       const password = strongPassword();
@@ -546,7 +551,54 @@ suite('F2 secure bootstrap and development seed', () => {
           assigned_laboratory: '00000000-0000-0000-0000-000000000004'
         });
       });
+
+      const appDatabaseUrl = await provisionAppRole(name);
+      appRoleProvisioned = true;
+      const appPool = new pg.Pool({
+        connectionString: appDatabaseUrl,
+        max: 1
+      });
+      try {
+        await withTenantTx(
+          appPool,
+          PUBLIC_TENANT_CONTEXT,
+          async client => {
+            expect((await client.query(
+              'SELECT count(*)::int AS count FROM organizations'
+            )).rows[0].count).toBe(3);
+          }
+        );
+        await withTenantTx(
+          appPool,
+          {
+            access: 'authenticated',
+            orgId: '00000000-0000-0000-0000-000000000002',
+            isSystemAdmin: false
+          },
+          async client => {
+            expect((await client.query(
+              'SELECT count(*)::int AS count FROM organizations'
+            )).rows[0].count).toBe(4);
+          }
+        );
+        await withTenantTx(
+          appPool,
+          {
+            access: 'authenticated',
+            orgId: crypto.randomUUID(),
+            isSystemAdmin: false
+          },
+          async client => {
+            expect((await client.query(
+              'SELECT count(*)::int AS count FROM organizations'
+            )).rows[0].count).toBe(3);
+          }
+        );
+      } finally {
+        await appPool.end();
+      }
     } finally {
+      if (appRoleProvisioned) await deprovisionAppRole();
       await dropDatabase(name);
     }
   }, 120_000);
@@ -652,25 +704,88 @@ suite('F2 secure bootstrap and development seed', () => {
       const activatedOrganizations: Record<string, string> = {};
       for (const type of ['PRODUCER', 'CERTIFICATION_BODY']) {
         const suffix = type.toLowerCase().replaceAll('_', '-');
+        const registrationBody = {
+          name: `F2 Activation ${type}`,
+          type,
+          business_reg_details: {
+            tax_id: `F2-TAX-${type}`,
+            registration_number: `F2-REG-${type}`
+          },
+          official_email: `${suffix}@f2-activation.example`,
+          contact_info: {},
+          admin_username: `f2-${suffix}`,
+          admin_password: 'Activation9!'
+        };
         const registration = await fetch(`http://127.0.0.1:${authPort}/api/v1/auth/register-org`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: `F2 Activation ${type}`,
-            type,
-            business_reg_details: {
-              tax_id: `F2-TAX-${type}`,
-              registration_number: `F2-REG-${type}`
-            },
-            official_email: `${suffix}@f2-activation.example`,
-            contact_info: {},
-            admin_username: `f2-${suffix}`,
-            admin_password: 'Activation9!'
-          })
+          body: JSON.stringify(registrationBody)
         });
         expect(registration.status).toBe(201);
         const organizationId = (await registration.json() as any).data.organization.id;
         activatedOrganizations[type] = organizationId;
+
+        if (type === 'PRODUCER') {
+          const duplicateTaxId = await fetch(
+            `http://127.0.0.1:${authPort}/api/v1/auth/register-org`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...registrationBody,
+                name: 'F2 Duplicate Tax ID',
+                business_reg_details: {
+                  tax_id: registrationBody.business_reg_details.tax_id,
+                  registration_number: 'F2-REG-DUPLICATE-TAX'
+                },
+                official_email: 'duplicate-tax@f2-activation.example',
+                admin_username: 'f2-duplicate-tax'
+              })
+            }
+          );
+          expect(duplicateTaxId.status).toBe(409);
+          expect((await duplicateTaxId.json() as any).error.code)
+            .toBe('REGISTRATION_EXISTS');
+
+          const duplicateRegistrationNumber = await fetch(
+            `http://127.0.0.1:${authPort}/api/v1/auth/register-org`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ...registrationBody,
+                name: 'F2 Duplicate Registration',
+                business_reg_details: {
+                  tax_id: 'F2-TAX-DUPLICATE-REGISTRATION',
+                  registration_number:
+                    registrationBody.business_reg_details.registration_number
+                },
+                official_email:
+                  'duplicate-registration@f2-activation.example',
+                admin_username: 'f2-duplicate-registration'
+              })
+            }
+          );
+          expect(duplicateRegistrationNumber.status).toBe(409);
+          expect((await duplicateRegistrationNumber.json() as any).error.code)
+            .toBe('REGISTRATION_EXISTS');
+        }
+
+        const pendingLogin = await fetch(
+          `http://127.0.0.1:${authPort}/api/v1/auth/login`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: registrationBody.admin_username,
+              password: registrationBody.admin_password
+            })
+          }
+        );
+        expect(pendingLogin.status).toBe(403);
+        expect((await pendingLogin.json() as any).error.code)
+          .toBe('INACTIVE_ORGANIZATION');
+
         const activation = await fetch(
           `http://127.0.0.1:${authPort}/api/v1/auth/organizations/${organizationId}/status`,
           {
@@ -683,6 +798,19 @@ suite('F2 secure bootstrap and development seed', () => {
           }
         );
         expect(activation.status).toBe(200);
+
+        const activatedLogin = await fetch(
+          `http://127.0.0.1:${authPort}/api/v1/auth/login`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              username: registrationBody.admin_username,
+              password: registrationBody.admin_password
+            })
+          }
+        );
+        expect(activatedLogin.status).toBe(200);
       }
 
       await withPool(name, async pool => {

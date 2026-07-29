@@ -20,6 +20,8 @@ const appRoleMigrationPath = path.join(ROOT, 'database/migrations/0015_add_capmi
 const identityRlsMigrationPath = path.join(ROOT, 'database/migrations/0016_enable_identity_table_rls.sql');
 const provenanceRlsMigrationPath = path.join(ROOT, 'database/migrations/0017_enable_provenance_chain_rls.sql');
 const supportingRlsMigrationPath = path.join(ROOT, 'database/migrations/0018_enable_supporting_table_rls.sql');
+const finalRlsMigrationPath = path.join(ROOT, 'database/migrations/0019_enable_users_and_ledger_rls.sql');
+const organizationReadMigrationPath = path.join(ROOT, 'database/migrations/0020_tighten_organizations_public_read.sql');
 const allLegacyFiles = [
   '0001_add_certification_status_and_updated_at.sql',
   '0002_add_investigations_table.sql',
@@ -169,6 +171,22 @@ async function preparePre0018State(name: string): Promise<void> {
   });
 }
 
+async function preparePre0020State(name: string): Promise<void> {
+  await preparePre0018State(name);
+  await applySqlFile(name, supportingRlsMigrationPath);
+  await withPool(name, pool =>
+    pool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0018_enable_supporting_table_rls.sql')`
+    ).then(() => undefined));
+  await applySqlFile(name, finalRlsMigrationPath);
+  await withPool(name, pool =>
+    pool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0019_enable_users_and_ledger_rls.sql')`
+    ).then(() => undefined));
+}
+
 async function schemaFingerprint(name: string): Promise<string> {
   return withPool(name, async pool => {
     const result = await pool.query(`
@@ -218,6 +236,10 @@ async function schemaFingerprint(name: string): Promise<string> {
             FROM pg_indexes
             WHERE schemaname = 'public'
               AND tablename <> 'migrations_log'
+              AND indexname NOT IN (
+                'organizations_registration_number_unique',
+                'organizations_tax_id_unique'
+              )
           ) x
         ),
         'triggers', (
@@ -271,7 +293,7 @@ suite('C1 migration reconciliation', () => {
     if (adminPool) await adminPool.end();
   }, 60_000);
 
-  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0019, and becomes a no-op', async () => {
+  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0020, and becomes a no-op', async () => {
     const name = databaseName('bootstrap');
     await createDatabase(name);
     try {
@@ -290,7 +312,7 @@ suite('C1 migration reconciliation', () => {
          FROM migrations_log
          ORDER BY id`
       ).then(result => result.rows));
-      expect(rows).toHaveLength(11);
+      expect(rows).toHaveLength(12);
       expect(rows[0]).toMatchObject({
         filename: 'capmint-baseline-20260725.sql',
         application_mode: 'BASELINE',
@@ -339,6 +361,10 @@ suite('C1 migration reconciliation', () => {
         filename: '0019_enable_users_and_ledger_rls.sql',
         application_mode: 'EXECUTED'
       });
+      expect(rows[11]).toMatchObject({
+        filename: '0020_tighten_organizations_public_read.sql',
+        application_mode: 'EXECUTED'
+      });
       const baselineState = await withPool(name, pool => pool.query(
         `SELECT
            EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'uuid-ossp') AS has_uuid_ossp,
@@ -355,7 +381,7 @@ suite('C1 migration reconciliation', () => {
       expect(bootstrapNoOpApply.status, bootstrapNoOpApply.stderr).toBe(0);
       expect(runRunner(name, ['--check']).status).toBe(0);
       const count = await withPool(name, pool => pool.query('SELECT count(*)::int AS count FROM migrations_log').then(result => result.rows[0].count));
-      expect(count).toBe(11);
+      expect(count).toBe(12);
     } finally {
       await dropDatabase(name);
     }
@@ -1545,6 +1571,94 @@ suite('C1 migration reconciliation', () => {
       await dropDatabase(exactName);
       await dropDatabase(partialName);
       await dropDatabase(forcedName);
+    }
+  }, 90_000);
+
+  it('tightens organization reads idempotently and verifies absent, exact, and incompatible states', async () => {
+    const absentName = databaseName('organization_read_absent');
+    const exactName = databaseName('organization_read_exact');
+    const partialName = databaseName('organization_read_partial');
+    for (const name of [absentName, exactName, partialName]) {
+      await createDatabase(name);
+      await preparePre0020State(name);
+    }
+    try {
+      expect((await withPool(
+        absentName,
+        pool => migrationRunner.verify0020(pool)
+      )).status).toBe('absent');
+
+      await applySqlFile(exactName, organizationReadMigrationPath);
+      expect((await withPool(
+        exactName,
+        pool => migrationRunner.verify0020(pool)
+      )).status).toBe('exact');
+      for (const version of [15, 16, 17, 18, 19]) {
+        expect((await withPool(
+          exactName,
+          pool => migrationRunner[`verify00${version}`](pool)
+        )).status).toBe('incompatible');
+      }
+
+      await withPool(exactName, pool =>
+        pool.query(
+          `INSERT INTO migrations_log (filename)
+           VALUES ('0020_tighten_organizations_public_read.sql')`
+        ).then(() => undefined));
+      for (const version of [15, 16, 17, 18, 19]) {
+        expect((await withPool(
+          exactName,
+          pool => migrationRunner[`verify00${version}`](pool)
+        )).status).toBe('exact');
+      }
+
+      const beforeRerun = await withPool(
+        exactName,
+        pool => migrationRunner.verify0020(pool)
+      );
+      await applySqlFile(exactName, organizationReadMigrationPath);
+      const afterRerun = await withPool(
+        exactName,
+        pool => migrationRunner.verify0020(pool)
+      );
+      expect(afterRerun.status).toBe('exact');
+      expect(afterRerun.fingerprint).toBe(beforeRerun.fingerprint);
+
+      await withPool(exactName, async pool => {
+        await pool.query(
+          'DROP POLICY organizations_tenant_select ON organizations'
+        );
+        await pool.query(
+          `CREATE POLICY organizations_tenant_select
+           ON organizations
+           FOR SELECT
+           TO capmint_app
+           USING (true)`
+        );
+      });
+      expect((await withPool(
+        exactName,
+        pool => migrationRunner.verify0020(pool)
+      )).status).toBe('incompatible');
+      await expect(applySqlFile(exactName, organizationReadMigrationPath))
+        .rejects.toThrow(/0020_ORGANIZATIONS_POLICY_INCOMPATIBLE/);
+
+      await withPool(partialName, pool =>
+        pool.query(
+          `CREATE UNIQUE INDEX organizations_tax_id_unique
+           ON organizations ((business_reg_details->>'tax_id'))
+           WHERE business_reg_details ? 'tax_id'`
+        ).then(() => undefined));
+      expect((await withPool(
+        partialName,
+        pool => migrationRunner.verify0020(pool)
+      )).status).toBe('incompatible');
+      await expect(applySqlFile(partialName, organizationReadMigrationPath))
+        .rejects.toThrow(/0020_UNIQUE_INDEX_STATE_INCOMPATIBLE/);
+    } finally {
+      await dropDatabase(absentName);
+      await dropDatabase(exactName);
+      await dropDatabase(partialName);
     }
   }, 90_000);
 

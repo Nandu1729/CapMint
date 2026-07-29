@@ -242,80 +242,40 @@ server.post('/api/v1/auth/register-org', async (request, reply) => {
   }
 
   try {
-    return await withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, async (client) => {
-
-    // AUTH-08: Register organization with duplicate GST/license
-    if (business_reg_details?.tax_id) {
-      const gstCheck = await client.query(
-        "SELECT id FROM organizations WHERE business_reg_details->>'tax_id' = $1",
-        [business_reg_details.tax_id]
-      );
-      if (gstCheck.rows.length > 0) {
-        return reply.status(409).send({
-          success: false,
-          error: {
-            statusCode: 409,
-            code: 'REGISTRATION_EXISTS',
-            message: 'The GST/tax ID is already registered.'
-          }
-        });
-      }
-    }
-
-    if (business_reg_details?.registration_number) {
-      const regCheck = await client.query(
-        "SELECT id FROM organizations WHERE business_reg_details->>'registration_number' = $1",
-        [business_reg_details.registration_number]
-      );
-      if (regCheck.rows.length > 0) {
-        return reply.status(409).send({
-          success: false,
-          error: {
-            statusCode: 409,
-            code: 'REGISTRATION_EXISTS',
-            message: 'The registration number is already registered.'
-          }
-        });
-      }
-    }
-
-    // 1. Insert organization in PENDING status
-    const orgQuery = `
-      INSERT INTO organizations (name, type, business_reg_details, official_email, contact_info, status)
-      VALUES ($1, $2, $3, $4, $5, 'PENDING')
-      RETURNING *
-    `;
-    const orgRes = await client.query(orgQuery, [
-      name,
-      type,
-      JSON.stringify(business_reg_details || {}),
-      official_email,
-      JSON.stringify(contact_info || {})
-    ]);
-    const newOrg = orgRes.rows[0];
-
-    // 2. Hash administrator password and insert user (marked ACTIVE, but login blocked if org is not ACTIVATED)
     const adminPassHash = await server.bcrypt.hash(admin_password);
-    const userQuery = `
-      INSERT INTO users (organization_id, username, password_hash, role, status)
-      VALUES ($1, $2, $3, 'ADMIN', 'ACTIVE')
-      RETURNING id, username, role, status, created_at
-    `;
-    const userRes = await client.query(userQuery, [newOrg.id, admin_username, adminPassHash]);
+    return await withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, async (client) => {
+      const registration = (await client.query(
+        `SELECT organization, admin_user
+         FROM public.capmint_register_organization(
+           $1::text,
+           $2::text,
+           $3::jsonb,
+           $4::text,
+           $5::jsonb,
+           $6::text,
+           $7::text
+         )`,
+        [
+          name,
+          type,
+          JSON.stringify(business_reg_details || {}),
+          official_email,
+          JSON.stringify(contact_info || {}),
+          admin_username,
+          adminPassHash
+        ]
+      )).rows[0];
 
-    // 3. Write immutable audit log for Org Registration
-    await appendAuditLog(client, 'ORGANIZATION', newOrg.id, 'ORGANIZATION_REGISTERED', { organization_id: newOrg.id });
-
-    return reply.status(201).send({
-      success: true,
-      data: {
-        organization: newOrg,
-        adminUser: userRes.rows[0]
-      }
-    });
+      return reply.status(201).send({
+        success: true,
+        data: {
+          organization: registration.organization,
+          adminUser: registration.admin_user
+        }
+      });
     });
   } catch (err: any) {
-    if (err.code === '23505') {
+    if (err.code === '23505' || err.message === 'REGISTRATION_EXISTS') {
       return reply.status(409).send({
         success: false,
         error: {
@@ -352,65 +312,83 @@ server.post('/api/v1/auth/login', async (request, reply) => {
   }
 
   return withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, async (client) => {
-    const result = await client.query(`
-      SELECT u.*, o.type as org_type, o.status as org_status
-      FROM users u
-      JOIN organizations o ON u.organization_id = o.id
-      WHERE u.username = $1
-    `, [username]);
+    const result = await client.query(
+      'SELECT * FROM users WHERE username = $1',
+      [username]
+    );
     const user = result.rows[0];
 
-  if (!user) {
-    return reply.status(401).send({
-      success: false,
-      error: {
-        statusCode: 401,
-        code: 'INVALID_CREDENTIALS',
-        message: 'The username or password provided is incorrect.'
-      }
-    });
-  }
+    if (!user) {
+      return reply.status(401).send({
+        success: false,
+        error: {
+          statusCode: 401,
+          code: 'INVALID_CREDENTIALS',
+          message: 'The username or password provided is incorrect.'
+        }
+      });
+    }
 
-  // Refuse access to users of non-activated organizations
-  if (user.org_status !== 'ACTIVATED') {
-    return reply.status(403).send({
-      success: false,
-      error: {
-        statusCode: 403,
-        code: 'INACTIVE_ORGANIZATION',
-        message: `Access denied. Your organization is currently in "${user.org_status}" state. Only activated organizations can access CapMint.`
-      }
-    });
-  }
+    // The public users policy permits pre-auth username resolution. Switch to
+    // the server-derived organization before reading its now tenant-scoped row.
+    await client.query(
+      `SELECT set_config(
+         'app.current_organization_id',
+         $1,
+         true
+       )`,
+      [user.organization_id]
+    );
+    const organization = (await client.query(
+      'SELECT type, status FROM organizations WHERE id = $1',
+      [user.organization_id]
+    )).rows[0];
+    if (!organization) {
+      throw new Error('User organization is not visible in its derived tenant context.');
+    }
+    user.org_type = organization.type;
+    user.org_status = organization.status;
 
-  // Refuse access to disabled user accounts
-  if (user.status !== 'ACTIVE') {
-    return reply.status(403).send({
-      success: false,
-      error: {
-        statusCode: 403,
-        code: 'DISABLED_USER',
-        message: 'Your user account has been disabled. Please contact your organization administrator.'
-      }
-    });
-  }
+    // Refuse access to users of non-activated organizations
+    if (user.org_status !== 'ACTIVATED') {
+      return reply.status(403).send({
+        success: false,
+        error: {
+          statusCode: 403,
+          code: 'INACTIVE_ORGANIZATION',
+          message: `Access denied. Your organization is currently in "${user.org_status}" state. Only activated organizations can access CapMint.`
+        }
+      });
+    }
 
-  const isValid = await server.bcrypt.compare(password, user.password_hash);
-  if (!isValid) {
-    return reply.status(401).send({
-      success: false,
-      error: {
-        statusCode: 401,
-        code: 'INVALID_CREDENTIALS',
-        message: 'The username or password provided is incorrect.'
-      }
-    });
-  }
+    // Refuse access to disabled user accounts
+    if (user.status !== 'ACTIVE') {
+      return reply.status(403).send({
+        success: false,
+        error: {
+          statusCode: 403,
+          code: 'DISABLED_USER',
+          message: 'Your user account has been disabled. Please contact your organization administrator.'
+        }
+      });
+    }
 
-  // Write immutable audit log for Login
+    const isValid = await server.bcrypt.compare(password, user.password_hash);
+    if (!isValid) {
+      return reply.status(401).send({
+        success: false,
+        error: {
+          statusCode: 401,
+          code: 'INVALID_CREDENTIALS',
+          message: 'The username or password provided is incorrect.'
+        }
+      });
+    }
+
+    // Write immutable audit log for Login
     await appendAuditLog(client, 'USER', user.id, 'USER_LOGIN', { user_id: user.id });
 
-  // Sign JWT carrying Organization ID, Type, and Role
+    // Sign JWT carrying Organization ID, Type, and Role
     const token = server.jwt.sign({
       id: user.id,
       username: user.username,
