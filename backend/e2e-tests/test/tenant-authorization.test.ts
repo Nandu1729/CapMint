@@ -162,7 +162,7 @@ async function startService(name: keyof typeof PORTS, sourcePath: string): Promi
       ...process.env,
       NODE_ENV: 'integration',
       PORT: String(PORTS[name]),
-      DATABASE_URL: name === 'integration' ? testDatabaseUrl : appDatabaseUrl,
+      DATABASE_URL: appDatabaseUrl,
       REDIS_URL: process.env.REDIS_URL || '',
       JWT_SECRET: jwtSecret,
       CERTIFIER_PRIVATE_KEY: certifierPrivateKey,
@@ -490,6 +490,18 @@ suite('C0 tenant authorization containment', () => {
       `INSERT INTO migrations_log (filename)
        VALUES ('0019_enable_users_and_ledger_rls.sql')`
     );
+    const organizationReadMigration = await fs.readFile(
+      path.join(
+        ROOT,
+        'database/migrations/0020_tighten_organizations_public_read.sql'
+      ),
+      'utf8'
+    );
+    await testPool.query(organizationReadMigration);
+    await testPool.query(
+      `INSERT INTO migrations_log (filename)
+       VALUES ('0020_tighten_organizations_public_read.sql')`
+    );
     const roleState = await adminPool.query(
       `SELECT rolcanlogin FROM pg_roles WHERE rolname = 'capmint_app'`
     );
@@ -569,6 +581,17 @@ suite('C0 tenant authorization containment', () => {
   it('enforces identity-table isolation on raw capmint_app queries', async () => {
     const appPool = new pg.Pool({ connectionString: appDatabaseUrl, max: 1 });
     try {
+      await withTenantTx(appPool, PUBLIC_TENANT_CONTEXT, async client => {
+        const directory = await client.query(
+          'SELECT id, type, status FROM organizations ORDER BY id'
+        );
+        expect(directory.rowCount).toBe(4);
+        expect(directory.rows.every(row =>
+          row.status === 'ACTIVATED'
+            && ['CERTIFICATION_BODY', 'NABL_LABORATORY'].includes(row.type)
+        )).toBe(true);
+      });
+
       await withTenantTx(
         appPool,
         {
@@ -577,6 +600,17 @@ suite('C0 tenant authorization containment', () => {
           isSystemAdmin: false
         },
         async client => {
+          const visibleOrganizations = await client.query(
+            'SELECT id FROM organizations ORDER BY id'
+          );
+          expect(visibleOrganizations.rowCount).toBe(5);
+          expect(visibleOrganizations.rows.map(row => row.id))
+            .toContain(ids.producerOrgA);
+          expect(visibleOrganizations.rows.map(row => row.id))
+            .not.toContain(ids.producerOrgB);
+          expect(visibleOrganizations.rows.map(row => row.id))
+            .not.toContain(ids.systemAdmin);
+
           expect((await client.query(
             'SELECT id FROM organizations WHERE id = $1',
             [ids.producerOrgB]
@@ -619,6 +653,20 @@ suite('C0 tenant authorization containment', () => {
             'DELETE FROM certifiers WHERE id = $1 RETURNING id',
             [ids.certifierB]
           )).rowCount).toBe(0);
+        }
+      );
+
+      await withTenantTx(
+        appPool,
+        {
+          access: 'authenticated',
+          orgId: crypto.randomUUID(),
+          isSystemAdmin: false
+        },
+        async client => {
+          expect((await client.query(
+            'SELECT count(*)::int AS count FROM organizations'
+          )).rows[0].count).toBe(4);
         }
       );
 

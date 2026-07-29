@@ -29,12 +29,16 @@ describe('migration runner metadata and planning primitives', () => {
     expect(() => runner.parseArgs(['--adopt'])).toThrow(/requires one or more/);
   });
 
-  it('loads a monotonic migration set ending in final-table RLS migration 0019', () => {
+  it('loads a monotonic migration set ending in organization read tightening 0020', () => {
     const result = runner.loadMigrations();
     expect(result.errors).toEqual([]);
-    expect(result.migrations.at(-1)?.filename).toBe('0019_enable_users_and_ledger_rls.sql');
+    expect(result.migrations.at(-1)?.filename)
+      .toBe('0020_tighten_organizations_public_read.sql');
     expect(result.migrations.map((migration: { version: number }) => migration.version))
-      .toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]);
+      .toEqual([
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        11, 12, 13, 14, 15, 16, 17, 18, 19, 20
+      ]);
     for (const migration of result.migrations) {
       expect(migration.checksum).toMatch(/^[a-f0-9]{64}$/);
     }
@@ -224,5 +228,26 @@ describe('migration runner metadata and planning primitives', () => {
       (policy: { signature: string }) => /^[a-f0-9]{64}$/.test(policy.signature)
     )).toBe(true);
     expect(runner.verify0019).toBeTypeOf('function');
+  });
+
+  it('defines the exact HO-005 organization public-read state', () => {
+    expect(runner.ORGANIZATION_PUBLIC_READ_STATE).toMatchObject({
+      migration: '0020_tighten_organizations_public_read.sql',
+      policy: {
+        table_name: 'organizations',
+        policy_name: 'organizations_tenant_select',
+        command: 'SELECT'
+      },
+      registrationFunction: {
+        function_name: 'capmint_register_organization',
+        result_type: 'TABLE(organization jsonb, admin_user jsonb)'
+      }
+    });
+    expect(runner.ORGANIZATION_PUBLIC_READ_STATE.policy.signature)
+      .toMatch(/^[a-f0-9]{64}$/);
+    expect(runner.ORGANIZATION_PUBLIC_READ_STATE.registrationFunction.source_signature)
+      .toMatch(/^[a-f0-9]{64}$/);
+    expect(runner.ORGANIZATION_PUBLIC_READ_STATE.indexes).toHaveLength(2);
+    expect(runner.verify0020).toBeTypeOf('function');
   });
 });

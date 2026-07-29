@@ -292,7 +292,7 @@ async function runIteration(iteration: number): Promise<void> {
     for (const [name, sourcePath] of services) {
       await startChild(children, name, tsxPath, [sourcePath], PORTS[name], {
         ...commonEnv,
-        DATABASE_URL: name === 'integration' ? testUrl : appUrl.toString(),
+        DATABASE_URL: appUrl.toString(),
         PORT: String(PORTS[name])
       });
     }
