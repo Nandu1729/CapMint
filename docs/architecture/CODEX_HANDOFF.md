@@ -20,6 +20,8 @@
 | [HO-004](#ho-004-canonical-service-env--purge-blacklisted-key) | Canonical service env + purge blacklisted key | Post-smoke defect #1 | 2026-07-29 | EXECUTED (Review #15) |
 | [HO-005](#ho-005-tighten-organizations-public-read-f-org) | Tighten organizations public read (F-org) | Post-smoke defect #2 | 2026-07-29 | EXECUTED (Review #16) |
 | [HO-006](#ho-006-close-p1a-uuid-validators--p1b-mint-health) | Close P1a (UUID validators) + P1b (mint /health) | Post-smoke defects P1a/P1b | 2026-07-29 | EXECUTED (Review #17) |
+| [HO-007](#ho-007-confirm-live-smoke-re-run) | Confirm-live smoke re-run (validate 0020 + assigned-lab) | DM-04 smoke gate | 2026-07-29 | HANDED-OFF |
+| [HO-008](#ho-008-observability-o1--structured-logging--redaction--correlation) | Observability O1 — structured logging + redaction + correlation | Observability | 2026-07-29 | HANDED-OFF |
 
 ---
 
@@ -306,6 +308,67 @@ pair (certifier assigns lot to seeded lab org `…0004` → `lab` submits `/veri
 success → `lab-isolation` 403); builds + existing tests green; add tests for the assigned-lab
 success path and mint `/health`. Feature branch off `develop`; validate on a disposable DB
 (`capmint_dev` untouched); no AI attribution; Conventional Commits; no `.env`/`.codex` committed.
+
+---
+
+## HO-007: Confirm-live smoke re-run
+
+- **Spec ID:** HO-007 · **Milestone:** DM-04 smoke gate (live confirmation) · **Date:** 2026-07-29 · **Status:** HANDED-OFF
+- **Related Review:** #14–#17
+
+### Objective
+Verification gate, **no code changes**. On `develop`: `cp .env.example .env` (one Ed25519 keypair
+across all four certifier vars, `PORT` unset) → `npm ci` → `npm run db:reset -- --yes` (applies
+baseline + `0010`–`0020`, provisions `capmint_app`, seeds) → `npm run dev`. Run the full HO-002
+nine-flow smoke + A–E taxonomy and specifically confirm live: the assigned-lab **success** pair
+(assign lot to lab `…0004` → `lab` result success → `lab-isolation` 403); F-org (public/empty-GUC
+`organizations` visibility = 3 directory orgs, not 7); registration via the definer path (register
+→ pending-login 403 → activate → login 200; duplicate tax_id/registration_number → 409); ledger
+`/log/verify` `unbroken=true` after a definer registration; RLS scan A–D = 0. Deliverable:
+`docs/smoke/DM04_RLS_SMOKE_REPORT.md` (Attempt 06, expect GREEN), uncommitted; preserve prior
+attempts. Stop and report on any failure.
+
+---
+
+## HO-008: Observability O1 — structured logging + redaction + correlation
+
+- **Spec ID:** HO-008 · **Milestone:** Observability (O1, first slice) · **Date:** 2026-07-29 · **Status:** HANDED-OFF
+- **Related:** [OBSERVABILITY_PROPOSAL.md](OBSERVABILITY_PROPOSAL.md)
+
+### Objective
+Replace ad-hoc `logger: true` with a shared, hardened logging configuration across the seven
+Fastify backends: **redact secrets, add cross-service correlation ids, one structured completion
+log per request**. Closes the current gap where `logger:true` with no redaction can leak
+passwords/JWTs/PEMs into logs.
+
+### Deliverable — `packages/shared/logging.js` (+ `.d.ts`)
+Export a Fastify logger-options factory and a request-id propagation helper:
+- **pino config:** level from `LOG_LEVEL` (default `info`); `redact` with `censor:'[REDACTED]'` on
+  paths `req.headers.authorization`, `req.headers.cookie`, and body secret fields
+  (`password`, `admin_password`, `current_password`, `new_password`, `signature_bundle`,
+  anything matching `*private_key*`/`certifier_*_key`).
+- **correlation:** `requestIdHeader: 'x-request-id'`; `genReqId` uses the inbound `x-request-id`
+  when present else generates one (`crypto.randomUUID`). Fastify then stamps `reqId` on every line.
+- **completion log:** an `onResponse` hook emitting one structured line
+  `{ reqId, method, routerPath, statusCode, responseTimeMs, orgId? }` (orgId from the JWT when
+  authenticated; never log tokens/PII).
+- **outbound propagation:** a helper `forwardHeaders(request)` returning `{ 'x-request-id': reqId }`
+  for service→service calls. Apply it where services call each other — primarily
+  verification-service → transparency-service (ledger append); audit any other outbound HTTP.
+
+Wire all seven backends to use the shared config (replace `logger: true`).
+
+### Acceptance
+- Logs are JSON carrying `reqId`. A request with an `Authorization` header and a password body
+  logs `[REDACTED]`, not the secret. Grep the run's logs for a known JWT / seed password / PEM /
+  `signature_bundle` → **0** hits.
+- A ledger append (verification → transparency) shows the **same `reqId`** in both services' logs.
+- No change to any response body/status; existing builds + tests pass.
+
+### Constraints
+Shared module (DRY, no per-service copies); feature branch off `develop`; validate on a disposable
+DB; no AI attribution; Conventional Commits (`feat(observability)…`); explicit paths; no
+`.env`/`.codex` committed.
 
 ---
 
