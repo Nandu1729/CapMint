@@ -4,7 +4,7 @@
 > [AD-002](DECISIONS.md)). Updated at each milestone approval gate. Where this file and
 > the `state/` cards disagree, this file wins until reconciliation.
 >
-> **Last updated:** 2026-07-29 (Review #15 — canonical non-owner service DB role + startup guard; **defect #1 CLOSED**. Review #14 — DM-04 RLS **runtime-verified** via the live smoke gate as `capmint_app` (YELLOW))
+> **Last updated:** 2026-07-29 (Review #16 — F-org tightened organizations public read via a definer registration path, **defect #2 CLOSED**. #15 — canonical non-owner service DB role, defect #1 closed. #14 — DM-04 RLS runtime-verified (YELLOW))
 
 ---
 
@@ -20,7 +20,7 @@
 - **Integration line:** `develop` (== `feat/post-dm03-integration`), **pushed to `origin/develop`**
   for frontend + backend integration testing. Requires `npm ci` (node_modules untracked) and a
   `.env` with the `capmint_app` `DATABASE_URL`.
-- **HEAD:** `fa6df817` (Review #15 — canonical non-owner service DB role + startup guard; defect #1 closed)
+- **HEAD:** `4891d54a` (Review #16 — F-org: tightened organizations public read via definer registration; defect #2 closed)
 - **RLS runtime status:** **VERIFIED (Review #14).** The first genuine `capmint_app` run
   (services as the non-owner role, `rolbypassrls=false`) passed the live frontend→API→RLS
   smoke (Attempt 05, YELLOW). Architect re-verified at the DB layer: fail-closed for a foreign
@@ -40,9 +40,10 @@
      repo-root `.env` (CWD-independent) and a startup guard refuses to bind unless the role is
      `capmint_app` (non-super, non-BYPASSRLS, non-RLS-table-owner); per-service `.env`/symlinks
      removed; blacklisted key purged.
-  2. **F-org (medium)** — `organizations_tenant_select` is world-readable under the public/empty-GUC
-     path, broader than its own ACTIVATED-certifier/lab directory clause. Latent (no public
-     org-listing endpoint); provenance data unaffected. Tighten or confirm intentional.
+  2. ~~F-org (medium) — `organizations_tenant_select` world-readable under public/empty-GUC.~~
+     **RESOLVED (Review #16, `4891d54a`).** Migration `0020` moves registration's cross-tenant
+     work into a hardened `SECURITY DEFINER` function and drops the blanket clause; the public
+     path now sees only the ACTIVATED certifier/lab directory. Ledger chain preserved.
   3. **P1a (low)** — seed non-RFC UUIDs (`…0004`, `…0050`) rejected by strict `[1-5]/[89ab]`
      lab-route validators; blocks only the assigned-lab-success case.
   4. **P1b (low)** — `mint-service` has no `/health` route.
@@ -114,7 +115,7 @@ confirmed the asserted closures.
 | Over-issuance guard historically bypassed on primary UI path `/verify/register` | High | **Closed** — smoke Attempt 05 exercised `/verify/register` + mint; lot/budget capacity guards rejected over-issuance (422) under `capmint_app`/RLS. |
 | Multi-tenancy isolation incomplete until `organization_id` + RLS land everywhere | High | **Closed** — DM-04 RLS enforced and **runtime-verified** as `capmint_app` (Review #14). |
 | Services default to owner role (RLS off) via stale per-service `.env` | High | **Closed (Review #15)** — canonical root-`.env` load + fail-fast owner-role startup guard on all seven services; per-service `.env`/symlinks removed; key purged. |
-| `organizations` public/empty-GUC read broader than intended (F-org) | Medium | **Open (Review #14)** — latent; tighten policy or confirm intentional. |
+| `organizations` public/empty-GUC read broader than intended (F-org) | Medium | **Closed (Review #16)** — migration `0020` + definer registration path; public reads limited to the certifier/lab directory. |
 | Documentation drift eroding trust in project memory | Medium | Contained by AD-002; reconciliation outstanding. |
 | Declared-but-empty services overstate architecture | Medium | Open. |
 | No monitoring/observability | Medium | Open. |

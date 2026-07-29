@@ -302,6 +302,56 @@ Boundary advances to `fa6df817`. F-org, P1a, P1b remain separately gated.
 
 ---
 
+## Review #16 — HO-005: Tighten organizations public read (F-org closed)
+
+| Field | Value |
+|---|---|
+| **Review Number** | #16 |
+| **Milestone** | HO-005 — remove the blanket public-read clause on `organizations` (Review #14 tracked defect 2, F-org) without breaking public org self-registration |
+| **Branch** | `feat/ho-005-organizations-public-read` → merged into `feat/post-dm03-integration` (`develop`) |
+| **Commit Range Reviewed** | `fa6df817..4891d54a` — `c8567466` (migration+runner) + `47da6442` (auth) + merge `4891d54a` |
+| **Architecture Status** | PASS |
+| **Security Status** | PASS (definer hardened; ledger chain preserved; verified against git) |
+| **Migration Status** | PASS (`0020`, idempotent, successor-aware verifiers) |
+| **Testing Status** | PASS — compliance 88/0/0, tenant-auth 23/23, reconciliation 22/22, bootstrap 8/8, 41 default; validated on a disposable DB (`capmint_dev` untouched) |
+| **Approved Decisions** | none new |
+| **Outstanding Items** | P1a, P1b remain. |
+| **Next Review Starts From** | `4891d54a`. |
+
+### Findings (delta only)
+- **Root cause correctly handled.** The blanket `OR NULLIF(app.current_organization_id,'') IS NULL`
+  clause was load-bearing for public `register-org` (cross-tenant tax_id/registration_number
+  uniqueness reads + `INSERT…RETURNING` read-back). `0020` moves that privileged work into a
+  `SECURITY DEFINER` function `capmint_register_organization` (owner `capmint_admin`,
+  `SET search_path=public`, `REVOKE ALL FROM PUBLIC` + `GRANT EXECUTE TO capmint_app`, input +
+  type validation, uniqueness→`23505`), then drops the blanket clause so the public path sees only
+  sysadmin ∪ own-org ∪ ACTIVATED certifier/lab directory.
+- **Ledger integrity preserved (top risk, cleared).** The function's inline hash-chain —
+  `current_hash = sha256(entity_type‖entity_id‖event_type‖payload_hash‖previous_hash)`, tail read by
+  `created_at DESC, id DESC`, `SHARE ROW EXCLUSIVE` table lock — is byte-for-byte consistent with
+  `appendAuditLog` and the `/log/verify` recomputation (`transparency:171`). A registration does not
+  fork the chain.
+- **Defense-in-depth.** Partial `UNIQUE` indexes on `tax_id` / `registration_number`.
+- **Runner correctness.** `organizations_tenant_select` signature re-pinned (`15a8d09c…`), legacy
+  `bb7d4d8f…` retained; **successor-aware** reconciliation keyed on `0020` in `migrations_log`
+  validates both the `0019` (pre-0020) and `0020` states; `verify0020` exact; **checksum guard not
+  weakened**.
+- **auth rewrite.** `register-org` calls the definer function; 400 validations preserved; `201`
+  shape intact; `23505`/`REGISTRATION_EXISTS`→`409`; rate-limit preserved.
+- **Minor (non-blocking):** function's `22023` input/type raises aren't mapped in auth (app validates
+  first — unreachable); new SELECT policy is `TO capmint_app` while sibling org policies are unscoped
+  (more restrictive; cosmetic).
+- **Note.** `0020` verified by code + tests on a disposable DB; it applies to `capmint_dev` on the
+  next `db:reset` on `develop` (where a smoke re-run confirms live). No live `capmint_dev` mutation
+  in this review (correct process discipline).
+
+### Approval
+`APPROVED` — **F-org closed.** Public reads of `organizations` are now limited to the intended
+certifier/lab directory, registration integrity preserved and hardened, ledger chain intact.
+Boundary advances to `4891d54a`. P1a and P1b remain.
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 

@@ -18,6 +18,7 @@
 | [HO-002](#ho-002-dm-04-rls-end-to-end-smoke-test) | DM-04 RLS End-to-End Smoke Test | DM-04 smoke gate | 2026-07-28 | EXECUTED (Review #14) |
 | [HO-003](#ho-003-smoke-gate-provisioning-remediation) | Smoke-gate provisioning remediation (+ re-runs) | DM-04 smoke gate | 2026-07-28 | EXECUTED (Review #14) |
 | [HO-004](#ho-004-canonical-service-env--purge-blacklisted-key) | Canonical service env + purge blacklisted key | Post-smoke defect #1 | 2026-07-29 | EXECUTED (Review #15) |
+| [HO-005](#ho-005-tighten-organizations-public-read-f-org) | Tighten organizations public read (F-org) | Post-smoke defect #2 | 2026-07-29 | EXECUTED (Review #16) |
 
 ---
 
@@ -243,6 +244,30 @@ Then (F-org, P1a, P1b remain separately gated).
 Feature branch off `develop`. No AI attribution; Conventional Commits; explicit path staging;
 no `--no-verify`; do not commit `.codex/` or any `.env`. Do not weaken RLS policies or the
 migration checksum guard.
+
+---
+
+## HO-005: Tighten organizations public read (F-org)
+
+- **Spec ID:** HO-005 · **Milestone:** post-smoke defect #2 (F-org) · **Date:** 2026-07-29 · **Status:** EXECUTED (Review #16, `4891d54a`)
+- **Related Review:** #14 (tracked defect 2) → closed by #16
+
+### Objective
+The public/empty-GUC path could read all `organizations` via the blanket
+`OR NULLIF(app.current_organization_id,'') IS NULL` clause. That clause was **load-bearing**
+for public `register-org` (cross-tenant tax_id/registration_number uniqueness reads +
+`INSERT…RETURNING` read-back), so it could not simply be dropped.
+
+### Delivered (migration `0020` + auth)
+A `SECURITY DEFINER` function `capmint_register_organization` (owner `capmint_admin`,
+`SET search_path=public`, `REVOKE ALL FROM PUBLIC` + `GRANT EXECUTE TO capmint_app`) performs
+the uniqueness check + org/user insert + audit append (its inline ledger hash-chain matches
+`appendAuditLog`/`/log/verify`), returning the new rows. The blanket clause is then dropped so
+`organizations_tenant_select` exposes only sysadmin ∪ own-org ∪ ACTIVATED certifier/lab
+directory. Partial `UNIQUE` indexes on tax_id/registration_number add defense-in-depth. Runner:
+signature re-pinned with successor-aware `verify0016` + exact `verify0020` (checksum guard
+untouched). `auth` `register-org` calls the function and maps `23505`/`REGISTRATION_EXISTS`→409.
+Validated on a disposable DB; `capmint_dev` untouched.
 
 ---
 
