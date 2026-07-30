@@ -29,8 +29,8 @@
 
 | Phase | Scope | Handoff |
 |---|---|---|
-| **O1 — Structured logging + redaction + correlation** | Shared pino config: env level; **secret redaction** (`authorization`/`cookie` headers, `*password*`, JWT, `CERTIFIER_*_KEY`, `signature_bundle`); request-id (`genReqId` + inbound `x-request-id`, forwarded on service→service calls); one request-completion log (method, route, status, latency, reqId, orgId-if-authed). | HO-008 (**first**) |
-| **O2 — Health/readiness** | Keep `/health` liveness; add `/ready` checking `pgPool` (`SELECT 1`) + Redis (`ping`) → 200/503. Shared helper. | HO-009 |
+| **O1 — Structured logging + redaction + correlation** ✅ **DONE** | Shared pino config: env level; **secret redaction** (`authorization`/`cookie` headers, `*password*`, JWT, `CERTIFIER_*_KEY`, `signature_bundle`); request-id (`genReqId` + inbound `x-request-id`, forwarded on service→service calls); one request-completion log (method, route, status, latency, reqId, orgId-if-authed). | HO-008 — **EXECUTED (Review #19, `be7d00a9`)**; delivered `packages/shared/logging.js` with recursive field-name redaction beyond the static paths |
+| **O2 — Health/readiness** ← **next** | Keep `/health` liveness; add `/ready` checking `pgPool` (`SELECT 1`) + Redis (`ping`) → 200/503. Shared helper. | HO-009 |
 | **O3 — Metrics** | `prom-client` `/metrics` per service: HTTP histograms + domain-security counters (RLS `42501` denials, capacity rejections, `INVALID_SIGNATURE`, auth failures/rate-limits, ledger append rate). | HO-010 |
 | **O4 — Uniform error handling** | `setErrorHandler` on all 8: safe client mapping, structured error log, error counter, no stack/secret leakage. | HO-011 |
 

@@ -21,7 +21,7 @@
 | [HO-005](#ho-005-tighten-organizations-public-read-f-org) | Tighten organizations public read (F-org) | Post-smoke defect #2 | 2026-07-29 | EXECUTED (Review #16) |
 | [HO-006](#ho-006-close-p1a-uuid-validators--p1b-mint-health) | Close P1a (UUID validators) + P1b (mint /health) | Post-smoke defects P1a/P1b | 2026-07-29 | EXECUTED (Review #17) |
 | [HO-007](#ho-007-confirm-live-smoke-re-run) | Confirm-live smoke re-run (validate 0020 + assigned-lab) | DM-04 smoke gate | 2026-07-29 | HANDED-OFF |
-| [HO-008](#ho-008-observability-o1--structured-logging--redaction--correlation) | Observability O1 — structured logging + redaction + correlation | Observability | 2026-07-29 | HANDED-OFF |
+| [HO-008](#ho-008-observability-o1--structured-logging--redaction--correlation) | Observability O1 — structured logging + redaction + correlation | Observability | 2026-07-29 | EXECUTED (Review #19, `be7d00a9`) |
 
 ---
 
@@ -332,7 +332,7 @@ attempts. Stop and report on any failure.
 
 ## HO-008: Observability O1 — structured logging + redaction + correlation
 
-- **Spec ID:** HO-008 · **Milestone:** Observability (O1, first slice) · **Date:** 2026-07-29 · **Status:** HANDED-OFF
+- **Spec ID:** HO-008 · **Milestone:** Observability (O1, first slice) · **Date:** 2026-07-29 · **Status:** EXECUTED (Review #19, commit `124e4950`, merged `be7d00a9`)
 - **Related:** [OBSERVABILITY_PROPOSAL.md](OBSERVABILITY_PROPOSAL.md)
 
 ### Objective

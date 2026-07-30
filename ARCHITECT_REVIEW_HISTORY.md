@@ -432,6 +432,52 @@ ledger are all verified live as `capmint_app`. Boundary advances to `4c0cc026`. 
 
 ---
 
+## Review #19 — HO-008: Observability O1 — shared structured logging (redaction + correlation)
+
+| Field | Value |
+|---|---|
+| **Review Number** | #19 |
+| **Milestone** | Observability O1 (first slice) — replace ad-hoc `logger: true` with a shared, hardened logging layer: secret redaction, cross-service `x-request-id` correlation, one structured completion log per request |
+| **Branch** | `feat/ho-008-observability-o1` → merged (`--no-ff`) into `feat/post-dm03-integration` (`develop`) |
+| **Commit Range Reviewed** | `b76e09da..be7d00a9` — `124e4950` (implementation) + merge `be7d00a9` |
+| **Architecture Status** | PASS — single shared module `packages/shared/logging.js`, no per-service copies; all seven backends wired identically |
+| **Security Status** | PASS — independently proven: 0 secret leaks; logs are JSON with `reqId` |
+| **Migration Status** | N/A (code-only, no DB impact) |
+| **Testing Status** | PASS — `npm run build` exit 0 (7/7 tsc clean); new `vitest` suites pass in-process (redaction/correlation + runtime-config); Codex report: 44 workspace tests, compliance 88/88 |
+| **Approved Decisions** | none new (executes OBSERVABILITY_PROPOSAL O1) |
+| **Outstanding Items** | O2 readiness (`/ready`), O3 metrics (`/metrics`, prom-client), O4 uniform error handling — future HO-009/010/011 |
+| **Next Review Starts From** | `be7d00a9`. |
+
+### Findings (delta only)
+- **Redaction exceeds spec, in the right direction.** Beyond pino's static `redact` paths, a
+  `logMethod` hook runs a recursive `sanitizeLogValue` that censors sensitive field names
+  **wherever** they appear in a logged object (top level, nested, array elements), guards circular
+  refs via a `WeakMap`, and skips non-plain prototypes so `Buffer`/`Error` instances aren't
+  mangled. Field set also adds `token`/`jwt`/`refresh_token`. `disableRequestLogging: true` prevents
+  Fastify's default header-dumping req/res logs from bypassing the sanitizer.
+- **Correlation.** `genReqId` reuses an inbound `x-request-id` else mints `crypto.randomUUID()`;
+  Fastify stamps `reqId` on every line. `forwardHeaders(request)` (throws on empty id) is applied
+  at **all 7** `fetch(LEDGER_URL)` sites in verification-service — the only outbound caller.
+- **Completion log.** One `onResponse` line `{ method, routerPath, statusCode, responseTimeMs,
+  orgId? }`; `orgId` reads `user.orgId`, which matches the real JWT claim (signed `orgId` in
+  auth-service) — no silent-undefined.
+- **Independent verification (not from the report).** Built a real pino logger from the module's
+  own options and attempted to leak 8 secrets (password, admin_password, PEM/`certifier_signing_key`,
+  `device_private_key`, JWT via `authorization`, `signature_bundle`, `token`, `jwt`) nested and in
+  an array → **`LEAKED: NONE`**, all `[REDACTED]`, non-secret field preserved; `forwardHeaders`
+  reuses inbound id and throws when absent. Ran the e2e logging test → shared `reqId` across records,
+  exactly one completion log, response body/status unchanged. Evidence:
+  `docs/operations/HO008_OBSERVABILITY_VERIFICATION.md`.
+
+### Approval
+`APPROVED` — the first observability slice is clean: secrets can no longer leak into logs, requests
+are correlatable across the verification→transparency hop, and there is one structured completion
+line per request, with no change to any response. Boundary advances to `be7d00a9`. Next: O2
+(readiness), then O3 (metrics) / O4 (uniform errors); the `develop → main` promotion discussion
+remains open.
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 
