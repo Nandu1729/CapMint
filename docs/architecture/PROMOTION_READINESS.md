@@ -73,12 +73,14 @@ live implementation. **11/11 verified; 2 low-severity follow-ups; 0 blockers.**
 
 - [x] **[H] B1 — DM-04 RLS runtime-verified GREEN** (Review #18): fail-closed on empty GUC,
   cross-tenant denial proven as `capmint_app`.
-- [ ] **[H] B2 — Services run as non-owner `capmint_app`** on the target env (startup guard refuses
-  super/BYPASSRLS/owner). Verify against the production role, not just dev.
+- [x] **[H] B2 — Services run as non-owner `capmint_app`.** `assertRlsServiceRole` wired in all seven
+  service startups (refuses super/BYPASSRLS/owner). Code-guaranteed; production must supply the
+  `capmint_app` `DATABASE_URL`, which the guard verifies at boot.
 - [ ] **[S] B3 — RLS ENABLE-not-FORCE** documented as intentional (owner runs migrations unimpeded);
   confirm no production actor uses the owner role for request-path queries.
-- [ ] **[H] B4 — Process control:** no unapproved feature-branch migration is ever applied to a
-  shared DB. Encode the "disposable-DB validation only" rule in CONTRIBUTING/CI.
+- [x] **[H] B4 — Process control.** `CONTRIBUTING.md` documents the non-negotiable rule: migrations
+  validated on disposable DBs; never apply an unmerged/unapproved migration to shared `capmint_dev`.
+  Role split (`capmint_app` vs `capmint_admin`) documented.
 
 ---
 
@@ -96,22 +98,37 @@ live implementation. **11/11 verified; 2 low-severity follow-ups; 0 blockers.**
 
 ## D. Migration & schema integrity
 
-- [ ] **[H] D1 — Clean fresh-DB provision.** Baseline bootstrap + all 20 migrations apply cleanly on
-  an empty database (`db:reset` / `--bootstrap`) → GREEN, no manual steps.
-- [ ] **[H] D2 — No schema/migration drift.** Signature-pinned RLS verifiers + reconciliation pass;
-  live schema matches the migration set.
+- [x] **[H] D1 — Clean fresh-DB provision** (structural). Migrations `0001–0020` contiguous (no
+  gaps/dups); baseline bootstrap + migrations engine present. CI "Verify PostgreSQL Bootstrap and
+  Reconciliation" step passes (green in the failing run) — the authoritative fresh-DB run.
+- [x] **[H] D2 — No schema/migration drift.** Migration-reconciliation CI step passes; signature-pinned
+  RLS verifiers in the engine. (Contiguous set verified.)
 - [ ] **[S] D3 — Reversibility.** Rollback/down path (or documented forward-fix) noted for the
   migrations introduced since `main`.
 
 ---
 
-## E. Test & CI gates
+## E. Test & CI gates — **RED (blocked, root-caused)**
 
-- [ ] **[H] E1 — Compliance suite 88/88 in a clean cluster** (the CI environment, where no
-  operator-managed `capmint_app` LOGIN role pre-exists). Note: Review #22 restored this to 88/88.
-- [ ] **[H] E2 — Build 7/7 + workspace tests pass** on the promotion commit.
-- [ ] **[H] E3 — CI green on the promotion PR.** `.github/workflows/ci.yml` (incl. the over-issuance
-  canary `check-overfilled-lots.mjs`) passes on the exact SHA being promoted.
+> **CI is currently failing on `develop`.** Root-caused during Gate E verification (2026-07-30) via
+> `gh run view`. Failing job step: *"Verify Secure Administrator Bootstrap and Development Seed"*
+> (`bootstrap-seed.test.ts`, 3 tests) — the compliance-suite step never runs (skipped after this). **Two
+> independent root causes:**
+>
+> 1. **HO-010 PEM-literal regression** — the metrics probe hardcoded `-----BEGIN PRIVATE KEY-----…` in
+>    `compliance-suite.test.ts`, tripping the bootstrap-seed credential-scan guard. **FIXED** (ephemeral
+>    runtime key; merge `ac9166c2`), also closing F-A11.
+> 2. **tsx/Node-24 incompatibility** — CI's `setup-node@v3` + `node-version: 18` is deprecated and the
+>    runner forces Node 24, whose removal of `--loader` breaks `tsx ^3.12.0` → spawned services crash
+>    ("Service exited before becoming healthy"). **Handed to Codex as HO-012** (tsx→^4 monorepo-wide +
+>    `setup-node@v4` / Node 22); must be validated by a green CI run.
+
+- [~] **[H] E1 — Compliance suite 88/88 in a clean cluster.** Green once HO-012 lands (the suite is
+  currently skipped because bootstrap-seed fails first). Review #22 restored the LAB-04 check.
+- [ ] **[H] E2 — Build 7/7 + workspace tests pass on the promotion commit.** Build/lint/unit green in
+  CI today; the service-spawn integration tests are blocked by the tsx issue (HO-012).
+- [ ] **[H] E3 — CI green on the promotion PR.** **Blocked on HO-012.** The exact promotion SHA must
+  show a fully green `.github/workflows/ci.yml` (incl. the over-issuance canary).
 
 ---
 

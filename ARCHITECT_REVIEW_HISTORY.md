@@ -696,6 +696,53 @@ H (cutover).
 
 ---
 
+## Review #25 — Promotion Gates B, D verified; Gate E RED (root-caused) + HO-010 CI regression fixed
+
+| Field | Value |
+|---|---|
+| **Review Number** | #25 |
+| **Milestone** | `develop → main` promotion — Gates **B** (data/RLS/tenancy), **D** (migration integrity), **E** (CI). Verification + one fix + one handoff. |
+| **Branch** | verification against `develop`; fix `fix/metrics-probe-key-scan` → merged `ac9166c2` |
+| **Commit Range Reviewed** | `252aea8f..ac9166c2` |
+| **Architecture Status** | PASS (B, D) |
+| **Security Status** | PASS — fixed an HO-010 test regression that had disabled a credential-scan guard |
+| **Migration Status** | PASS — migrations `0001–0020` contiguous; reconciliation/bootstrap CI steps green |
+| **Testing Status** | **CONCERNS — CI RED on `develop`**, root-caused; one cause fixed (`ac9166c2`), one handed to Codex (HO-012) |
+| **Approved Decisions** | none new |
+| **Outstanding Items** | **HO-012** (tsx→^4 + CI Node 22) to green CI — hard-blocks Gate E (E1/E2/E3). C/F/G/H still open. |
+| **Next Review Starts From** | `ac9166c2`. |
+
+### Findings (delta only)
+- **Gate B — PASS.** `assertRlsServiceRole` wired in all seven service startups (refuses
+  super/BYPASSRLS/owner) → B2. `CONTRIBUTING.md` encodes the disposable-DB-only migration discipline
+  and the `capmint_app`/`capmint_admin` role split → B4. B1 already GREEN (Review #18). B3 (ENABLE-not-
+  FORCE) is a soft/documented item.
+- **Gate D — PASS (structural).** Migrations `0001–0020` are contiguous (no gaps/dups); the CI
+  "Bootstrap and Reconciliation" and "migration-reconciliation" steps pass. Authoritative fresh-DB
+  provisioning is the CI job (Gate E). D3 (reversibility) soft.
+- **Gate E — RED, root-caused (via `gh run view`).** CI has been failing on `develop`; the failing step
+  is *"Verify Secure Administrator Bootstrap and Development Seed"* (`bootstrap-seed.test.ts`, 3 tests),
+  which also skips the compliance suite. **Two independent causes:**
+  1. **HO-010 PEM-literal regression (my Review #23 miss).** The metrics probe hardcoded
+     `-----BEGIN PRIVATE KEY-----…` in `compliance-suite.test.ts`, tripping the bootstrap-seed
+     credential-scan guard (`not.toContain('BEGIN PRIVATE KEY')`). **FIXED** at `ac9166c2` — the probe
+     now generates an ephemeral Ed25519 key at runtime; 0 PEM literals across all six scanned files
+     (deterministically verified). Also closes follow-up **F-A11**.
+  2. **tsx/Node-24 incompatibility.** CI's `setup-node@v3` + `node-version: 18` is deprecated and the
+     runner forces Node 24, which removed the `--loader` hook that `tsx ^3.12.0` relies on → spawned
+     services crash. **Not locally reproducible** (dev box is Node 22, where tsx 3 still works), so it is
+     **handed to Codex as HO-012** (tsx→^4 across all eight manifests + `setup-node@v4`/Node 22), to be
+     validated by a green CI run. (I attempted the bump inline, but the local `npm install` produced an
+     inconsistent lockfile state I could not cleanly verify; reverted rather than ship it — HO-012 does
+     it against the real CI loop.)
+
+### Approval
+`APPROVED` for Gates **B** and **D** (verified) and for the HO-010 CI-regression fix (`ac9166c2`).
+**Gate E remains RED and hard-blocks promotion** until **HO-012** greens CI. Boundary advances to
+`ac9166c2`. Remaining: HO-012 (Gate E), then Gates C/F/G/H (mostly soft decisions + cutover).
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 

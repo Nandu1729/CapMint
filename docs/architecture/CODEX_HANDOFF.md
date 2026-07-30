@@ -25,6 +25,7 @@
 | [HO-009](#ho-009-observability-o2--dependency-readiness-probe) | Observability O2 — dependency readiness probe (`/ready`) | Observability | 2026-07-30 | EXECUTED (Review #20, `2100be9d`) |
 | [HO-011](#ho-011-observability-o4--uniform-shared-error-handling) | Observability O4 — uniform shared error handling | Observability | 2026-07-30 | EXECUTED (Review #21, `7ced845a`) |
 | [HO-010](#ho-010-observability-o3--prometheus-metrics) | Observability O3 — Prometheus metrics (`/metrics`) | Observability | 2026-07-30 | EXECUTED (Review #23, `ddb6e638`) |
+| [HO-012](#ho-012-ci-toolchain--tsx-4--node-22-node-24-compatibility) | CI toolchain — tsx 4 + Node 22 (Node-24 compatibility) | Promotion Gate E | 2026-07-30 | HANDED-OFF |
 
 ---
 
@@ -467,6 +468,47 @@ EXECUTED and APPROVED at **Review #23** — **observability milestone (O1–O4) 
 Independently verified: adversarial scrape showed 0 leaked labels, route-template labels only, hostile
 error codes clamped to `UNKNOWN`; `npm ci`/build/tests clean. Evidence:
 `docs/operations/HO010_OBSERVABILITY_O3_VERIFICATION.md`.
+
+---
+
+## HO-012: CI toolchain — tsx 4 + Node 22 (Node-24 compatibility)
+
+- **Spec ID:** HO-012 · **Milestone:** Promotion Gate E · **Date:** 2026-07-30 · **Status:** HANDED-OFF
+- **Related:** [PROMOTION_READINESS.md](PROMOTION_READINESS.md) Gate E; surfaced in Review #25.
+
+### Objective
+Get `.github/workflows/ci.yml` fully green. CI is red on `develop`: GitHub deprecated Node 20 on
+runners and forces the deprecated `setup-node@v3`/`checkout@v3` (and effectively the project) onto
+**Node 24**, whose removal of the `--loader` hook breaks **`tsx ^3.12.0`** — spawned services in the
+e2e harness crash ("Service exited before becoming healthy: … tsx must be loaded with --import instead
+of --loader"), failing the bootstrap-seed integration tests and skipping the compliance suite.
+
+### Scope
+- Bump **`tsx` `^3.12.0` → `^4.7.0`** in all eight manifests that declare it: `backend/e2e-tests` and
+  the seven services (`auth`, `cpq`, `mint`, `resolver`, `integration`, `transparency`, `verification`).
+  tsx 4 uses `--import` and is Node 18–24 compatible; the `spawn(tsxPath, [sourcePath])` CLI usage is
+  unchanged.
+- Modernize CI: `actions/setup-node@v3 → @v4`, `actions/checkout@v3 → @v4`, `node-version: 18 → 22`
+  (Node 18 is EOL) — both jobs in `ci.yml`.
+- Regenerate `package-lock.json` cleanly (`npm install`, committed).
+- **Out of scope:** no service/app logic changes; the HO-010 PEM-literal CI regression is already fixed
+  (`ac9166c2`).
+
+### Acceptance
+- `.github/workflows/ci.yml` is **fully green** on the pushed branch — including the previously failing
+  "Verify Secure Administrator Bootstrap and Development Seed" and "Run Tenant-Scoped Compliance Suite"
+  (88/88) steps and the over-issuance canary.
+- `npm ci` installs cleanly from the regenerated lockfile; `tsx --version` reports 4.x; local
+  `build`/`vitest` unaffected.
+
+### Constraints
+Feature branch off `develop`; the CI run itself is the verification (needs the runner's Node 24/22
+environment — not reproducible on a Node-22 dev box); no AI attribution; Conventional Commits
+(`build(ci)` / `chore(deps)`); explicit paths; no `.env`/`.codex` committed.
+
+### Stopping point
+Push, confirm CI is green on the branch, report the run URL, then stop for architect review — do not
+merge to `develop`.
 
 ---
 
