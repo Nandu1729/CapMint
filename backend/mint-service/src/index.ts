@@ -12,6 +12,10 @@ import {
   withTenantTx
 } from '../../../packages/shared/tenant-db.js';
 import { reserveLotIssuance } from '../../../packages/shared/capacity.js';
+import {
+  createLoggingOptions,
+  registerRequestLogging
+} from '../../../packages/shared/logging.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
@@ -22,9 +26,8 @@ declare module 'fastify' {
   }
 }
 
-const server = Fastify({
-  logger: true
-});
+const server = Fastify(createLoggingOptions());
+registerRequestLogging(server);
 
 // Configure JWT plugin
 const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-insecure-secret' : '');

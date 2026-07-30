@@ -12,6 +12,11 @@ import {
   withTenantTx
 } from '../../../packages/shared/tenant-db.js';
 import { reserveBudgetCapacity, reserveLotIssuance } from '../../../packages/shared/capacity.js';
+import {
+  createLoggingOptions,
+  forwardHeaders,
+  registerRequestLogging
+} from '../../../packages/shared/logging.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
@@ -28,9 +33,8 @@ declare module 'fastify' {
   }
 }
 
-const server = Fastify({
-  logger: true
-});
+const server = Fastify(createLoggingOptions());
+registerRequestLogging(server);
 
 // Configure CORS headers manually to support client-side fetch from frontend
 server.addHook('onRequest', async (request, reply) => {
@@ -72,7 +76,7 @@ server.decorate('authenticate', async (request: FastifyRequest, reply: FastifyRe
   try {
     await request.jwtVerify();
   } catch (err) {
-    server.log.error(err);
+    request.log.error(err);
     return reply.status(401).send({
       success: false,
       error: {
@@ -651,11 +655,15 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
     try {
       await fetch(LEDGER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + SERVICE_TOKEN,
+          ...forwardHeaders(request)
+        },
         body: JSON.stringify(investigationLedgerEvent)
       });
     } catch (logErr) {
-      server.log.error(logErr as any, 'Failed to append INVESTIGATION_CREATED to transparency ledger');
+      request.log.error(logErr as any, 'Failed to append INVESTIGATION_CREATED to transparency ledger');
     }
   }
   return response;
@@ -800,11 +808,15 @@ server.post('/api/v1/lots', {
     try {
       await fetch(LEDGER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + SERVICE_TOKEN,
+          ...forwardHeaders(request)
+        },
         body: JSON.stringify(response.ledgerEvent)
       });
     } catch (ledgerErr) {
-      server.log.error(ledgerErr as any, 'Failed to log lot creation to transparency ledger');
+      request.log.error(ledgerErr as any, 'Failed to log lot creation to transparency ledger');
     }
   }
   const { ledgerEvent, ...body } = response;
@@ -1287,7 +1299,11 @@ server.post('/api/v1/lots/:id/certify', {
     try {
       await fetch(LEDGER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + SERVICE_TOKEN,
+          ...forwardHeaders(request)
+        },
         body: JSON.stringify({
           entity_type: 'LOT',
           entity_id: id,
@@ -1296,7 +1312,7 @@ server.post('/api/v1/lots/:id/certify', {
         })
       });
     } catch (logErr) {
-      server.log.error(logErr as any, 'Failed to append LOT_CERTIFIED event to ledger');
+      request.log.error(logErr as any, 'Failed to append LOT_CERTIFIED event to ledger');
     }
     return {
       success: true,
@@ -1571,7 +1587,11 @@ server.post('/api/v1/verify/investigations/:id/approve', {
     try {
       await fetch(LEDGER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + SERVICE_TOKEN,
+          ...forwardHeaders(request)
+        },
         body: JSON.stringify({
           entity_type: 'INVESTIGATION',
           entity_id: ledgerPublicIdentifier,
@@ -1587,7 +1607,11 @@ server.post('/api/v1/verify/investigations/:id/approve', {
 
       await fetch(LEDGER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + SERVICE_TOKEN,
+          ...forwardHeaders(request)
+        },
         body: JSON.stringify({
           entity_type: 'PRODUCT',
           entity_id: ledgerPublicIdentifier,
@@ -1599,7 +1623,7 @@ server.post('/api/v1/verify/investigations/:id/approve', {
         })
       });
     } catch (logErr) {
-      server.log.error(logErr as any, 'Failed to append to ledger during approval');
+      request.log.error(logErr as any, 'Failed to append to ledger during approval');
     }
   }
   return response;
@@ -1643,7 +1667,11 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
     try {
       await fetch(LEDGER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + SERVICE_TOKEN },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + SERVICE_TOKEN,
+          ...forwardHeaders(request)
+        },
         body: JSON.stringify({
           entity_type: 'INVESTIGATION',
           entity_id: publicIdentifier,
@@ -1656,7 +1684,7 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
         })
       });
     } catch (logErr) {
-      server.log.error(logErr as any, 'Failed to append to ledger during dismissal');
+      request.log.error(logErr as any, 'Failed to append to ledger during dismissal');
     }
   }
   return response;
@@ -1872,7 +1900,8 @@ server.post('/api/v1/verify/lab-results', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + SERVICE_TOKEN
+          'Authorization': 'Bearer ' + SERVICE_TOKEN,
+          ...forwardHeaders(request)
         },
         body: JSON.stringify({
           entity_type: 'LOT',
@@ -1882,7 +1911,7 @@ server.post('/api/v1/verify/lab-results', {
         })
       });
     } catch (logErr) {
-      server.log.error(logErr as any, 'Failed to append laboratory event to ledger');
+      request.log.error(logErr as any, 'Failed to append laboratory event to ledger');
     }
   }
 

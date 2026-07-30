@@ -8,12 +8,15 @@ import {
   PUBLIC_TENANT_CONTEXT,
   withTenantTx
 } from '../../../packages/shared/tenant-db.js';
+import {
+  createLoggingOptions,
+  registerRequestLogging
+} from '../../../packages/shared/logging.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
-const server = Fastify({
-  logger: true
-});
+const server = Fastify(createLoggingOptions());
+registerRequestLogging(server);
 
 // Initialize PostgreSQL Client Pool
 const DATABASE_URL = process.env.DATABASE_URL || '';
@@ -35,7 +38,7 @@ const redisClient = new Redis(REDIS_URL);
 
 // Global error handler complying with RFC 7807 Problem Details
 server.setErrorHandler((error, request, reply) => {
-  server.log.error(error);
+  request.log.error(error);
   const statusCode = error.statusCode || 500;
   const errorCode = error.code || 'INTERNAL_SERVER_ERROR';
   reply.status(statusCode).send({
