@@ -355,10 +355,13 @@ async function runIteration(iteration: number): Promise<void> {
     expect(Number(totals[3]), output).toBe(0);
     expect(result.status, output).toBe(0);
 
+    // Ephemeral throwaway key material generated at runtime — never a PEM literal in source, so the
+    // bootstrap-seed credential-scan guard over this file stays green (see F-A11).
+    const metricsProbeKey = generateKeyPair().privateKey;
     const metricsProbe = {
       jwt: 'eyJhbGciOiJIUzI1NiJ9.ho010-metrics-probe.signature',
       password: 'Ho010MetricsPasswordMustNotLeak!',
-      privateKey: '-----BEGIN PRIVATE KEY-----ho010-metrics-probe-----END PRIVATE KEY-----',
+      privateKey: metricsProbeKey,
       organizationId: 'a9c39468-fc8f-40db-9ba9-e9414ca60c22',
       username: 'ho010-metrics-user@example.test',
       rawId: '93791946-5f08-4488-8805-95ccbfac3260'
