@@ -22,6 +22,7 @@
 | [HO-006](#ho-006-close-p1a-uuid-validators--p1b-mint-health) | Close P1a (UUID validators) + P1b (mint /health) | Post-smoke defects P1a/P1b | 2026-07-29 | EXECUTED (Review #17) |
 | [HO-007](#ho-007-confirm-live-smoke-re-run) | Confirm-live smoke re-run (validate 0020 + assigned-lab) | DM-04 smoke gate | 2026-07-29 | HANDED-OFF |
 | [HO-008](#ho-008-observability-o1--structured-logging--redaction--correlation) | Observability O1 — structured logging + redaction + correlation | Observability | 2026-07-29 | EXECUTED (Review #19, `be7d00a9`) |
+| [HO-009](#ho-009-observability-o2--dependency-readiness-probe) | Observability O2 — dependency readiness probe (`/ready`) | Observability | 2026-07-30 | EXECUTED (Review #20, `2100be9d`) |
 
 ---
 
@@ -369,6 +370,36 @@ Wire all seven backends to use the shared config (replace `logger: true`).
 Shared module (DRY, no per-service copies); feature branch off `develop`; validate on a disposable
 DB; no AI attribution; Conventional Commits (`feat(observability)…`); explicit paths; no
 `.env`/`.codex` committed.
+
+---
+
+## HO-009: Observability O2 — dependency readiness probe
+
+- **Spec ID:** HO-009 · **Milestone:** Observability (O2) · **Date:** 2026-07-30 · **Status:** EXECUTED (Review #20, commit `c1eb06f7`, merged `2100be9d`)
+- **Related:** [OBSERVABILITY_PROPOSAL.md](OBSERVABILITY_PROPOSAL.md)
+
+### Objective
+Add a `/ready` probe that fails fast (503) when a service's Postgres/Redis dependency is
+unreachable, while keeping `/health` as pure liveness — so a service can be pulled from rotation
+without being killed.
+
+### Deliverable — `packages/shared/readiness.js` (+ `.d.ts`, `./readiness` export)
+`registerReadiness(server, { pgPool?, redisClient? })` registers `GET /ready` that probes **only the
+deps passed** (db: `SELECT 1`; redis: `ping()`), each under a ~1s `Promise.race` timeout with timer
+cleanup. Returns **200** `{ status:'ready', checks }` or **503** `{ status:'unready', checks }`;
+failures are logged via `request.log.warn` (redacted), never returned. `/health` left untouched.
+Wired across all seven backends — `integration-service` (no Redis) probes db only; the six
+Redis-having services probe both.
+
+### Acceptance (met)
+`/health` unchanged (200); all seven `/ready` = 200 when deps up; a dead/hung dependency → 503 in
+~1s with the failing check named and no secret/connection-string/stack in the body; build clean;
+compliance 88/88.
+
+### Outcome
+EXECUTED and APPROVED at **Review #20**. Independently verified: build exit 0, `vitest` 12/12
+(adversarial 503 + hung-dep timeout measured ~1s), wiring cross-checked against actual Redis usage.
+Evidence: `docs/operations/HO009_READINESS_VERIFICATION.md`.
 
 ---
 

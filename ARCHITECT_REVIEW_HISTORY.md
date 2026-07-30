@@ -478,6 +478,44 @@ remains open.
 
 ---
 
+## Review #20 — HO-009: Observability O2 — dependency readiness probes (`/ready`)
+
+| Field | Value |
+|---|---|
+| **Review Number** | #20 |
+| **Milestone** | Observability O2 — add a `/ready` probe that fails fast (503) when Postgres/Redis is unreachable, while keeping `/health` as pure liveness |
+| **Branch** | `feat/ho-009-observability-o2` → merged (`--no-ff`) into `feat/post-dm03-integration` (`develop`) |
+| **Commit Range Reviewed** | `5e71f90c..2100be9d` — `c1eb06f7` (implementation) + merge `2100be9d` |
+| **Architecture Status** | PASS — single shared module `packages/shared/readiness.js`, deps-parameterized; all seven backends wired additively |
+| **Security Status** | PASS — 503 body carries no secret/connection-string/stack (independently asserted) |
+| **Migration Status** | N/A (code-only) |
+| **Testing Status** | PASS — `npm run build` exit 0 (7/7 tsc clean); `vitest` 12/12 incl. adversarial 503 + hung-dep timeout; Codex report: 48 workspace tests, compliance 88/88 |
+| **Approved Decisions** | none new (executes OBSERVABILITY_PROPOSAL O2) |
+| **Outstanding Items** | O4 uniform error handling (HO-011, next in the O4→O3 lane), then O3 metrics (HO-010) |
+| **Next Review Starts From** | `2100be9d`. |
+
+### Findings (delta only)
+- **Deps-parameterized, wiring matches reality.** `registerReadiness(server, { pgPool?, redisClient? })`
+  probes only what is passed. Cross-referenced against actual client construction: `integration-service`
+  (no Redis) passes `{ pgPool }` and checks db only; the six Redis-having services pass both. No
+  service under- or over-reports readiness.
+- **Fail-fast + no leaked timers.** Each check runs under a 1s `Promise.race` timeout with
+  `clearTimeout` in `finally`. A hung dependency yields 503 in ~1s (measured 1016ms in-test) and
+  `/health` stays 200 — liveness is unaffected.
+- **No leakage.** Check failures go to `request.log.warn` (redacted by the O1 layer), never into the
+  response. Test asserts the 503 body contains no `known-secret`/`ECONNREFUSED`/`redis://`/`stack`.
+- **`/health` untouched** — diff is purely additive (0 deletions); all seven liveness routes unchanged.
+- **Independent verification.** Built all services (exit 0), ran the readiness suite (12/12) — the
+  1016ms runtime confirms the timeout test genuinely waited ~1s. Evidence:
+  `docs/operations/HO009_READINESS_VERIFICATION.md`.
+
+### Approval
+`APPROVED` — readiness is clean, fail-fast, leak-free, and correctly scoped per service. Boundary
+advances to `2100be9d`. Next: O4 (HO-011, uniform error handling) — merges after rebasing onto this
+`develop` — then O3 (HO-010, metrics).
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 
