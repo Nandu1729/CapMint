@@ -4,7 +4,7 @@
 > [AD-002](DECISIONS.md)). Updated at each milestone approval gate. Where this file and
 > the `state/` cards disagree, this file wins until reconciliation.
 >
-> **Last updated:** 2026-07-30 (Review #22 — LAB-04 compliance-harness `TRANSPARENCY_SERVICE_URL` double-append fixed (HO-007 debt); checked-in compliance suite back to 88/88. Observability O1–O2–O4 landed (Reviews #19–#21); O3 metrics is the last slice. DM-04 RLS smoke gate remains GREEN end-to-end (Review #18).)
+> **Last updated:** 2026-07-30 (Review #23 — HO-010 Observability **O3** (Prometheus `/metrics`) landed; **observability milestone O1–O4 COMPLETE**. Checked-in compliance suite 88/88. DM-04 RLS smoke gate remains GREEN end-to-end (Review #18). Next phase: `develop → main` promotion.)
 
 ---
 
@@ -20,7 +20,7 @@
 - **Integration line:** `develop` (== `feat/post-dm03-integration`), **pushed to `origin/develop`**
   for frontend + backend integration testing. Requires `npm ci` (node_modules untracked) and a
   `.env` with the `capmint_app` `DATABASE_URL`.
-- **HEAD:** `4f1b7f5c` (Review #22 — LAB-04 compliance-harness URL fix; merge of `fix/compliance-harness-transparency-url`)
+- **HEAD:** `ddb6e638` (Review #23 — HO-010 Observability O3 metrics; merge of `feat/ho-010-observability-o3`)
 - **RLS runtime status:** **VERIFIED GREEN end-to-end (Review #18).** The live frontend→API→RLS
   smoke passes as the non-owner `capmint_app` (`rolbypassrls=false`) — Attempt 07: compliance
   88/88, `LAB-04` PASS, transparency ledger `unbroken=true` (46 entries, 0 broken links,
@@ -53,15 +53,16 @@
 
   **→ All four smoke-gate defects are now closed.** Remaining pre-production work is the tracked
   follow-ups below plus the remainder of the observability milestone.
-- **Observability milestone (in progress):** **O1 + O2 + O4 DONE.** O1 (Review #19, HO-008) — shared
+- **Observability milestone: COMPLETE (O1–O4).** O1 (Review #19, HO-008) — shared
   `packages/shared/logging.js` gives all seven backends structured JSON logs with secret redaction
   (independently proven: 0 leaks) and `x-request-id` correlation across the verification→transparency
   hop. O2 (Review #20, HO-009) — shared `packages/shared/readiness.js` adds fail-fast `/ready`
   probes (Postgres + Redis, 1s timeout → 503) with `/health` preserved as liveness. O4 (Review #21,
   HO-011) — shared `packages/shared/errors.js` gives one uniform `setErrorHandler` (generic-500
-  hardening, safe PG-code map, leak-free structured log) across all seven. Remaining: **O3** metrics
-  `/metrics` (HO-010) — the last slice; its error counter hangs off the O4 handler. See
-  [OBSERVABILITY_PROPOSAL.md](OBSERVABILITY_PROPOSAL.md).
+  hardening, safe PG-code map, leak-free structured log) across all seven. O3 (Review #23, HO-010) —
+  shared `packages/shared/metrics.js` exposes `prom-client` `/metrics` (latency histogram + error/RLS,
+  signature-failure, and ledger-append counters) with template-only labels and a cardinality clamp;
+  independently proven leak-free. See [OBSERVABILITY_PROPOSAL.md](OBSERVABILITY_PROPOSAL.md).
 - **Tracked follow-ups (separately gated, not started):** (1) **transparency-ledger hardening**
   — external anchoring (the unused `published_anchor_reference`), append-identity restriction,
   append-serialization scale; (2) **process fix** — do not apply unapproved feature-branch
@@ -103,7 +104,7 @@ bounded review confirms them.
 | **Security** | Improving, unverified | Recent commits assert closure of major gaps (over-issuance/gateway traversal `6b57685`, signature enforcement `173b53e`/`5b9d019`/`e63bae6`, ledger auth `f456646`, fail-closed env `2cd8eae`, JWT HS256 pin `207cba0`, Redis rate limiting `9892c90`, cross-tenant scoping `175a25d`/`9969579`/`38253c7`, secure bootstrap `682ceb4`). **Architect verification pending.** |
 | **Migration** | Improving | Migration engine + state-aware reconciliation (`ab4f1d9`), drift alignment 0007/0009 (`1852b00`), consistency CI (`29b1dff`). DM03 adds tenant column with backfill + FK + tests. |
 | **Testing** | Moderate | Compliance suite runs on disposable Postgres (`876ed03`); tenant containment + backfill tests present. Coverage breadth unverified. |
-| **Operational** | Low→Improving | No container/orchestration by design (D-003 purged Docker/k8s/nginx). Observability **O1 + O2 + O4 landed** (Reviews #19–#21): shared structured JSON logging (secret redaction + `x-request-id` correlation), fail-fast `/ready` dependency probes, and uniform leak-free error handling across all seven services. Metrics (O3) still pending; no alerting yet. |
+| **Operational** | Improving | No container/orchestration by design (D-003 purged Docker/k8s/nginx). **Observability milestone complete (O1–O4, Reviews #19–#23):** shared structured JSON logging (redaction + correlation), fail-fast `/ready` probes, uniform leak-free error handling, and `prom-client` `/metrics` (latency + security counters) across all seven services. Remaining operational gap: **alerting/scrape wiring** (no Prometheus server/alert rules yet). |
 
 Ratings are deliberately conservative because no bounded architect review has yet
 confirmed the asserted closures.
@@ -133,7 +134,7 @@ confirmed the asserted closures.
 | `organizations` public/empty-GUC read broader than intended (F-org) | Medium | **Closed (Review #16)** — migration `0020` + definer registration path; public reads limited to the certifier/lab directory. |
 | Documentation drift eroding trust in project memory | Medium | Contained by AD-002; reconciliation outstanding. |
 | Declared-but-empty services overstate architecture | Medium | Open. |
-| No monitoring/observability | Medium | **Partially addressed (Reviews #19–#20)** — O1 structured logging + redaction + correlation and O2 readiness `/ready` shipped; metrics (O3) and uniform errors (O4) still open. |
+| No monitoring/observability | Medium | **Largely closed (Reviews #19–#23)** — full observability milestone shipped: O1 logging+redaction+correlation, O2 readiness, O4 uniform errors, O3 `/metrics`. Residual: no alerting/scrape server wired yet. |
 | Secrets leaking into logs via unredacted `logger: true` | Medium | **Closed (Review #19)** — shared pino config redacts auth/cookie headers + password/JWT/PEM/`signature_bundle` fields (recursively); independently proven 0 leaks. |
 | Checked-in compliance suite red (87/88, LAB-04) from stale `TRANSPARENCY_SERVICE_URL` in the e2e harness (HO-007 debt) | Low | **Closed (Review #22)** — three harness env values corrected to the documented service base; root cause proven deterministically; suite back to 88/88. |
 

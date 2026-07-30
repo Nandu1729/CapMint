@@ -598,6 +598,50 @@ to `4f1b7f5c`. Next: O3 (HO-010, metrics) — the final observability slice.
 
 ---
 
+## Review #23 — HO-010: Observability O3 — Prometheus metrics (`/metrics`) — **milestone complete**
+
+| Field | Value |
+|---|---|
+| **Review Number** | #23 |
+| **Milestone** | Observability O3 (final slice) — `prom-client` `/metrics` per service: HTTP latency histogram + domain-security counters (errors/RLS, signature failures, ledger appends). Closes the observability milestone (O1–O4). |
+| **Branch** | `feat/ho-010-observability-o3` → merged (`--no-ff`) into `feat/post-dm03-integration` (`develop`) |
+| **Commit Range Reviewed** | `c1217a07..ddb6e638` — `3fe07a5b` (implementation) + merge `ddb6e638` |
+| **Architecture Status** | PASS — single shared `packages/shared/metrics.js` (dedicated registry); all seven backends wired |
+| **Security Status** | PASS — **no secret/PII/high-cardinality labels** (independently proven); free-form `code` label regex-clamped; route labels are templates |
+| **Migration Status** | N/A (code-only; adds `prom-client` dep + regenerated lockfile) |
+| **Testing Status** | PASS — `npm ci` exit 0 (lockfile in sync), `npm run build` 7/7, `vitest` 10/10; Codex report: 58 workspace tests, compliance 88/88, live `/metrics` 7/7 |
+| **Approved Decisions** | none new (executes OBSERVABILITY_PROPOSAL O3) |
+| **Outstanding Items** | Observability milestone complete. Next phase: **`develop → main` promotion** (pre-production hardening pass). |
+| **Next Review Starts From** | `ddb6e638`. |
+
+### Findings (delta only)
+- **Safe-by-construction metrics.** Dedicated `prom-client` Registry (not the global default →
+  no cross-process/test pollution), `capmint_` default-metrics prefix, `http_request_duration_seconds`
+  labeled only `{ method, route, status_code }`. `route` is the matched **template**
+  (`request.routeOptions?.url`), unmatched → `'unmatched'`; `/metrics` excluded from its own histogram.
+- **Cardinality/label guard.** `safeErrorCode` clamps the one free-form label to
+  `^[A-Z][A-Z0-9_]{0,63}$` else `UNKNOWN` — bounds cardinality and blocks exposition injection.
+- **Counter placement.** `recordError(code)` wired at the exact O4 insertion point (the **only** edit
+  to `errors.js`). `recordSignatureFailure()` hooked once in the shared `capacityFailure()` (which is
+  called with `INVALID_SIGNATURE` at two real guard sites) plus cpq's separate drawdown path;
+  `recordLedgerAppend()` at all seven verification→transparency append sites (ok + error).
+- **Justified deviations.** `capacity.js` (+1 guarded, side-effect-only line) and cpq's two direct
+  calls go slightly beyond the "errors.js-only" constraint, but achieve the spec's intent (count
+  signature failures where raised) via the DRY shared guard — accepted, no behavior change.
+- **Independent verification.** Scraped `/metrics` after hitting `/thing/:id?token=…` + a
+  secret-bearing 500: **0 leaked labels** (ids/token/message absent), route labels are templates,
+  300-char and newline-injection error codes both clamped to `UNKNOWN`; error/signature/ledger/default
+  series all present. `npm ci`/build/tests clean. Evidence:
+  `docs/operations/HO010_OBSERVABILITY_O3_VERIFICATION.md`.
+
+### Approval
+`APPROVED` — metrics are exposed safely (no PII/secret/high-cardinality labels), with the domain-security
+signal the milestone targeted. **The observability milestone (O1 logging · O2 readiness · O4 uniform
+errors · O3 metrics) is COMPLETE.** Boundary advances to `ddb6e638`. Next: the `develop → main`
+promotion discussion and its pre-production hardening pass.
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 

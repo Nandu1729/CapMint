@@ -24,6 +24,7 @@
 | [HO-008](#ho-008-observability-o1--structured-logging--redaction--correlation) | Observability O1 — structured logging + redaction + correlation | Observability | 2026-07-29 | EXECUTED (Review #19, `be7d00a9`) |
 | [HO-009](#ho-009-observability-o2--dependency-readiness-probe) | Observability O2 — dependency readiness probe (`/ready`) | Observability | 2026-07-30 | EXECUTED (Review #20, `2100be9d`) |
 | [HO-011](#ho-011-observability-o4--uniform-shared-error-handling) | Observability O4 — uniform shared error handling | Observability | 2026-07-30 | EXECUTED (Review #21, `7ced845a`) |
+| [HO-010](#ho-010-observability-o3--prometheus-metrics) | Observability O3 — Prometheus metrics (`/metrics`) | Observability | 2026-07-30 | EXECUTED (Review #23, `ddb6e638`) |
 
 ---
 
@@ -433,6 +434,39 @@ pass-through intact, secret-bearing 500 leak-free, `23505`→409; build exit 0, 
 `prom-client` (scope-clean). Surfaced a pre-existing LAB-04 compliance-harness URL double-append
 (HO-007 debt), fixed separately in **Review #22**. Evidence:
 `docs/operations/HO011_OBSERVABILITY_O4_VERIFICATION.md`.
+
+---
+
+## HO-010: Observability O3 — Prometheus metrics
+
+- **Spec ID:** HO-010 · **Milestone:** Observability (O3, final slice) · **Date:** 2026-07-30 · **Status:** EXECUTED (Review #23, commit `3fe07a5b`, merged `ddb6e638`)
+- **Related:** [OBSERVABILITY_PROPOSAL.md](OBSERVABILITY_PROPOSAL.md)
+
+### Objective
+Expose `prom-client` `/metrics` per service — HTTP latency histogram + domain-security counters
+(errors/RLS denials, signature-verification failures, ledger-append health) — so the platform has a
+quantitative operational signal. Closes the observability milestone.
+
+### Deliverable — `packages/shared/metrics.js` (+ `.d.ts`, `./metrics` export, `prom-client` dep)
+Dedicated `prom-client` Registry (not the global default), `capmint_` default-metrics prefix.
+`registerMetrics(server)` exposes `GET /metrics` and records `http_request_duration_seconds`
+labeled only `{ method, route, status_code }` (route = matched template, unmatched → `unmatched`,
+`/metrics` excluded). Counters: `errors_total{code}` (via `recordError` at the O4 insertion point —
+the only `errors.js` edit), `signature_verification_failures_total` (via `recordSignatureFailure`,
+hooked once in the shared `capacityFailure()` plus cpq's drawdown path),
+`ledger_append_total{result}` (via `recordLedgerAppend` at all seven verification→transparency append
+sites). Free-form `code` label regex-clamped (`safeErrorCode` → `UNKNOWN`). Wired across all seven
+backends.
+
+### Acceptance (met)
+All seven `/metrics` return Prometheus text; histogram + all counters populate under traffic;
+**no secret/PID/high-cardinality label** (grep clean); build/`npm ci`/compliance 88/88.
+
+### Outcome
+EXECUTED and APPROVED at **Review #23** — **observability milestone (O1–O4) complete**.
+Independently verified: adversarial scrape showed 0 leaked labels, route-template labels only, hostile
+error codes clamped to `UNKNOWN`; `npm ci`/build/tests clean. Evidence:
+`docs/operations/HO010_OBSERVABILITY_O3_VERIFICATION.md`.
 
 ---
 
