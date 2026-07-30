@@ -183,6 +183,48 @@ quarantine must be documented so it is not misread as a cryptographic key-compro
 
 ---
 
+## AD-006: `develop → main` promotion sign-off (v1.1.0)
+
+| Field | Value |
+|---|---|
+| **Decision ID** | AD-006 |
+| **Title** | Promote `develop` → `main` as v1.1.0, accepting the recorded soft-gate risks |
+| **Date** | 2026-07-30 (proposed) |
+| **Status** | **PROPOSED — awaiting operator sign-off** (this is promotion Gate H4) |
+
+**Context.** All hard promotion gates are closed and independently verified: **A** security
+(Review #24, 11/11), **B** RLS/tenancy (Review #25), **D** migrations (Review #25), **E** CI green
+(Review #26 — compliance 88/88 on Node 22/tsx 4), **G** doc-honesty (banners added). See
+[PROMOTION_READINESS.md](PROMOTION_READINESS.md). The only remaining hard gate is this operator
+sign-off (H4). `main` is 215 commits behind `develop`.
+
+**Decision.** _(operator to ratify)_ Promote the reviewed `develop` SHA to `main` via `--no-ff`
+merge + annotated tag `v1.1.0`, **accepting** the following soft-gate risks as consciously deferred
+(architect-recommended dispositions):
+- **B3** RLS ENABLE-not-FORCE (intentional) · **C2** no external ledger anchoring (post-GA) ·
+  **C3** append-identity restriction (post-GA) · **C4** append serialization ceiling (monitored via O3) ·
+  **D3** additive/forward-only migrations (forward-fix policy) · **F2** scrape/alerting (fast follow) ·
+  **F3** log destination (stdout for now) · **F4** `/ready` consumer (no orchestrator, D-003) ·
+  **F-E3** over-issuance canary secret unset (invariant covered by A1 + Review #18 + compliance) ·
+  **G2** 7 placeholder services (now README-marked).
+- Known non-blocking follow-ups carried forward: **F-A7** (prod trust-proxy/XFF), **F2** alerting.
+
+**Alternatives Considered.** (a) Block on C2 external anchoring / F2 alerting before promotion —
+rejected as post-GA enhancements, not correctness gates. (b) Hold indefinitely — rejected; the
+hardening line is verified and CI is green.
+
+**Consequences.** `main` gains DM-03/DM-04 tenancy, capacity safeguards, the transparency ledger, a
+full observability layer, and the verified hardening series. The accepted risks above become tracked
+post-GA work. Rollback: revert the merge (additive migrations stay). Release notes:
+`releases/v1.1.0/RELEASE_NOTES_v1.1.0.md`.
+
+**Related Commits.** _promotion merge + `v1.1.0` tag — to be recorded on sign-off_
+**Related Documents.** [PROMOTION_READINESS.md](PROMOTION_READINESS.md),
+[ARCHITECT_REVIEW_HISTORY.md](../../ARCHITECT_REVIEW_HISTORY.md) (Reviews #24–#26),
+`releases/v1.1.0/RELEASE_NOTES_v1.1.0.md`
+
+---
+
 <!--
 ## AD-NNN: <Title> (template)
 

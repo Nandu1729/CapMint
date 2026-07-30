@@ -146,9 +146,9 @@ live implementation. **11/11 verified; 2 low-severity follow-ups; 0 blockers.**
   Production Release ✅ COMPLETE"), pointing to ARCHITECTURE_STATUS / PROMOTION_READINESS as
   authoritative. `state/CURRENT.md` and `state/MILESTONES.md` were already corrected (CP-023 = NOT
   ESTABLISHED).
-- [ ] **[S] G2 — Declared-but-empty services.** The 7 placeholder backend dirs (analytics, audit,
-  clone-detection, gateway, identity, notification, scan) overstate the architecture. Either remove
-  them or mark them explicitly as intentional future stubs in the docs. **→ see soft-gate disposition.**
+- [x] **[S] G2 — Declared-but-empty services marked.** Each of the 7 placeholder backend dirs
+  (analytics, audit, clone-detection, gateway, identity, notification, scan) now carries a `README.md`
+  stating it is an intentional unimplemented placeholder, pointing to the authoritative inventory.
 - [x] **G3 — `node_modules` untracked** (M1 hygiene).
 - [x] **[S] G4 — `state/` cards reconciled** (AD-002): `state/CURRENT.md`/`MILESTONES.md` already carry
   honest "not a verified release" corrections; `state/SPRINT.md` now banner-corrected (G1).
@@ -161,7 +161,8 @@ live implementation. **11/11 verified; 2 low-severity follow-ups; 0 blockers.**
   merge of the reviewed SHA, annotated tag `v1.1.0`. Never a direct push to `main`.
 - [x] **[H] H2 — Rollback plan drafted** (see below): revert the merge commit; migrations `0014–0020`
   are additive/forward-only — leave applied (no destructive down-migration needed).
-- [ ] **[S] H3 — Release notes + version tag** for `main` summarizing DM-03/DM-04 + observability.
+- [x] **[S] H3 — Release notes drafted** (`releases/v1.1.0/RELEASE_NOTES_v1.1.0.md`); `v1.1.0` tag
+  applied at the promotion merge.
 - [ ] **[H] H4 — Operator sign-off** — **YOURS to give.** Recorded as an AD in [DECISIONS.md](DECISIONS.md),
   listing the accepted soft-gate risks (below). This is the final gate.
 
