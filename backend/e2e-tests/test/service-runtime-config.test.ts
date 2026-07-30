@@ -28,6 +28,7 @@ describe('backend runtime configuration', () => {
     expect(source).toContain(`assertRlsServiceRole(pgPool, '${service}-service')`);
     expect(source).toContain('Fastify(createLoggingOptions())');
     expect(source).toContain('registerRequestLogging(server)');
+    expect(source).toContain('registerMetrics(server)');
     expect(source).toContain(
       service === 'integration'
         ? 'registerReadiness(server, { pgPool })'

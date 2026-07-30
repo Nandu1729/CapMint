@@ -12,6 +12,10 @@
       "types": "./logging.d.ts",
       "default": "./logging.js"
     },
+    "./metrics": {
+      "types": "./metrics.d.ts",
+      "default": "./metrics.js"
+    },
     "./readiness": {
       "types": "./readiness.d.ts",
       "default": "./readiness.js"
@@ -20,5 +24,8 @@
       "types": "./tenant-db.d.ts",
       "default": "./tenant-db.js"
     }
+  },
+  "dependencies": {
+    "prom-client": "^15.1.3"
   }
 }

@@ -1,3 +1,5 @@
+import { recordError } from './metrics.js';
+
 const POSTGRES_ERROR_RESPONSES = new Map([
   ['23505', { statusCode: 409, code: 'CONFLICT', message: 'Conflict' }],
   ['23503', { statusCode: 409, code: 'CONFLICT', message: 'Conflict' }],
@@ -28,7 +30,7 @@ export function createErrorHandler() {
   return function errorHandler(error, request, reply) {
     const { statusCode, code, message } = normalizeError(error);
 
-    // O3 metrics insertion point: increment the normalized error counter here.
+    recordError(code);
     request.log.error({ err: error, code, statusCode }, 'request failed');
 
     return reply.status(statusCode).send({

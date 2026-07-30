@@ -354,6 +354,79 @@ async function runIteration(iteration: number): Promise<void> {
     expect(Number(totals[2]), output).toBe(EXPECTED_PENDING_ASSERTIONS);
     expect(Number(totals[3]), output).toBe(0);
     expect(result.status, output).toBe(0);
+
+    const metricsProbe = {
+      jwt: 'eyJhbGciOiJIUzI1NiJ9.ho010-metrics-probe.signature',
+      password: 'Ho010MetricsPasswordMustNotLeak!',
+      privateKey: '-----BEGIN PRIVATE KEY-----ho010-metrics-probe-----END PRIVATE KEY-----',
+      organizationId: 'a9c39468-fc8f-40db-9ba9-e9414ca60c22',
+      username: 'ho010-metrics-user@example.test',
+      rawId: '93791946-5f08-4488-8805-95ccbfac3260'
+    };
+    const metricsByService: Record<string, string> = {};
+
+    for (const [name] of services) {
+      await fetch(`http://127.0.0.1:${PORTS[name]}/metrics-probe/${metricsProbe.rawId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${metricsProbe.jwt}`
+        },
+        body: JSON.stringify({
+          password: metricsProbe.password,
+          private_key: metricsProbe.privateKey,
+          organization_id: metricsProbe.organizationId,
+          username: metricsProbe.username
+        })
+      });
+
+      const metricsResponse = await fetch(`http://127.0.0.1:${PORTS[name]}/metrics`);
+      expect(metricsResponse.status, `${name} metrics endpoint`).toBe(200);
+      expect(metricsResponse.headers.get('content-type')).toContain(
+        'text/plain; version=0.0.4'
+      );
+      const metrics = await metricsResponse.text();
+      expect(metrics, `${name} default metrics`).toContain(
+        'capmint_process_cpu_seconds_total'
+      );
+      expect(metrics, `${name} request histogram`).toContain(
+        'http_request_duration_seconds'
+      );
+      expect(metrics, `${name} request histogram labels`).toMatch(
+        /http_request_duration_seconds_count\{method="[A-Z]+",route="[^"]+",status_code="[1-5][0-9]{2}"\} [1-9][0-9]*/
+      );
+      expect(metrics, `${name} excludes its scrape route`).not.toContain(
+        'route="/metrics"'
+      );
+      metricsByService[name] = metrics;
+    }
+
+    const allMetrics = Object.values(metricsByService).join('\n');
+    for (const sensitiveValue of Object.values(metricsProbe)) {
+      expect(allMetrics).not.toContain(sensitiveValue);
+    }
+
+    const routeLabels = [...allMetrics.matchAll(/route="([^"]+)"/g)]
+      .map(match => match[1]);
+    expect(routeLabels.length).toBeGreaterThan(0);
+    expect(routeLabels).toContain('/api/v1/budgets/:id/drawdown');
+    expect(routeLabels).toContain('unmatched');
+    expect(routeLabels.some(route => route.includes(':id'))).toBe(true);
+    expect(routeLabels.every(route =>
+      !/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i.test(route)
+    )).toBe(true);
+
+    expect(metricsByService.auth).toContain('status_code="401"');
+    expect(metricsByService.auth).toContain('status_code="429"');
+    expect(metricsByService.cpq).toContain(
+      'route="/api/v1/budgets/:id/drawdown",status_code="422"'
+    );
+    expect(metricsByService.cpq).toMatch(
+      /signature_verification_failures_total [1-9][0-9]*/
+    );
+    expect(metricsByService.verification).toMatch(
+      /ledger_append_total\{result="ok"\} [1-9][0-9]*/
+    );
   } finally {
     await stopChildren(children);
     if (redis) {

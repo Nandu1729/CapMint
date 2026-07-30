@@ -13,12 +13,14 @@ import {
   registerRequestLogging
 } from '../../../packages/shared/logging.js';
 import { createErrorHandler } from '../../../packages/shared/errors.js';
+import { registerMetrics } from '../../../packages/shared/metrics.js';
 import { registerReadiness } from '../../../packages/shared/readiness.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
 const server = Fastify(createLoggingOptions());
 registerRequestLogging(server);
+registerMetrics(server);
 server.setErrorHandler(createErrorHandler());
 
 // Initialize PostgreSQL Client Pool
