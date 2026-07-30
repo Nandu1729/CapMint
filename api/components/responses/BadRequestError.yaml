@@ -1,0 +1,5 @@
+description: Validation error or malformed request payload
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/common/ValidationErrorResponse.yaml

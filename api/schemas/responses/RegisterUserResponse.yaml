@@ -1,0 +1,18 @@
+title: RegisterUserResponse
+type: object
+required:
+- success
+- username
+properties:
+  success:
+    type: boolean
+    description: Request success indicator.
+    example: true
+  username:
+    type: string
+    description: Unique username identifier for the account.
+    example: admin
+description: RegisterUserResponse data schema.
+example:
+  success: true
+  username: admin

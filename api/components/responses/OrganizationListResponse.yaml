@@ -1,0 +1,5 @@
+description: List of registered organizations returned
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/responses/OrganizationListResponse.yaml

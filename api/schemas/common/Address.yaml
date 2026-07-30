@@ -1,0 +1,36 @@
+title: Address
+description: Physical address parameters
+type: object
+required:
+- street
+- city
+- state
+- country
+- postalCode
+properties:
+  street:
+    type: string
+    example: 123 Farmer Road
+    description: The street attribute.
+  city:
+    type: string
+    example: Ahmedabad
+    description: The city attribute.
+  state:
+    type: string
+    example: Gujarat
+    description: The state attribute.
+  country:
+    type: string
+    example: India
+    description: The country attribute.
+  postalCode:
+    type: string
+    example: '380001'
+    description: The postalCode attribute.
+example:
+  street: 123 Farmer Road
+  city: Ahmedabad
+  state: Gujarat
+  country: India
+  postalCode: '380001'

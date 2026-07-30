@@ -1,0 +1,5 @@
+description: Request conflicts with existing resource state
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/common/ErrorResponse.yaml

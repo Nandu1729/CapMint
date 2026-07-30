@@ -1,0 +1,18 @@
+title: GS1ValidateResponse
+type: object
+required:
+- success
+- valid
+properties:
+  success:
+    type: boolean
+    description: Indicates request success status.
+    example: true
+  valid:
+    type: boolean
+    description: Indicates whether the GTIN format is valid.
+    example: true
+description: GS1ValidateResponse data schema.
+example:
+  success: true
+  valid: true

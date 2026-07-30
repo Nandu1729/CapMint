@@ -1,0 +1,28 @@
+title: InviteUserRequest
+type: object
+required:
+- username
+- password
+- role
+properties:
+  username:
+    type: string
+    description: Unique username identifier for the account.
+    example: admin
+  password:
+    type: string
+    description: Secret password for authentication.
+    example: password
+    format: password
+  role:
+    type: string
+    enum:
+    - ADMIN
+    - OPERATOR
+    description: User access role within the organization.
+    example: ADMIN
+description: InviteUserRequest data schema.
+example:
+  username: admin
+  password: password
+  role: ADMIN

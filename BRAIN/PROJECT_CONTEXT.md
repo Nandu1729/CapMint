@@ -73,7 +73,7 @@ The architectural decision hierarchy defines how design trade-offs must be evalu
 
 To safely operate within this repository, AI agents must adhere to the following guidelines:
 
-- **Consume Architecture Logically**: Always read the relevant blueprints in `architecture/` before touching code in `services/`.
+- **Consume Architecture Logically**: Always read the relevant blueprints in `architecture/` before touching code in `backend/`.
 - **Prevent AI Drift**: Never make assumptions about naming structures or state lifecycles. Always verify terms in [CURRENT_STATE.md](CURRENT_STATE.md).
 - **Enforce Context Isolation**: Load only the files specified by the escalation policy in [CONTEXT_INDEX.md](CONTEXT_INDEX.md). Never perform repository-wide searches.
 - **Respect Folder Boundaries**: Code modifications must match the directory catalog. Do not place business logic in API routes or transport code in core domain modules.

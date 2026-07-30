@@ -1,0 +1,5 @@
+description: Access denied due to insufficient permissions or inactive organization
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/common/ErrorResponse.yaml

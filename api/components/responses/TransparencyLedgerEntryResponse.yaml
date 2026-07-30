@@ -1,0 +1,5 @@
+description: Cryptographic block appended to the log chain
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/responses/TransparencyLedgerEntryResponse.yaml

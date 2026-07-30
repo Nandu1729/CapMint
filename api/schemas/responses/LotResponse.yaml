@@ -1,0 +1,12 @@
+title: LotResponse
+type: object
+required:
+- lot
+properties:
+  lot:
+    $ref: ../domain/Lot.yaml
+    description: The lot attribute.
+    example: null
+description: LotResponse data schema.
+example:
+  lot: null

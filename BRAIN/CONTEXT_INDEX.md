@@ -20,10 +20,10 @@ This document owns:
 - The completion guidelines, validation rules, and Repository Freeze Policy.
 
 This document intentionally does NOT define:
-- Core business invariants or agricultural crop rules (defined in [SYSTEM_CONTEXT.md](../architecture/system/SYSTEM_CONTEXT.md)).
-- Container topologies, network ports, or database replication configurations (defined in [L2_CONTAINER.md](../architecture/C4/L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](../architecture/deployment/DEPLOYMENT_ARCHITECTURE.md)).
-- Service contracts, Bounded Context boundaries, or API routes (defined in [SERVICE_BOUNDARIES.md](../architecture/system/SERVICE_BOUNDARIES.md) and [DATA_FLOW.md](../architecture/sequence/DATA_FLOW.md)).
-- Specific code-level technology stacks or compiler settings (defined in [TECHNOLOGY_STACK.md](../architecture/system/TECHNOLOGY_STACK.md)).
+- Core business invariants or agricultural crop rules (defined in [SYSTEM_CONTEXT.md](../architecture/SYSTEM_CONTEXT.md)).
+- Container topologies, network ports, or database replication configurations (defined in [L2_CONTAINER.md](../architecture/L2_CONTAINER.md) and [DEPLOYMENT_ARCHITECTURE.md](../architecture/DEPLOYMENT_ARCHITECTURE.md)).
+- Service contracts, Bounded Context boundaries, or API routes (defined in [SERVICE_BOUNDARIES.md](../architecture/SERVICE_BOUNDARIES.md) and [DATA_FLOW.md](../architecture/DATA_FLOW.md)).
+- Specific code-level technology stacks or compiler settings (defined in [TECHNOLOGY_STACK.md](../architecture/TECHNOLOGY_STACK.md)).
 
 ---
 
@@ -66,11 +66,11 @@ Agents must never perform broad repository-wide searches when ownership boundari
 If architectural understanding is required:
 
 ```
-Load [ARCHITECTURE_SUMMARY.md](file:///Users/nandyyy/Project/CapMint/BRAIN/ARCHITECTURE_SUMMARY.md)
+Load the main Architecture Index [INDEX.md](../architecture/INDEX.md)
   ↓
-Determine affected architecture area
+Identify the specific blueprint document from the catalog
   ↓
-Load only the relevant architecture documents
+Load only that designated target markdown file
 ```
 
 *Note: Do not load the complete architecture directory.*
@@ -163,61 +163,61 @@ To maintain focus and prevent out-of-scope alterations, load files based on the 
 When modifying application services, restrict context loading to the specific service path and its corresponding architecture specifications:
 
 - **gateway-service**:
-  - Required Folder: `services/gateway-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_CONTEXT.md`, `../architecture/system/SERVICE_BOUNDARIES.md`
+  - Required Folder: `backend/gateway-service/`
+  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`, `../architecture/SERVICE_BOUNDARIES.md`
   - Optional Dependencies: `api/`
 - **identity-service**:
-  - Required Folder: `services/identity-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_CONTEXT.md`, `../architecture/system/SERVICE_BOUNDARIES.md`
+  - Required Folder: `backend/identity-service/`
+  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`, `../architecture/SERVICE_BOUNDARIES.md`
   - Optional Dependencies: `database/`
 - **auth-service**:
-  - Required Folder: `services/auth-service/`
-  - Required Architecture: `../architecture/security/SECURITY_ARCHITECTURE.md`
+  - Required Folder: `backend/auth-service/`
+  - Required Architecture: `../architecture/SECURITY_ARCHITECTURE.md`
   - Optional Dependencies: `api/`, `packages/`
 - **cpq-service**:
-  - Required Folder: `services/cpq-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_CONTEXT.md`, `../architecture/system/SERVICE_BOUNDARIES.md`
-  - Optional Dependencies: `services/identity-service/`
+  - Required Folder: `backend/cpq-service/`
+  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`, `../architecture/SERVICE_BOUNDARIES.md`
+  - Optional Dependencies: `backend/identity-service/`
 - **mint-service**:
-  - Required Folder: `services/mint-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_CONTEXT.md`, `../architecture/sequence/DATA_FLOW.md`
-  - Optional Dependencies: `services/auth-service/`
+  - Required Folder: `backend/mint-service/`
+  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`, `../architecture/DATA_FLOW.md`
+  - Optional Dependencies: `backend/auth-service/`
 - **resolver-service**:
-  - Required Folder: `services/resolver-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_OVERVIEW.md`
-  - Optional Dependencies: `services/verification-service/`
+  - Required Folder: `backend/resolver-service/`
+  - Required Architecture: `../architecture/SYSTEM_OVERVIEW.md`
+  - Optional Dependencies: `backend/verification-service/`
 - **verification-service**:
-  - Required Folder: `services/verification-service/`
-  - Required Architecture: `../architecture/security/SECURITY_ARCHITECTURE.md`, `../architecture/C4/L2_CONTAINER.md`
-  - Optional Dependencies: `services/mint-service/`
+  - Required Folder: `backend/verification-service/`
+  - Required Architecture: `../architecture/SECURITY_ARCHITECTURE.md`, `../architecture/L2_CONTAINER.md`
+  - Optional Dependencies: `backend/mint-service/`
 - **transparency-service**:
-  - Required Folder: `services/transparency-service/`
-  - Required Architecture: `../architecture/sequence/DATA_FLOW.md`
+  - Required Folder: `backend/transparency-service/`
+  - Required Architecture: `../architecture/DATA_FLOW.md`
   - Optional Dependencies: `packages/`
 - **clone-detection-service**:
-  - Required Folder: `services/clone-detection-service/`
-  - Required Architecture: `../architecture/security/SECURITY_ARCHITECTURE.md`
-  - Optional Dependencies: `services/verification-service/`
+  - Required Folder: `backend/clone-detection-service/`
+  - Required Architecture: `../architecture/SECURITY_ARCHITECTURE.md`
+  - Optional Dependencies: `backend/verification-service/`
 - **notification-service**:
-  - Required Folder: `services/notification-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_CONTEXT.md`
+  - Required Folder: `backend/notification-service/`
+  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`
   - Optional Dependencies: `packages/`
 - **integration-service**:
-  - Required Folder: `services/integration-service/`
-  - Required Architecture: `../architecture/system/SYSTEM_CONTEXT.md`
+  - Required Folder: `backend/integration-service/`
+  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`
   - Optional Dependencies: `api/`
 - **analytics-service**:
-  - Required Folder: `services/analytics-service/`
-  - Required Architecture: `../architecture/deployment/DEPLOYMENT_ARCHITECTURE.md`
-  - Optional Dependencies: `services/verification-service/`
+  - Required Folder: `backend/analytics-service/`
+  - Required Architecture: `../architecture/DEPLOYMENT_ARCHITECTURE.md`
+  - Optional Dependencies: `backend/verification-service/`
 - **audit-service**:
-  - Required Folder: `services/audit-service/`
-  - Required Architecture: `../architecture/security/SECURITY_ARCHITECTURE.md`
-  - Optional Dependencies: `services/transparency-service/`
+  - Required Folder: `backend/audit-service/`
+  - Required Architecture: `../architecture/SECURITY_ARCHITECTURE.md`
+  - Optional Dependencies: `backend/transparency-service/`
 - **scan-service**:
-  - Required Folder: `services/scan-service/`
-  - Required Architecture: `../architecture/C4/L1_SYSTEM_CONTEXT.md`
-  - Optional Dependencies: `services/verification-service/`
+  - Required Folder: `backend/scan-service/`
+  - Required Architecture: `../architecture/L1_SYSTEM_CONTEXT.md`
+  - Optional Dependencies: `backend/verification-service/`
 
 ---
 
@@ -231,7 +231,7 @@ CapMint establishes strict, non-overlapping ownership rules across the repositor
 | **`state/`** | Execution State | Live execution state, active checkpoint tracking, roadmap, sprint progress, blockers, branch status, and execution tracking. | Permanent design documents, application code. |
 | **`architecture/`** | System Design | Design blueprints, C4 context diagrams, and NFR targets. | Source code, test scripts, deployment configurations. |
 | **`knowledge/`** | External Standards | GS1 Digital Link standard specs and integration docs. | Internal domain logic code, private signing keys. |
-| **`services/`** | Implementation | Core business logic modules (microservices). | Shared common helpers, compiled assets, documentation. |
+| **`backend/`** | Implementation | Core business logic modules (microservices). | Shared common helpers, compiled assets, documentation. |
 | **`packages/`** | Shared Code | Common utilities, formatting helpers, and cryptographic libraries. | Service-specific API controllers, database connection pools. |
 | **`database/`** | Persistence | Postgres table schemas, indexing scripts, and migrations. | Frontend application UI code, static HTML files. |
 | **`testing/`** | Quality | Integration testing suites, contract tests, and compliance scripts. | Active production database passwords, deployment credentials. |
@@ -271,7 +271,7 @@ Context volume should be escalated in tiers, ensuring memory efficiency is maint
   --> Load ONLY: Universal State + Target File + Target Test.
   
 [ Tier 2: Domain Task ]
-  --> Load: Universal State + Full Domain Directory (e.g., services/mint-service/).
+  --> Load: Universal State + Full Domain Directory (e.g., backend/mint-service/).
   
 [ Tier 3: Cross-Domain Task ]
   --> Load: Universal State + Service Directory A + Service Directory B + MODULE_DEPENDENCIES.md.
@@ -299,7 +299,7 @@ Coding agents must actively avoid the following behaviors:
 - **The "Context Dump"**: Initiating a search or viewing files across the entire workspace for a single-file task.
 - **Ignoring Canonical Source of Truth**: Rewriting security guidelines in backend route folders instead of linking to `SECURITY_ARCHITECTURE.md`.
 - **Blind Coding**: Proceeding with database schema edits without verifying the terminology and constraints defined in `CURRENT_STATE.md`.
-- **Parallel Overwrite Conflicts**: Editing files in `services/` while simultaneously modifying their interfaces in `packages/` without validation.
+- **Parallel Overwrite Conflicts**: Editing files in `backend/` while simultaneously modifying their interfaces in `packages/` without validation.
 
 ---
 

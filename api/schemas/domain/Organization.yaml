@@ -1,0 +1,41 @@
+title: Organization
+description: Registered organization profile
+type: object
+required:
+- id
+- name
+- type
+- status
+properties:
+  id:
+    type: string
+    format: uuid
+    description: Unique identifier (UUID v4).
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  name:
+    type: string
+    description: Human-readable legal name of the entity.
+    example: Premium Farms Ltd
+  type:
+    type: string
+    enum:
+    - PRODUCER
+    - NABL_LABORATORY
+    - CERTIFICATION_BODY
+    - EXPORTER
+    - SYSTEM_ADMINISTRATOR
+    description: General categorization type.
+    example: PRODUCER
+  status:
+    type: string
+    enum:
+    - PENDING_VERIFICATION
+    - ACTIVATED
+    - SUSPENDED
+    description: Current status of the entity.
+    example: ACTIVATED
+example:
+  id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  name: Premium Farms Ltd
+  type: PRODUCER
+  status: ACTIVATED

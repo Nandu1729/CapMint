@@ -1,0 +1,12 @@
+title: UserResponse
+type: object
+required:
+- user
+properties:
+  user:
+    $ref: ../domain/User.yaml
+    description: The user attribute.
+    example: null
+description: UserResponse data schema.
+example:
+  user: null

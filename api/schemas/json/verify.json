@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "VerificationServiceSchemas",
+  "definitions": {
+    "verifyCodeRequest": {
+      "type": "object",
+      "properties": {
+        "lat": {
+          "type": "number"
+        },
+        "lon": {
+          "type": "number"
+        },
+        "device_metadata": {
+          "type": "object"
+        }
+      },
+      "additionalProperties": false
+    },
+    "revokeLotRequest": {
+      "type": "object",
+      "required": [
+        "lotId",
+        "reason"
+      ],
+      "properties": {
+        "lotId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "revokeQRCodeRequest": {
+      "type": "object",
+      "required": [
+        "gtin",
+        "serial",
+        "reason"
+      ],
+      "properties": {
+        "gtin": {
+          "type": "string",
+          "pattern": "^\\d{14}$"
+        },
+        "serial": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

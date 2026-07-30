@@ -1,0 +1,12 @@
+title: QRCodeResponse
+type: object
+required:
+- code
+properties:
+  code:
+    $ref: ../domain/QRCode.yaml
+    description: The code attribute.
+    example: null
+description: QRCodeResponse data schema.
+example:
+  code: null

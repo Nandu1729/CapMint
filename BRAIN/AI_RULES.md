@@ -37,7 +37,7 @@ When multiple documents define different guidance, AI agents must follow this pr
 3. **`PROJECT_BRAIN.md`**
 4. **`PROJECT_CONTEXT.md`**
 5. **`CONTEXT_INDEX.md`**
-6. **Architecture Blueprints** (under `../architecture/`)
+6. **Architecture Index (`INDEX.md` under `../architecture/`)** and specific blueprints
 7. **Implementation Documents** (Lowest Precedence)
 
 Higher-priority documents always override lower-priority documents.
@@ -103,10 +103,11 @@ Before modifying any source code, the AI agent must perform the following contex
 2. Read [PROJECT_CONTEXT.md](PROJECT_CONTEXT.md) to understand coding standards and technical context.
 3. Read [CONTEXT_INDEX.md](CONTEXT_INDEX.md) to resolve target files and limit in-memory context.
 4. Load only the minimum required folder scope.
-5. Read relevant service architecture blueprints under `../architecture/`.
-6. Understand cross-service and module dependencies.
-7. Validate domain ownership rules.
-8. Only then proceed with implementation edits.
+5. Read the Architecture Index [INDEX.md](../architecture/INDEX.md) to locate relevant blueprints.
+6. Read the specific service architecture blueprints mapped in the index.
+7. Understand cross-service and module dependencies.
+8. Validate domain ownership rules.
+9. Only then proceed with implementation edits.
 
 ---
 
@@ -132,12 +133,13 @@ AI agents must never make architectural decisions independently. If a task requi
 
 ## Checkpoint Discipline
 
-When completing any milestone task, the AI agent must:
+When completing any milestone task, or after making ANY commit to the repository (for both feature code and documentation), the AI agent must:
 1. Update [SESSION.md](SESSION.md) with active completion metrics.
 2. Update [CURRENT_STATE.md](CURRENT_STATE.md) (only if project knowledge has changed).
 3. Update [NEXT_TASK.md](NEXT_TASK.md) to map the next active phase.
 4. Update `LESSONS_LEARNED.md` if applicable.
-5. **Stop** and wait for user approval before moving to the next checkpoint. Never continue automatically.
+5. Update all project state tracking and brain files (`state/*`, `releases/CHANGELOG.md`, `README.md`, `database/schema/schema.sql`, `.env.example`, and `BRAIN/*` logs) to prevent repository drift.
+6. **Stop** and wait for user approval before moving to the next checkpoint. Never continue automatically.
 
 ---
 
@@ -155,6 +157,7 @@ Before finishing any task, the AI agent must verify:
 - [ ] **No repository drift introduced**: Naming terms and folder bounds match directories index.
 - [ ] **Frozen documents not modified**: All frozen specifications remain intact.
 - [ ] **Security maintained**: Authentication and validation gates are fully active.
+- [ ] **Environment Security enforced**: Confirmed that all credentials, secrets, and private keys are strictly loaded from environment variables with no hardcoded fallbacks.
 - [ ] **Tests considered**: Unit or integration tests are generated and verify correctness.
 - [ ] **Repository conventions respected**: Directory guidelines are fully satisfied.
 

@@ -1,0 +1,78 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IdentityServiceSchemas",
+  "definitions": {
+    "registerUserRequest": {
+      "type": "object",
+      "required": [
+        "username",
+        "password",
+        "role"
+      ],
+      "properties": {
+        "username": {
+          "type": "string",
+          "minLength": 3
+        },
+        "password": {
+          "type": "string",
+          "minLength": 6
+        },
+        "role": {
+          "type": "string",
+          "enum": [
+            "ADMIN",
+            "PRODUCER",
+            "PACK_HOUSE",
+            "CERTIFIER",
+            "LAB"
+          ]
+        },
+        "associated_entity_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "additionalProperties": false
+    },
+    "loginRequest": {
+      "type": "object",
+      "required": [
+        "username",
+        "password"
+      ],
+      "properties": {
+        "username": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "createOrganizationRequest": {
+      "type": "object",
+      "required": [
+        "name",
+        "type"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 3
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "PRODUCER",
+            "NABL_LABORATORY",
+            "CERTIFICATION_BODY",
+            "EXPORTER"
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

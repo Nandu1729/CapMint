@@ -1,0 +1,61 @@
+title: RegisterUserRequest
+description: Payload required to register a new organization and its initial administrator user.
+type: object
+required:
+  - name
+  - type
+  - official_email
+  - admin_username
+  - admin_password
+properties:
+  name:
+    type: string
+    description: Full legal name of the organization.
+    example: "Premium Farms Ltd"
+  type:
+    type: string
+    enum:
+      - PRODUCER
+      - NABL_LABORATORY
+      - CERTIFICATION_BODY
+      - EXPORTER
+    description: Classification type of the organization.
+    example: "PRODUCER"
+  business_reg_details:
+    type: object
+    description: Official company registration metadata details.
+    example:
+      registration_number: "REG-880293"
+      tax_id: "GSTIN-12AAAFF001"
+  official_email:
+    type: string
+    format: email
+    description: Primary official contact email address.
+    example: "producer@capmint.org"
+  contact_info:
+    type: object
+    description: Organization contact telephone or communication details.
+    example:
+      phone: "+91 98765 43210"
+      address: "123 Agri Lane, Bangalore, India"
+  admin_username:
+    type: string
+    description: Username for the initial organization administrator account.
+    example: "producer_admin"
+  admin_password:
+    type: string
+    format: password
+    description: Secure password for the administrator account.
+    example: "password"
+example:
+  name: "Premium Farms Ltd"
+  type: "PRODUCER"
+  business_reg_details:
+    registration_number: "REG-880293"
+    tax_id: "GSTIN-12AAAFF001"
+  official_email: "producer@capmint.org"
+  contact_info:
+    phone: "+91 98765 43210"
+    address: "123 Agri Lane, Bangalore, India"
+  admin_username: "producer_admin"
+  admin_password: "password"

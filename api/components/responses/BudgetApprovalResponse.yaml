@@ -1,0 +1,5 @@
+description: Quota approved and activated
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/responses/BudgetApprovalResponse.yaml

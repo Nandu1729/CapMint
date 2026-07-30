@@ -1,0 +1,12 @@
+title: LabResultResponse
+type: object
+required:
+- labResult
+properties:
+  labResult:
+    $ref: ../domain/LabResult.yaml
+    description: The labResult attribute.
+    example: null
+description: LabResultResponse data schema.
+example:
+  labResult: null

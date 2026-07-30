@@ -1,0 +1,7 @@
+name: id
+in: path
+required: true
+description: Unique identifier of the land parcel plot
+schema:
+  type: string
+example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e

@@ -1,0 +1,36 @@
+title: VerifyScanRequest
+type: object
+required:
+- lat
+- lon
+properties:
+  lat:
+    type: number
+    description: Geographical coordinate latitude.
+    example: 12.9716
+  lon:
+    type: number
+    description: Geographical coordinate longitude.
+    example: 77.5946
+  device_metadata:
+    type: object
+    properties:
+      browser:
+        type: string
+        description: The browser attribute.
+        example: string
+      platform:
+        type: string
+        description: The platform attribute.
+        example: string
+    description: Details of scanning device web client.
+    example:
+      browser: string
+      platform: string
+description: VerifyScanRequest data schema.
+example:
+  lat: 12.9716
+  lon: 77.5946
+  device_metadata:
+    browser: string
+    platform: string

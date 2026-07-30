@@ -1,0 +1,22 @@
+title: VerifyCodeRequest
+type: object
+properties:
+  lat:
+    type: number
+    description: Geographical coordinate latitude.
+    example: 12.9716
+  lon:
+    type: number
+    description: Geographical coordinate longitude.
+    example: 77.5946
+  device_metadata:
+    type: object
+    description: Details of scanning device web client.
+    example: &id001
+      browser: Mozilla/5.0 Chrome/120.0
+      platform: macOS
+description: VerifyCodeRequest data schema.
+example:
+  lat: 12.9716
+  lon: 77.5946
+  device_metadata: *id001

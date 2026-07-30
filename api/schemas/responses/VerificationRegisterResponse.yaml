@@ -1,0 +1,93 @@
+title: VerificationRegisterResponse
+type: object
+required:
+- success
+- data
+properties:
+  success:
+    type: boolean
+    description: Indicates request success status.
+    example: true
+  data:
+    type: object
+    required:
+    - public_identifier
+    - gtin
+    - serial
+    - verification_url
+    - qr_code_data_uri
+    - current_state
+    - product_metadata
+    properties:
+      public_identifier:
+        type: string
+        description: Publicly shareable identifier for consumer verification.
+        example: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+        format: uuid
+      gtin:
+        type: string
+        description: Global Trade Item Number (GS1 standard key).
+        example: 07612345678900
+      serial:
+        type: string
+        description: Unique serial number within the GTIN scope.
+        example: SN908123
+      verification_url:
+        type: string
+        description: Redirection verification URL link.
+        example: http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+        format: uri
+      qr_code_data_uri:
+        type: string
+        description: Base64 encoded data URI of the generated QR code image.
+        example: data:image/png;base64,iVBORw0KGgoAAAANS...
+      current_state:
+        type: string
+        description: Current state of the registered code.
+        example: ACTIVE
+      product_metadata:
+        type: object
+        description: Additional product description details.
+        example: &id001
+          name: Organic White Honey
+          manufacturer: Premium Farms
+          country_of_origin: India
+          batch_id: lot-105
+          packaging_date: '2026-07-16'
+          expiry_date: '2027-07-16'
+          net_weight: 150 KG
+          organic_certificate_number: NPOP-OTC-2026-8802
+          certifying_authority: Organic Trade Council India
+          scan_count: '0'
+          mint_date: '2026-07-16'
+    description: The data attribute.
+    example:
+      public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+      gtin: 07612345678900
+      serial: SN908123
+      verification_url: http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+      qr_code_data_uri: data:image/png;base64,iVBORw0KGgoAAAANS...
+      current_state: ACTIVE
+      product_metadata: *id001
+description: VerificationRegisterResponse data schema.
+example:
+  success: true
+  data:
+    public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+    gtin: 07612345678900
+    serial: SN908123
+    verification_url: http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+    qr_code_data_uri: data:image/png;base64,iVBORw0KGgoAAAANS...
+    current_state: ACTIVE
+    product_metadata:
+      name: Organic White Honey
+      manufacturer: Premium Farms
+      country_of_origin: India
+      batch_id: lot-105
+      packaging_date: '2026-07-16'
+      expiry_date: '2027-07-16'
+      net_weight: 150 KG
+      organic_certificate_number: NPOP-OTC-2026-8802
+      certifying_authority: Organic Trade Council India
+      scan_count: '0'
+      mint_date: '2026-07-16'

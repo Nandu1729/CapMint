@@ -1,0 +1,36 @@
+title: OrganizationListResponse
+type: object
+required:
+- success
+- data
+properties:
+  success:
+    type: boolean
+    description: Indicates request success status.
+    example: true
+  data:
+    type: object
+    required:
+    - organizations
+    properties:
+      organizations:
+        type: array
+        items:
+          $ref: ../domain/Organization.yaml
+        description: The organizations attribute.
+        example: []
+    description: The data attribute.
+    example:
+      organizations: []
+description: OrganizationListResponse data schema.
+example:
+  success: true
+  data:
+    organizations:
+    - id: 00000000-0000-0000-0000-000000000002
+      name: Premium Farms Ltd
+      type: PRODUCER
+      status: ACTIVATED
+      official_email: producer@capmint.org
+      created_at: '2026-07-17T10:00:00Z'
+      updated_at: '2026-07-17T10:05:00Z'

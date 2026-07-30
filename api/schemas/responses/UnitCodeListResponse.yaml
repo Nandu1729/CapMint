@@ -1,0 +1,71 @@
+title: UnitCodeListResponse
+type: object
+required:
+- unitCodes
+properties:
+  unitCodes:
+    type: array
+    items:
+      type: object
+      properties:
+        lotId:
+          type: string
+          description: The lotId attribute.
+          example: string
+        serial:
+          type: string
+          description: Unique serial number within the GTIN scope.
+          example: SN908123
+        gtin:
+          type: string
+          description: Global Trade Item Number (GS1 standard key).
+          example: 07612345678900
+        public_identifier:
+          type: string
+          description: Publicly shareable identifier for consumer verification.
+          example: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+          format: uuid
+        verification_url:
+          type: string
+          description: Redirection verification URL link.
+          example: http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+          format: uri
+        qrCodeDataUri:
+          type: string
+          description: The qrCodeDataUri attribute.
+          example: string
+        state:
+          type: string
+          description: The state attribute.
+          example: string
+        clone_flag:
+          type: boolean
+          description: Indicates if a cloning attempt was detected.
+          example: false
+        productMetadata:
+          type: object
+          description: The productMetadata attribute.
+          example: &id001 {}
+    description: The unitCodes attribute.
+    example:
+    - lotId: string
+      serial: SN908123
+      gtin: 07612345678900
+      public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+      verification_url: http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+      qrCodeDataUri: string
+      state: string
+      clone_flag: false
+      productMetadata: *id001
+description: UnitCodeListResponse data schema.
+example:
+  unitCodes:
+  - lotId: string
+    serial: SN908123
+    gtin: 07612345678900
+    public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+    verification_url: http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+    qrCodeDataUri: string
+    state: string
+    clone_flag: false
+    productMetadata: *id001

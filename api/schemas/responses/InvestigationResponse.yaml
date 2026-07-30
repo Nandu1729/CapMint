@@ -1,0 +1,12 @@
+title: InvestigationResponse
+type: object
+required:
+- investigation
+properties:
+  investigation:
+    $ref: ../domain/Investigation.yaml
+    description: The investigation attribute.
+    example: null
+description: InvestigationResponse data schema.
+example:
+  investigation: null

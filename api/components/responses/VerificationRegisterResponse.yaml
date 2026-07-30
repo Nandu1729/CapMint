@@ -1,0 +1,5 @@
+description: Serialized unit registered successfully
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/responses/VerificationRegisterResponse.yaml

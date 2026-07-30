@@ -1,0 +1,5 @@
+description: Invalid or missing Authorization Bearer token
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/common/ErrorResponse.yaml

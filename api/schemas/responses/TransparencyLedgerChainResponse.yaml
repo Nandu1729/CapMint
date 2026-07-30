@@ -1,0 +1,14 @@
+title: TransparencyLedgerChainResponse
+type: object
+required:
+- chain
+properties:
+  chain:
+    type: array
+    items:
+      $ref: ../domain/TransparencyLedgerEntry.yaml
+    description: The chain attribute.
+    example: []
+description: TransparencyLedgerChainResponse data schema.
+example:
+  chain: []

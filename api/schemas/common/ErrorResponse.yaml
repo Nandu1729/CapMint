@@ -1,0 +1,41 @@
+title: ErrorResponse
+description: Standard error response envelope conforming to RFC 7807
+type: object
+required:
+- success
+- error
+properties:
+  success:
+    type: boolean
+    description: Always false for errors
+    example: false
+  error:
+    type: object
+    required:
+    - statusCode
+    - code
+    - message
+    properties:
+      statusCode:
+        type: integer
+        description: HTTP status code
+        example: 400
+      code:
+        type: string
+        description: Internal business error code
+        example: BAD_REQUEST
+      message:
+        type: string
+        description: Human-readable explanation of the error
+        example: The request payload was invalid
+    description: The error attribute.
+    example:
+      statusCode: 400
+      code: BAD_REQUEST
+      message: The request payload was invalid
+example:
+  success: false
+  error:
+    statusCode: 400
+    code: BAD_REQUEST
+    message: The request payload was invalid

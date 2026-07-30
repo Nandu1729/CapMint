@@ -1,116 +1,45 @@
-# CapMint — Quick Reference (AI Agent State Card)
+# CapMint — Current State
 
-> **Last Updated:** 2026-07-08  
-> ⚡ This file is the **single entry point** for AI agents resuming work on CapMint.
+> **Last updated:** 2026-07-26
+>
+> [Architecture Status](../docs/architecture/ARCHITECTURE_STATUS.md) is the
+> authoritative status record under AD-002.
 
----
+## Current phase
 
-## At a Glance
+CapMint is in an active **security-hardening and multi-tenancy remediation**
+phase. Earlier state cards describing the platform as 100% complete or
+production-ready are not verified release assessments.
 
-| Property            | Value                                      |
-|---------------------|--------------------------------------------|
-| **Checkpoint**      | All Checkpoints — ✅ **DONE**               |
-| **Previous**        | CP-008 (Production Readiness) — ✅ **DONE** |
-| **Branch**          | `main` (active)                            |
-| **Next Task**       | None (Project fully signed-off and GA Ready) |
-| **Blockers**        | None                                        |
-| **Sprint**          | None (Release complete)                     |
-| **Overall Progress**| GA Ready / Released 🚀                     |
-
----
-
-## Before You Start — Checklist
-
-1. ☐ Read this file (you're doing it now ✅)
-2. ☐ Read [CURRENT_STATE.md](../CURRENT_STATE.md) for full project state
-3. ☐ Read [SESSION.md](../SESSION.md) for active session memory
-4. ☐ Read [NEXT_TASK.md](../NEXT_TASK.md) for task details & acceptance criteria
-5. ☐ Check [BLOCKERS.md](BLOCKERS.md) for any impediments
-6. ☐ Verify you're on the correct git branch (`feature/auth` off `develop`)
-7. ☐ Review [AI_RULES.md](../AI_RULES.md) for behavioral constraints
-
----
-
-## Document Map
-
-### Core State Documents
-
-| Document | What It Tells You |
+| Property | Current state |
 |---|---|
-| [CURRENT_STATE.md](../CURRENT_STATE.md) | Full project state & module status |
-| [SESSION.md](../SESSION.md) | Active session memory log |
-| [NEXT_TASK.md](../NEXT_TASK.md) | What to work on next & how |
-| [CHANGELOG.md](../CHANGELOG.md) | What has been done so far |
-| [AI_RULES.md](../AI_RULES.md) | Rules you must follow |
-| [LESSONS_LEARNED.md](../LESSONS_LEARNED.md) | living log of lessons learned |
+| Baseline branch | `feat/dm03-tenant-column` |
+| Current milestone | DM-03 — enforceable scope **COMPLETE** |
+| Next tenancy milestone | DM-04 — PostgreSQL Row-Level Security **OPEN** |
+| Open security defect | Capacity / over-issuance enforcement **OPEN** pending bounded verification and closure |
+| Overall status | Remediation in progress; production readiness is not established |
 
-### State Tracking (this directory)
+## Approved DM-03 scope
 
-| Document | What It Tells You |
-|---|---|
-| [ACTIVE_CHECKPOINT.md](ACTIVE_CHECKPOINT.md) | Full checkpoint roadmap & transitions |
-| [PROGRESS.md](PROGRESS.md) | Phased progress metrics (binary) |
-| [ACTIVE_BRANCH.md](ACTIVE_BRANCH.md) | Branch strategy & current branch |
-| [BLOCKERS.md](BLOCKERS.md) | Active blockers & escalation |
-| [MILESTONES.md](MILESTONES.md) | All milestone descriptions (CP-000 to CP-023) |
-| [ROADMAP.md](ROADMAP.md) | Phased delivery plan |
-| [SPRINT.md](SPRINT.md) | Current sprint details |
+DM-03 C2, C3a, C3b, and C3c passed architect review. The approved scope
+establishes FK-backed tenant ownership and application-layer enforcement,
+including fail-closed lab controls and tightened ownership constraints.
 
-### Governance Documents
+DM-03 does not provide database-enforced tenant isolation. PostgreSQL RLS is
+separately gated as DM-04.
 
-| Document | What It Tells You |
-|---|---|
-| [MASTER_PLAN.md](../../governance/MASTER_PLAN.md) | Full project roadmap |
-| [MODULE_STATUS.md](../../governance/MODULE_STATUS.md) | Module-level tracking |
-| [PROJECT_STATE.md](../../governance/PROJECT_STATE.md) | Executive status summary |
-| [QUALITY_GATES.md](../../governance/QUALITY_GATES.md) | Pass/fail gating criteria |
+## Immediate priorities
 
----
+1. Design and implement DM-04 PostgreSQL RLS through its architect gate.
+2. Verify and close the capacity / over-issuance defect on the primary
+   issuance path.
+3. Continue bounded verification of previously asserted security closures.
+4. Treat production-release claims as unverified until an architect-approved
+   release assessment establishes them.
 
-## Quick Commands
+## Resume checklist
 
-```bash
-# Check current branch
-git branch --show-current
-
-# Create and switch to feature branch for CP-001
-git checkout develop
-git checkout -b feature/architecture-lock develop
-
-# See recent commits
-git log --oneline -10
-
-# Check for uncommitted changes
-git status
-```
-
----
-
-## State Update Protocol
-
-When you complete work, update these files **in order**:
-
-1. **CURRENT_STATE.md** — Update checkpoint status and module table
-2. **SESSION.md** — Document session objective, completion, and handoff
-3. **ACTIVE_CHECKPOINT.md** — Mark checkpoint transitions
-4. **PROGRESS.md** — Update completion registers
-5. **CHANGELOG.md** — Add entry for the completed work
-6. **NEXT_TASK.md** — Load the next task details
-7. **This file** — Update the At a Glance table
-8. **SPRINT.md** — Update sprint progress
-
----
-
-## Emergency Procedures
-
-| Situation | Action |
-|---|---|
-| Blocker found | Add to [BLOCKERS.md](BLOCKERS.md), update state |
-| Wrong branch | `git stash` → switch → `git stash pop` |
-| Merge conflict | Resolve, document in commit message |
-| Checkpoint criteria unclear | Check [MASTER_PLAN.md](../../governance/MASTER_PLAN.md) |
-| Lost context | Re-read this file from the top |
-
----
-
-> 💡 **Tip:** Bookmark this file. It's your compass for the CapMint project.
+1. Read [Architecture Status](../docs/architecture/ARCHITECTURE_STATUS.md).
+2. Confirm the checked-out branch and review boundary.
+3. Read the relevant architect decision and handoff before implementation.
+4. Run the repository's documented setup and test commands.

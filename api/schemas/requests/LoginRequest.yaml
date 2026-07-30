@@ -1,0 +1,19 @@
+title: LoginRequest
+type: object
+required:
+- username
+- password
+properties:
+  username:
+    type: string
+    description: Unique username identifier for the account.
+    example: admin
+  password:
+    type: string
+    description: Secret password for authentication.
+    example: password
+    format: password
+description: LoginRequest data schema.
+example:
+  username: admin
+  password: password

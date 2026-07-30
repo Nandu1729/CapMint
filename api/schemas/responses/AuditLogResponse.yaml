@@ -1,0 +1,12 @@
+title: AuditLogResponse
+type: object
+required:
+- auditLog
+properties:
+  auditLog:
+    $ref: ../domain/AuditLog.yaml
+    description: The auditLog attribute.
+    example: null
+description: AuditLogResponse data schema.
+example:
+  auditLog: null

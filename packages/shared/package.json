@@ -1,0 +1,31 @@
+{
+  "name": "@capmint/shared",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./errors": {
+      "types": "./errors.d.ts",
+      "default": "./errors.js"
+    },
+    "./logging": {
+      "types": "./logging.d.ts",
+      "default": "./logging.js"
+    },
+    "./metrics": {
+      "types": "./metrics.d.ts",
+      "default": "./metrics.js"
+    },
+    "./readiness": {
+      "types": "./readiness.d.ts",
+      "default": "./readiness.js"
+    },
+    "./tenant-db": {
+      "types": "./tenant-db.d.ts",
+      "default": "./tenant-db.js"
+    }
+  },
+  "dependencies": {
+    "prom-client": "^15.1.3"
+  }
+}

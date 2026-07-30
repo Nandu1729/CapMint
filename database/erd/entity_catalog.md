@@ -31,6 +31,7 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | Column Name | Database Data Type | Nullability | Constraints / Keys | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `NOT NULL` | `PRIMARY KEY` | Unique identifier. |
+| `organization_id` | `UUID` | `NOT NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Explicit tenant owner, mandatory after migration 0014 deleted the approved zero-reference orphan. |
 | `name` | `VARCHAR(255)` | `NOT NULL` | `UNIQUE` | Registered name of the certifier. |
 | `accreditation_details`| `JSONB` | `NOT NULL` | None | Accreditation agency IDs, licenses, validity dates. |
 | `public_key` | `VARCHAR(128)` | `NOT NULL` | None | Ed25519 cryptographic public key in Hex. |
@@ -41,6 +42,7 @@ The database is divided into nine core tables, mapped to their single-writer mic
 
 *   **Indexing Targets**:
     *   `idx_certifiers_key_status` ON (`key_status`) — Optimizes signature verification checks.
+    *   `idx_certifiers_organization_id` ON (`organization_id`) — Supports tenant-profile resolution and future RLS policies.
 *   **Domain Events**:
     *   Inserts trigger `CertifierRegistered`.
     *   Updates on keys trigger `CertifierKeyRotated`.
@@ -56,6 +58,7 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | Column Name | Database Data Type | Nullability | Constraints / Keys | Description |
 | :--- | :--- | :--- | :--- | :--- |
 | `id` | `UUID` | `NOT NULL` | `PRIMARY KEY` | Unique identifier. |
+| `organization_id` | `UUID` | `NOT NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Explicit tenant owner, mandatory after DM-03 C3c. |
 | `name` | `VARCHAR(255)` | `NOT NULL` | None | Registered producer or FPO name. |
 | `type` | `VARCHAR(32)` | `NOT NULL` | Check: `FARMER`, `FPO`, `BRAND`, `HIVE_OPERATOR` | Producer operating classification. |
 | `registry_references` | `JSONB` | `NOT NULL` | None | AgriStack IDs, TraceNet organic certificates. |
@@ -65,6 +68,7 @@ The database is divided into nine core tables, mapped to their single-writer mic
 
 *   **Indexing Targets**:
     *   `idx_producers_type` ON (`type`) — Optimizes classification filtering.
+    *   `idx_producers_organization_id` ON (`organization_id`) — Supports tenant-profile resolution and future RLS policies.
 *   **Domain Events**:
     *   Inserts trigger `ProducerOnboarded`.
 *   **Ledger Anchored**: Yes.
@@ -145,10 +149,12 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | `revocation_status` | `VARCHAR(32)` | `NOT NULL` | Default `'ACTIVE'`, Check: `ACTIVE`, `REVOKED` | Invalidation state. |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL` | Default `NOW()` | Ingestion timestamp. |
 | `updated_at` | `TIMESTAMPTZ` | `NOT NULL` | Default `NOW()` | Update timestamp. |
+| `assigned_laboratory_organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Certifier-managed activated NABL assignment enforced by C3b; legacy lots may remain unassigned. |
 
 *   **Indexing Targets**:
     *   `idx_lots_budget` ON (`budget_id`) — Optimizes quota consumption audits.
     *   `idx_lots_revocation` ON (`revocation_status`) — Optimizes status checks during scan resolution.
+    *   `idx_lots_assigned_laboratory_organization_id` ON (`assigned_laboratory_organization_id`) — Supports assigned-laboratory list and write checks.
 *   **Domain Events**:
     *   Created: `LotCreated` (deducts budget quota).
     *   Revoked: `LotRevoked` (triggers cascade revocation of unit codes).
@@ -200,9 +206,11 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | `report_reference` | `VARCHAR(500)` | `NOT NULL` | None | Secure object store URL of the PDF. |
 | `decision_impact` | `JSONB` | `NULL` | None | Extracted chemical residue limit trace details. |
 | `created_at` | `TIMESTAMPTZ` | `NOT NULL` | Default `NOW()` | Ingestion date. |
+| `submitted_by_organization_id` | `UUID` | `NULL` | `FOREIGN KEY` $\rightarrow$ `organizations(id)` | Authenticated submitting laboratory persisted on C3b inserts/replacements; legacy rows remain unknown. |
 
 *   **Indexing Targets**:
     *   `idx_lab_results_lot` ON (`lot_id`) — Optimizes verification lookup details.
+    *   `idx_lab_results_submitted_by_organization_id` ON (`submitted_by_organization_id`) — Supports laboratory provenance queries.
 *   **Domain Events**:
     *   Uploaded: `LabResultUploaded` (causes lot update and potential revocation cascade).
 *   **Ledger Anchored**: Yes.
@@ -253,6 +261,26 @@ The database is divided into nine core tables, mapped to their single-writer mic
     *   `idx_log_entries_entity` ON (`entity_type`, `entity_id`) — Optimizes history checks for specific records.
 *   **Domain Events**: None.
 *   **Ledger Anchored**: This *is* the ledger.
+
+---
+
+### 2.10 Table: `investigations`
+*   **Logical Owner Service**: `Verification Service`
+*   **Purpose**: Tracks anomaly cases derived from serialized unit codes.
+*   **Key Constraints**: Unique logical `public_identifier`; mandatory unique
+    FK-backed `unit_code_id` provenance to `unit_codes(id)`.
+
+| Column Name | Database Data Type | Nullability | Constraints / Keys | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `id` | `UUID` | `NOT NULL` | `PRIMARY KEY` | Investigation identifier. |
+| `public_identifier` | `UUID` | `NOT NULL` | `UNIQUE` | Public code identifier retained for compatibility. |
+| `unit_code_id` | `UUID` | `NOT NULL` | `FOREIGN KEY` $\rightarrow$ `unit_codes(id)` plus unique index | Exact provenance link backfilled in C3a and tightened in C3c. |
+| `risk_level` | `VARCHAR(32)` | `NOT NULL` | None | Current case risk. |
+| `status` | `VARCHAR(32)` | `NOT NULL` | Status CHECK | Investigation workflow state. |
+
+*   **Indexing Targets**:
+    *   `idx_investigations_unit_code_id` UNIQUE ON (`unit_code_id`) — Enforces
+        one case per unit and supports derived certifier ownership joins.
 
 ---
 *End of entity_catalog.md*

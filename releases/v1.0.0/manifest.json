@@ -1,0 +1,29 @@
+{
+  "version": "1.0.0",
+  "codename": "Genesis Harvest",
+  "release_date": "2026-07-20T13:40:00Z",
+  "status": "STABLE_RELEASE",
+  "services": [
+    { "name": "auth-service", "version": "1.0.0", "port": 8081 },
+    { "name": "cpq-service", "version": "1.0.0", "port": 8082 },
+    { "name": "mint-service", "version": "1.0.0", "port": 8083 },
+    { "name": "resolver-service", "version": "1.0.0", "port": 8084 },
+    { "name": "transparency-service", "version": "1.0.0", "port": 8085 },
+    { "name": "verification-service", "version": "1.0.0", "port": 8086 },
+    { "name": "integration-service", "version": "1.0.0", "port": 8087 }
+  ],
+  "migrations_included": [
+    "0001_add_certification_status_and_updated_at.sql",
+    "0002_add_investigations_table.sql",
+    "0003_add_auto_update_updated_at_trigger.sql",
+    "0004_widen_key_fields_and_expand_scan_verdict.sql",
+    "0005_add_performance_and_fk_indexes.sql",
+    "0006_seed_initial_system_admin_and_certifiers.sql"
+  ],
+  "compliance_verification": {
+    "total_tests": 52,
+    "passed": 52,
+    "failed": 0,
+    "compliance_rate": "100%"
+  }
+}

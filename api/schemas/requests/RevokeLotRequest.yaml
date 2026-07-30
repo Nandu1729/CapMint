@@ -1,0 +1,18 @@
+title: RevokeLotRequest
+type: object
+required:
+- lotId
+- reason
+properties:
+  lotId:
+    type: string
+    description: The lotId attribute.
+    example: string
+  reason:
+    type: string
+    description: The reason attribute.
+    example: string
+description: RevokeLotRequest data schema.
+example:
+  lotId: string
+  reason: string

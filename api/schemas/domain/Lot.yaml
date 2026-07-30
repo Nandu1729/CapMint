@@ -1,0 +1,55 @@
+title: Lot
+description: Serialized lot run execution
+type: object
+required:
+- id
+- budgetId
+- cropType
+- weightKg
+- totalUnits
+- gtin
+- verificationStatus
+properties:
+  id:
+    type: string
+    format: uuid
+    description: Unique identifier (UUID v4).
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  budgetId:
+    type: string
+    format: uuid
+    description: Unique identifier of the associated budget.
+    example: 00000000-0000-0000-0000-000000000010
+  cropType:
+    type: string
+    description: The cropType attribute.
+    example: string
+  weightKg:
+    type: number
+    description: The weightKg attribute.
+    example: 1.0
+  totalUnits:
+    type: integer
+    description: The totalUnits attribute.
+    example: 1
+  gtin:
+    type: string
+    description: Global Trade Item Number (GS1 standard key).
+    example: 07612345678900
+  verificationStatus:
+    type: string
+    enum:
+    - PENDING
+    - PASSED
+    - FAILED
+    - REVOKED
+    description: The verificationStatus attribute.
+    example: string
+example:
+  id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  budgetId: 00000000-0000-0000-0000-000000000010
+  cropType: string
+  weightKg: 1.0
+  totalUnits: 1
+  gtin: 07612345678900
+  verificationStatus: string

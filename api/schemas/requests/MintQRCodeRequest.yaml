@@ -1,0 +1,25 @@
+title: MintQRCodeRequest
+type: object
+required:
+- lot_id
+- gtin
+- quantity
+properties:
+  lot_id:
+    type: string
+    description: Unique batch lot identifier.
+    example: 00000000-0000-0000-0000-000000000050
+    format: uuid
+  gtin:
+    type: string
+    description: Global Trade Item Number (GS1 standard key).
+    example: 07612345678900
+  quantity:
+    type: integer
+    description: Quantity or volume of items requested.
+    example: 100
+description: MintQRCodeRequest data schema.
+example:
+  lot_id: 00000000-0000-0000-0000-000000000050
+  gtin: 07612345678900
+  quantity: 100

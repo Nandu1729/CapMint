@@ -1,0 +1,12 @@
+title: NotificationResponse
+type: object
+required:
+- notification
+properties:
+  notification:
+    $ref: ../domain/Notification.yaml
+    description: The notification attribute.
+    example: null
+description: NotificationResponse data schema.
+example:
+  notification: null

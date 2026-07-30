@@ -1,0 +1,66 @@
+title: BudgetListResponse
+type: object
+required:
+- budgets
+properties:
+  budgets:
+    type: array
+    items:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier (UUID v4).
+          example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+          format: uuid
+        producer:
+          type: string
+          description: The producer attribute.
+          example: string
+        allocated:
+          type: number
+          description: The allocated attribute.
+          example: 1.0
+        consumed:
+          type: number
+          description: The consumed attribute.
+          example: 1.0
+        status:
+          type: string
+          description: Current status of the entity.
+          example: ACTIVATED
+        crop:
+          type: string
+          description: Crop name.
+          example: Organic White Honey
+        start:
+          type: string
+          format: date-time
+          description: The start attribute.
+          example: string
+        end:
+          type: string
+          format: date-time
+          description: The end attribute.
+          example: string
+    description: The budgets attribute.
+    example:
+    - id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+      producer: string
+      allocated: 1.0
+      consumed: 1.0
+      status: ACTIVATED
+      crop: Organic White Honey
+      start: string
+      end: string
+description: BudgetListResponse data schema.
+example:
+  budgets:
+  - id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+    producer: string
+    allocated: 1.0
+    consumed: 1.0
+    status: ACTIVATED
+    crop: Organic White Honey
+    start: string
+    end: string

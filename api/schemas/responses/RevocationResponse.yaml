@@ -1,0 +1,24 @@
+title: RevocationResponse
+type: object
+required:
+- success
+- lotId
+- status
+properties:
+  success:
+    type: boolean
+    description: Request success indicator.
+    example: true
+  lotId:
+    type: string
+    description: The lotId attribute.
+    example: string
+  status:
+    type: string
+    description: Current status of the entity.
+    example: ACTIVATED
+description: RevocationResponse data schema.
+example:
+  success: true
+  lotId: string
+  status: ACTIVATED

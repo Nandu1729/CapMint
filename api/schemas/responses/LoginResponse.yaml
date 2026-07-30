@@ -1,0 +1,18 @@
+title: LoginResponse
+type: object
+required:
+- success
+- token
+properties:
+  success:
+    type: boolean
+    description: Request success indicator.
+    example: true
+  token:
+    type: string
+    description: The token attribute.
+    example: string
+description: LoginResponse data schema.
+example:
+  success: true
+  token: string

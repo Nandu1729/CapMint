@@ -1,0 +1,50 @@
+title: TransparencyLedgerEntry
+description: Append-only hash chain block entry
+type: object
+required:
+- id
+- previousHash
+- blockHash
+- entityType
+- entityId
+- eventType
+- payload
+properties:
+  id:
+    type: integer
+    description: Unique identifier (UUID v4).
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+    format: uuid
+  previousHash:
+    type: string
+    description: The previousHash attribute.
+    example: string
+  blockHash:
+    type: string
+    description: The blockHash attribute.
+    example: string
+  entityType:
+    type: string
+    description: The entityType attribute.
+    example: string
+  entityId:
+    type: string
+    description: The entityId attribute.
+    example: string
+  eventType:
+    type: string
+    description: The eventType attribute.
+    example: string
+  payload:
+    type: object
+    description: Full structured JSON payload of the event.
+    example: &id001
+      user_id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+example:
+  id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  previousHash: string
+  blockHash: string
+  entityType: string
+  entityId: string
+  eventType: string
+  payload: *id001

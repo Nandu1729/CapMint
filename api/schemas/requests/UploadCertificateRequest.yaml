@@ -1,0 +1,27 @@
+title: UploadCertificateRequest
+type: object
+required:
+- type
+- fileUrl
+- fileHash
+properties:
+  type:
+    type: string
+    enum:
+    - NPOP_ORGANIC
+    - NABL_TEST
+    description: General categorization type.
+    example: PRODUCER
+  fileUrl:
+    type: string
+    description: The fileUrl attribute.
+    example: string
+  fileHash:
+    type: string
+    description: The fileHash attribute.
+    example: string
+description: UploadCertificateRequest data schema.
+example:
+  type: PRODUCER
+  fileUrl: string
+  fileHash: string

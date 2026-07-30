@@ -1,0 +1,26 @@
+title: MintQRCodeResponse
+type: object
+required:
+- success
+- lotId
+- codes
+properties:
+  success:
+    type: boolean
+    description: Request success indicator.
+    example: true
+  lotId:
+    type: string
+    description: The lotId attribute.
+    example: string
+  codes:
+    type: array
+    items:
+      $ref: ../domain/QRCode.yaml
+    description: The codes attribute.
+    example: []
+description: MintQRCodeResponse data schema.
+example:
+  success: true
+  lotId: string
+  codes: []

@@ -1,0 +1,17 @@
+title: Metadata
+description: Telemetry tracking metadata
+type: object
+properties:
+  correlationId:
+    type: string
+    format: uuid
+    description: Distributed trace correlation ID
+    example: string
+  requestId:
+    type: string
+    format: uuid
+    description: API request ID
+    example: string
+example:
+  correlationId: string
+  requestId: string

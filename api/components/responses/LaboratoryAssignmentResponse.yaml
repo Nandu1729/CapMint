@@ -1,0 +1,5 @@
+description: Laboratory assignment updated successfully
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/responses/LaboratoryAssignmentResponse.yaml

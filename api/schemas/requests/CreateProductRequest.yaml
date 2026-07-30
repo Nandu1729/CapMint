@@ -1,0 +1,18 @@
+title: CreateProductRequest
+type: object
+required:
+- name
+- gtin
+properties:
+  name:
+    type: string
+    description: Human-readable legal name of the entity.
+    example: Premium Farms Ltd
+  gtin:
+    type: string
+    description: Global Trade Item Number (GS1 standard key).
+    example: 07612345678900
+description: CreateProductRequest data schema.
+example:
+  name: Premium Farms Ltd
+  gtin: 07612345678900

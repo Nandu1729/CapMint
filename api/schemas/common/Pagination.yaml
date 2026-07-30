@@ -1,0 +1,30 @@
+title: Pagination
+description: Pagination properties for lists
+type: object
+required:
+- page
+- limit
+- total
+- totalPages
+properties:
+  page:
+    type: integer
+    description: Current page number
+    example: 1
+  limit:
+    type: integer
+    description: Items per page limit
+    example: 10
+  total:
+    type: integer
+    description: Total items across all pages
+    example: 45
+  totalPages:
+    type: integer
+    description: Total pages count
+    example: 5
+example:
+  page: 1
+  limit: 10
+  total: 45
+  totalPages: 5

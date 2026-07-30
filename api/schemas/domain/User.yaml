@@ -1,0 +1,38 @@
+title: User
+description: Registered user record within an organization
+type: object
+required:
+- id
+- username
+- role
+- associated_entity_id
+properties:
+  id:
+    type: string
+    format: uuid
+    description: Unique identifier (UUID v4).
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  username:
+    type: string
+    description: Unique username identifier for the account.
+    example: admin
+  role:
+    type: string
+    enum:
+    - ADMIN
+    - PRODUCER
+    - PACK_HOUSE
+    - CERTIFIER
+    - LAB
+    description: User access role within the organization.
+    example: ADMIN
+  associated_entity_id:
+    type: string
+    format: uuid
+    description: The associated_entity_id attribute.
+    example: string
+example:
+  id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  username: admin
+  role: ADMIN
+  associated_entity_id: string

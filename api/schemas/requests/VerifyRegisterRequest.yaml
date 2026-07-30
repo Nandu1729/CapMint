@@ -1,0 +1,111 @@
+title: VerifyRegisterRequest
+type: object
+required:
+- public_identifier
+- gtin
+- serial
+- verification_url
+- qr_code_data_uri
+- product_metadata
+properties:
+  public_identifier:
+    type: string
+    description: Publicly shareable identifier for consumer verification.
+    example: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+    format: uuid
+  gtin:
+    type: string
+    description: Global Trade Item Number (GS1 standard key).
+    example: 07612345678900
+  serial:
+    type: string
+    description: Unique serial number within the GTIN scope.
+    example: SN908123
+  verification_url:
+    type: string
+    description: Redirection verification URL link.
+    example: http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+    format: uri
+  qr_code_data_uri:
+    type: string
+    description: Base64 encoded data URI of the generated QR code image.
+    example: data:image/png;base64,iVBORw0KGgoAAAANSUhEUg...
+  product_metadata:
+    type: object
+    properties:
+      name:
+        type: string
+        description: Human-readable legal name of the entity.
+        example: Premium Farms Ltd
+      manufacturer:
+        type: string
+        description: The manufacturer attribute.
+        example: string
+      country_of_origin:
+        type: string
+        description: The country_of_origin attribute.
+        example: string
+      batch_id:
+        type: string
+        description: The batch_id attribute.
+        example: string
+      packaging_date:
+        type: string
+        description: The packaging_date attribute.
+        example: string
+      expiry_date:
+        type: string
+        description: The expiry_date attribute.
+        example: string
+      net_weight:
+        type: string
+        description: The net_weight attribute.
+        example: string
+      organic_certificate_number:
+        type: string
+        description: The organic_certificate_number attribute.
+        example: string
+      certifying_authority:
+        type: string
+        description: The certifying_authority attribute.
+        example: string
+      scan_count:
+        type: string
+        description: The scan_count attribute.
+        example: string
+      mint_date:
+        type: string
+        description: The mint_date attribute.
+        example: string
+    description: Additional product description details.
+    example:
+      name: Premium Farms Ltd
+      manufacturer: string
+      country_of_origin: string
+      batch_id: string
+      packaging_date: string
+      expiry_date: string
+      net_weight: string
+      organic_certificate_number: string
+      certifying_authority: string
+      scan_count: string
+      mint_date: string
+description: VerifyRegisterRequest data schema.
+example:
+  public_identifier: 7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+  gtin: 07612345678900
+  serial: SN908123
+  verification_url: http://localhost:8080/verify/7e3b5df9-14a8-4ce3-8991-62547bdf92e2
+  qr_code_data_uri: data:image/png;base64,iVBORw0KGgoAAAANSUhEUg...
+  product_metadata:
+    name: Premium Farms Ltd
+    manufacturer: string
+    country_of_origin: string
+    batch_id: string
+    packaging_date: string
+    expiry_date: string
+    net_weight: string
+    organic_certificate_number: string
+    certifying_authority: string
+    scan_count: string
+    mint_date: string

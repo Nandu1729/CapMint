@@ -1,0 +1,47 @@
+title: LotListResponse
+type: object
+required:
+- lots
+properties:
+  lots:
+    type: array
+    items:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier (UUID v4).
+          example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+          format: uuid
+        budgetId:
+          type: string
+          description: Unique identifier of the associated budget.
+          example: 00000000-0000-0000-0000-000000000010
+          format: uuid
+        crop:
+          type: string
+          description: Crop name.
+          example: Organic White Honey
+        weight:
+          type: number
+          description: The weight attribute.
+          example: 1.0
+        status:
+          type: string
+          description: Current status of the entity.
+          example: ACTIVATED
+    description: The lots attribute.
+    example:
+    - id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+      budgetId: 00000000-0000-0000-0000-000000000010
+      crop: Organic White Honey
+      weight: 1.0
+      status: ACTIVATED
+description: LotListResponse data schema.
+example:
+  lots:
+  - id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+    budgetId: 00000000-0000-0000-0000-000000000010
+    crop: Organic White Honey
+    weight: 1.0
+    status: ACTIVATED

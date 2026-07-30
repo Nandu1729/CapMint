@@ -1,0 +1,34 @@
+title: TraceNetReference
+description: TraceNet integration certification record reference
+type: object
+required:
+- referenceId
+- licenseNumber
+- status
+- cropType
+properties:
+  referenceId:
+    type: string
+    description: The referenceId attribute.
+    example: string
+  licenseNumber:
+    type: string
+    description: The licenseNumber attribute.
+    example: string
+  status:
+    type: string
+    enum:
+    - VALID
+    - EXPIRED
+    - SUSPENDED
+    description: Current status of the entity.
+    example: ACTIVATED
+  cropType:
+    type: string
+    description: The cropType attribute.
+    example: string
+example:
+  referenceId: string
+  licenseNumber: string
+  status: ACTIVATED
+  cropType: string

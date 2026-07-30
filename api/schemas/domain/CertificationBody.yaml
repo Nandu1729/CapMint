@@ -1,0 +1,25 @@
+title: CertificationBody
+description: Registered certification body entity
+type: object
+required:
+- id
+- name
+- authorityCode
+properties:
+  id:
+    type: string
+    format: uuid
+    description: Unique identifier (UUID v4).
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  name:
+    type: string
+    description: Human-readable legal name of the entity.
+    example: Premium Farms Ltd
+  authorityCode:
+    type: string
+    description: The authorityCode attribute.
+    example: string
+example:
+  id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  name: Premium Farms Ltd
+  authorityCode: string

@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "BudgetServiceSchemas",
+  "definitions": {
+    "proposeBudgetRequest": {
+      "type": "object",
+      "required": [
+        "producerId",
+        "cropType",
+        "limitKg"
+      ],
+      "properties": {
+        "producerId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "cropType": {
+          "type": "string"
+        },
+        "limitKg": {
+          "type": "number",
+          "minimum": 0.01
+        }
+      },
+      "additionalProperties": false
+    },
+    "approveBudgetRequest": {
+      "type": "object",
+      "required": [
+        "budgetId",
+        "certifierId",
+        "signature"
+      ],
+      "properties": {
+        "budgetId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "certifierId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "signature": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "budgetDrawdownRequest": {
+      "type": "object",
+      "required": [
+        "budgetId",
+        "amountKg"
+      ],
+      "properties": {
+        "budgetId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "amountKg": {
+          "type": "number",
+          "minimum": 0.01
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

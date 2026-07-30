@@ -1,0 +1,14 @@
+title: InvestigationListResponse
+type: object
+required:
+- investigations
+properties:
+  investigations:
+    type: array
+    items:
+      $ref: ../domain/Investigation.yaml
+    description: The investigations attribute.
+    example: []
+description: InvestigationListResponse data schema.
+example:
+  investigations: []

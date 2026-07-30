@@ -1,0 +1,26 @@
+title: BudgetApproval
+description: Cryptographic budget approval payload
+type: object
+required:
+- budgetId
+- certifierId
+- signature
+properties:
+  budgetId:
+    type: string
+    format: uuid
+    description: Unique identifier of the associated budget.
+    example: 00000000-0000-0000-0000-000000000010
+  certifierId:
+    type: string
+    format: uuid
+    description: The certifierId attribute.
+    example: string
+  signature:
+    type: string
+    description: The signature attribute.
+    example: string
+example:
+  budgetId: 00000000-0000-0000-0000-000000000010
+  certifierId: string
+  signature: string

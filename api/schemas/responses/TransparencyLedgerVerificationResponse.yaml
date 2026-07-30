@@ -1,0 +1,18 @@
+title: TransparencyLedgerVerificationResponse
+type: object
+required:
+- success
+- details
+properties:
+  success:
+    type: boolean
+    description: Request success indicator.
+    example: true
+  details:
+    type: string
+    description: The details attribute.
+    example: string
+description: TransparencyLedgerVerificationResponse data schema.
+example:
+  success: true
+  details: string

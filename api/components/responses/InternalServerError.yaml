@@ -1,0 +1,5 @@
+description: System error encountered while processing the request
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/common/ErrorResponse.yaml

@@ -1,0 +1,66 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "MintingServiceSchemas",
+  "definitions": {
+    "mintQRCodeRequest": {
+      "type": "object",
+      "required": [
+        "budgetId",
+        "cropType",
+        "weightKg",
+        "count",
+        "gtin"
+      ],
+      "properties": {
+        "budgetId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "cropType": {
+          "type": "string"
+        },
+        "weightKg": {
+          "type": "number",
+          "minimum": 0.01
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "gtin": {
+          "type": "string",
+          "pattern": "^\\d{14}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "createLotRequest": {
+      "type": "object",
+      "required": [
+        "budgetId",
+        "weightKg",
+        "totalUnits",
+        "gtin"
+      ],
+      "properties": {
+        "budgetId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "weightKg": {
+          "type": "number",
+          "minimum": 0.01
+        },
+        "totalUnits": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "gtin": {
+          "type": "string",
+          "pattern": "^\\d{14}$"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

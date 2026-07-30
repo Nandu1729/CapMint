@@ -40,12 +40,12 @@ jobs:
 
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup Node.js Environment
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 18
+          node-version: 22
           cache: 'npm'
 
       - name: Install Monorepo Dependencies
@@ -62,3 +62,60 @@ jobs:
           DATABASE_URL: postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_test
           REDIS_URL: redis://localhost:6379/0
         run: npm run test --if-present
+
+      - name: Verify Migration Runner Unit Tests
+        run: npm test --workspace=backend/e2e-tests -- migration-runner.unit.test.ts
+
+      - name: Verify PostgreSQL Bootstrap and Reconciliation
+        env:
+          DATABASE_URL: postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_test
+          RUN_C1_INTEGRATION: '1'
+          C1_TEST_RUN_ID: ci_${{ github.run_id }}
+        run: npm test --workspace=backend/e2e-tests -- migration-reconciliation.test.ts
+
+      - name: Verify Secure Administrator Bootstrap and Development Seed
+        env:
+          DATABASE_URL: postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_test
+          REDIS_URL: redis://localhost:6379/0
+          RUN_F2_INTEGRATION: '1'
+          F2_TEST_RUN_ID: ci_${{ github.run_id }}_${{ github.run_attempt }}
+        run: npm test --workspace=backend/e2e-tests -- bootstrap-seed.test.ts
+
+      - name: Run Tenant-Scoped Compliance Suite
+        env:
+          DATABASE_URL: postgres://capmint_admin:capmint_secure_password@localhost:5432/capmint_test
+          REDIS_URL: redis://localhost:6379/0
+          RUN_F1_COMPLIANCE: '1'
+          F1_SUITE_RUN_ID: ci_${{ github.run_id }}_${{ github.run_attempt }}
+          F1_SUITE_ITERATIONS: '1'
+        run: npm test --workspace=backend/e2e-tests -- compliance-suite.test.ts
+
+  data-integrity-canary:
+    name: Over-Issuance Data Integrity Canary
+    if: >-
+      ${{
+        vars.RUN_DATA_INTEGRITY_CANARY == '1' &&
+        (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+      }}
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: ${{ secrets.CAPMINT_INTEGRATION_DATABASE_URL }}
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Monorepo Dependencies
+        run: npm ci
+
+      - name: Require Integration Database
+        run: test -n "$DATABASE_URL"
+
+      - name: Fail on Any Over-Issued Lot
+        run: node scripts/check-overfilled-lots.mjs

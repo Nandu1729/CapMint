@@ -1,0 +1,25 @@
+title: Producer
+description: Agricultural producer or packaging operator
+type: object
+required:
+- id
+- name
+- traceNetLicense
+properties:
+  id:
+    type: string
+    format: uuid
+    description: Unique identifier (UUID v4).
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  name:
+    type: string
+    description: Human-readable legal name of the entity.
+    example: Premium Farms Ltd
+  traceNetLicense:
+    type: string
+    description: The traceNetLicense attribute.
+    example: string
+example:
+  id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  name: Premium Farms Ltd
+  traceNetLicense: string

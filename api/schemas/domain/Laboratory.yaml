@@ -1,0 +1,25 @@
+title: Laboratory
+description: Registered testing laboratory entity
+type: object
+required:
+- id
+- name
+- nablLicense
+properties:
+  id:
+    type: string
+    format: uuid
+    description: Unique identifier (UUID v4).
+    example: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  name:
+    type: string
+    description: Human-readable legal name of the entity.
+    example: Premium Farms Ltd
+  nablLicense:
+    type: string
+    description: The nablLicense attribute.
+    example: string
+example:
+  id: 19b0b138-f4cb-4e03-9ce0-06c4cbcdf92e
+  name: Premium Farms Ltd
+  nablLicense: string

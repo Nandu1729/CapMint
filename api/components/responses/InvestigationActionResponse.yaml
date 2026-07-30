@@ -1,0 +1,5 @@
+description: Investigation action successfully complete
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/responses/InvestigationActionResponse.yaml

@@ -1,0 +1,12 @@
+title: BudgetDrawdownRequest
+type: object
+required:
+- amount
+properties:
+  amount:
+    type: number
+    description: The quantity to draw down from the budget capacity.
+    example: 1.0
+description: BudgetDrawdownRequest data schema.
+example:
+  amount: 1.0

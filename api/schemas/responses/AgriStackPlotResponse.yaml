@@ -1,0 +1,12 @@
+title: AgriStackPlotResponse
+type: object
+required:
+- plotRecord
+properties:
+  plotRecord:
+    $ref: ../domain/AgriStackPlot.yaml
+    description: The plotRecord attribute.
+    example: null
+description: AgriStackPlotResponse data schema.
+example:
+  plotRecord: null

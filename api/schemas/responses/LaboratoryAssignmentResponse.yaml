@@ -1,0 +1,24 @@
+title: LaboratoryAssignmentResponse
+type: object
+required:
+- lot
+properties:
+  lot:
+    type: object
+    required:
+    - id
+    - assigned_laboratory_organization_id
+    properties:
+      id:
+        type: string
+        format: uuid
+        description: Assigned lot identifier.
+      assigned_laboratory_organization_id:
+        type: string
+        format: uuid
+        description: Activated NABL laboratory organization assigned to the lot.
+description: Updated lot laboratory assignment.
+example:
+  lot:
+    id: 00000000-0000-0000-0000-000000000050
+    assigned_laboratory_organization_id: 00000000-0000-0000-0000-000000000004

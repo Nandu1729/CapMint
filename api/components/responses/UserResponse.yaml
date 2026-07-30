@@ -1,0 +1,5 @@
+description: User profile details returned
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/responses/RegisterUserResponse.yaml

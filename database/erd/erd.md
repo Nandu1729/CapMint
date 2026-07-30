@@ -12,8 +12,15 @@ The diagram below represents the logical relationships and primary/foreign key c
 
 ```mermaid
 erDiagram
+    organizations {
+        uuid id PK
+        varchar name UK
+        varchar type
+        varchar status
+    }
     certifiers {
         uuid id PK
+        uuid organization_id FK
         varchar name UK
         jsonb accreditation_details
         varchar public_key
@@ -24,6 +31,7 @@ erDiagram
     }
     producers {
         uuid id PK
+        uuid organization_id FK
         varchar name
         varchar type
         jsonb registry_references
@@ -60,6 +68,7 @@ erDiagram
         uuid id PK
         uuid producer_id FK
         uuid budget_id FK
+        uuid assigned_laboratory_organization_id FK
         jsonb product_metadata
         numeric batch_size
         jsonb processing_dates
@@ -82,6 +91,7 @@ erDiagram
     lab_results {
         uuid id PK
         uuid lot_id FK, UK
+        uuid submitted_by_organization_id FK
         varchar lab_name
         varchar test_type
         varchar result_summary
@@ -89,6 +99,13 @@ erDiagram
         varchar report_reference
         jsonb decision_impact
         timestamptz created_at
+    }
+    investigations {
+        uuid id PK
+        uuid public_identifier UK
+        uuid unit_code_id FK
+        varchar risk_level
+        varchar status
     }
     scan_events {
         uuid id PK
@@ -111,6 +128,10 @@ erDiagram
         timestamptz created_at
     }
 
+    organizations ||--o{ producers : "tenant owner"
+    organizations ||--o{ certifiers : "tenant owner"
+    organizations ||--o{ lots : "assigned laboratory"
+    organizations ||--o{ lab_results : "submitted by"
     producers ||--o{ plots_or_hive_clusters : "owns"
     certifiers ||--o{ budgets : "approves"
     producers ||--o{ budgets : "receives"
@@ -118,6 +139,7 @@ erDiagram
     producers ||--o{ lots : "packages"
     lots ||--o{ unit_codes : "groups"
     lots ||--o| lab_results : "supported by"
+    unit_codes ||--o{ investigations : "investigated by"
     unit_codes ||--o{ scan_events : "triggers"
 ```
 
@@ -132,7 +154,19 @@ erDiagram
 5.  **`producers` $\rightarrow$ `lots` ($1:N$)**: A producer acts as the packaging organization for zero or more lots.
 6.  **`lots` $\rightarrow$ `unit_codes` ($1:N$)**: A lot run generates one or more retail-level package unit codes.
 7.  **`lots` $\rightarrow$ `lab_results` ($1:1$)**: A lot run is backed by at most one analytical test report (NMR/residue panels).
-8.  **`unit_codes` $\rightarrow$ `scan_events` ($1:N$)**: An individual unit code generates zero or more public verification telemetry logs.
+8.  **`unit_codes` $\rightarrow$ `investigations` ($1:0..1$)**: Every investigation resolves through an exact mandatory FK-backed unit-code link; the C3c unique index permits at most one investigation per unit.
+9.  **`unit_codes` $\rightarrow$ `scan_events` ($1:N$)**: An individual unit code generates zero or more public verification telemetry logs.
+
+The tenant root is `organizations`. Its profile foreign keys permit structural
+1:N ownership. C3c makes `producers.organization_id` mandatory; migration 0014
+deletes the approved zero-reference revoked certifier and makes
+`certifiers.organization_id` mandatory. Runtime authorization derives producer
+and certifier scope through those explicit ownership keys. C3b
+assigns laboratories through the nullable lot relationship,
+restricts laboratory lists and writes to that assignment, and records the
+authenticated submitter on new/replaced results. Legacy `NULL` submitters remain
+unknown. No RLS policy exists, and the laboratory tenant columns remain
+nullable.
 
 *Note: The `log_entries` table is logically associated with all mutable entities (Budgets, Lots, Unit Codes) using polymorphic references (`entity_type` + `entity_id`) without physical foreign key constraints. This prevents cascading deletions or profile changes from breaking the historical cryptographic chain.*
 

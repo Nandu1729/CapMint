@@ -1,0 +1,5 @@
+description: Semantic validation errors on input properties
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/common/ValidationErrorResponse.yaml
