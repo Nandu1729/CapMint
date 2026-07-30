@@ -218,7 +218,8 @@ full observability layer, and the verified hardening series. The accepted risks 
 post-GA work. Rollback: revert the merge (additive migrations stay). Release notes:
 `releases/v1.1.0/RELEASE_NOTES_v1.1.0.md`.
 
-**Related Commits.** _promotion merge + `v1.1.0` tag — to be recorded on sign-off_
+**Related Commits.** Promotion merge `549c7576ca7e9447705c6fbb5380ff24d30e1c33`;
+annotated tag `v1.1.0`
 **Related Documents.** [PROMOTION_READINESS.md](PROMOTION_READINESS.md),
 [ARCHITECT_REVIEW_HISTORY.md](../../ARCHITECT_REVIEW_HISTORY.md) (Reviews #24–#26),
 `releases/v1.1.0/RELEASE_NOTES_v1.1.0.md`
