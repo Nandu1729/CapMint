@@ -389,6 +389,49 @@ short smoke re-run on `develop` to confirm `0020` + the assigned-lab success pat
 
 ---
 
+## Review #18 — HO-007 confirm-live: ledger append RLS/URL fix (smoke gate GREEN)
+
+| Field | Value |
+|---|---|
+| **Review Number** | #18 |
+| **Milestone** | HO-007 confirm-live smoke — turn the DM-04 RLS gate GREEN by fixing the two ledger defects the live re-run exposed |
+| **Branch** | `fix/ledger-append-rls-and-url` → merged into `feat/post-dm03-integration` (`develop`) |
+| **Commit Range Reviewed** | `0fee1579..4c0cc026` — `f98921d0` (verify URL) + `85ed7974` (transparency+auth lock) + merge `4c0cc026` |
+| **Architecture Status** | PASS |
+| **Security Status** | PASS (ledger tamper-evidence restored; verified live) |
+| **Migration Status** | N/A (code-only) |
+| **Testing Status** | PASS — Attempt 07 **GREEN**: compliance 88/88, `LAB-04` PASS, chain `unbroken=true`/46 entries/0 broken links |
+| **Approved Decisions** | none new |
+| **Outstanding Items** | None from the smoke gate — **gate GREEN**. Observability (O1–O4) is the next milestone. |
+| **Next Review Starts From** | `4c0cc026`. |
+
+### Findings (delta only)
+Attempt 06 (first live confirm-run) was RED for two chained reasons; both fixed here:
+- **Ledger URL (`LAB-04`).** `LEDGER_URL` used `TRANSPARENCY_SERVICE_URL` (a base, `.env.example`
+  `http://localhost:8085`) verbatim → verification `POST /` → 404 → audit events silently
+  dropped. Fixed to derive `LEDGER_URL = base + /api/v1/log`.
+- **`FOR UPDATE` on an immutable table under RLS.** `log_entries` has INSERT/SELECT policies
+  only (no UPDATE), so `SELECT … FOR UPDATE` returns **0 rows** for the non-owner `capmint_app`
+  role → the append fell back to the all-zero `previous_hash` and forked the chain. Fixed by
+  taking the same `LOCK TABLE … SHARE ROW EXCLUSIVE` the 0020 registration definer uses, then a
+  plain SELECT of the tail — across **all** app append paths (transparency ×2, auth ×1; definer
+  already so). No `FOR UPDATE` on `log_entries` remains.
+- **Architect implemented the fix directly** (operator-directed; verification-scope, no
+  migration, append authorization/`WITH CHECK` unchanged).
+- **Independent verification.** Live probe: `FOR UPDATE`→0 rows vs `LOCK TABLE`+plain→real tail as
+  `capmint_app`. Post-run I recomputed the full chain against `capmint_dev`
+  (`sha256(entity_type‖entity_id‖event_type‖payload_hash‖previous_hash)`, genesis-aware):
+  **45 links checked, 0 broken, 0 hash mismatches.** Evidence: `docs/smoke/DM04_RLS_SMOKE_REPORT.md`
+  (Attempt 07) + preserved 01–06.
+
+### Approval
+`APPROVED` — **the DM-04 RLS smoke gate (opened at Review #14) is COMPLETE and GREEN.** Tenant
+isolation, capacity, F-org, registration-via-definer, the assigned-lab pair, and the transparency
+ledger are all verified live as `capmint_app`. Boundary advances to `4c0cc026`. Next: observability
+(HO-008 O1 unparks), then a `develop → main` promotion discussion.
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 

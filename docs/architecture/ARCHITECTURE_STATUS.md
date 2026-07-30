@@ -4,7 +4,7 @@
 > [AD-002](DECISIONS.md)). Updated at each milestone approval gate. Where this file and
 > the `state/` cards disagree, this file wins until reconciliation.
 >
-> **Last updated:** 2026-07-29 (Review #17 — P1a/P1b closed; **all smoke-gate defects resolved**. #16 F-org (defect #2). #15 canonical service DB role (defect #1). #14 DM-04 RLS runtime-verified (YELLOW))
+> **Last updated:** 2026-07-30 (Review #18 — ledger append RLS/URL fix; **DM-04 RLS smoke gate GREEN end-to-end** (Attempt 07: compliance 88/88, `LAB-04` PASS, ledger unbroken). #14–#17 closed all gate defects.)
 
 ---
 
@@ -20,10 +20,11 @@
 - **Integration line:** `develop` (== `feat/post-dm03-integration`), **pushed to `origin/develop`**
   for frontend + backend integration testing. Requires `npm ci` (node_modules untracked) and a
   `.env` with the `capmint_app` `DATABASE_URL`.
-- **HEAD:** `0fee1579` (Review #17 — P1a/P1b closed; **all four smoke-gate defects resolved**)
-- **RLS runtime status:** **VERIFIED (Review #14).** The first genuine `capmint_app` run
-  (services as the non-owner role, `rolbypassrls=false`) passed the live frontend→API→RLS
-  smoke (Attempt 05, YELLOW). Architect re-verified at the DB layer: fail-closed for a foreign
+- **HEAD:** `4c0cc026` (Review #18 — ledger append RLS/URL fix; **DM-04 RLS smoke gate GREEN**)
+- **RLS runtime status:** **VERIFIED GREEN end-to-end (Review #18).** The live frontend→API→RLS
+  smoke passes as the non-owner `capmint_app` (`rolbypassrls=false`) — Attempt 07: compliance
+  88/88, `LAB-04` PASS, transparency ledger `unbroken=true` (46 entries, 0 broken links,
+  independently recomputed). First genuine run was Attempt 05 (YELLOW, Review #14); Architect re-verified at the DB layer: fail-closed for a foreign
   tenant (0 budgets/lots/unit_codes), scoped for the real tenant, public-code-only for the
   consumer path. Earlier "RLS clean" reads (Attempts 03–04) were **false positives** — services
   had loaded stale per-service `.env` and run as the RLS-bypassing owner (see tracked defect 1).
