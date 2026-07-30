@@ -90,11 +90,37 @@ jobs:
           F1_SUITE_ITERATIONS: '1'
         run: npm test --workspace=backend/e2e-tests -- compliance-suite.test.ts
 
-  data-integrity-canary:
-    name: Over-Issuance Data Integrity Canary
+  data-integrity-canary-gate:
+    name: Over-Issuance Canary Configuration Gate
     if: >-
       ${{
         vars.RUN_DATA_INTEGRITY_CANARY == '1' &&
+        (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
+      }}
+    runs-on: ubuntu-latest
+    env:
+      INTEGRATION_DATABASE_URL: ${{ secrets.CAPMINT_INTEGRATION_DATABASE_URL }}
+    outputs:
+      database_configured: ${{ steps.database_secret.outputs.configured }}
+
+    steps:
+      - name: Detect Integration Database Secret
+        id: database_secret
+        shell: bash
+        run: |
+          if [[ -n "$INTEGRATION_DATABASE_URL" ]]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  data-integrity-canary:
+    name: Over-Issuance Data Integrity Canary
+    needs: data-integrity-canary-gate
+    if: >-
+      ${{
+        vars.RUN_DATA_INTEGRITY_CANARY == '1' &&
+        needs.data-integrity-canary-gate.outputs.database_configured == 'true' &&
         (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false)
       }}
     runs-on: ubuntu-latest
