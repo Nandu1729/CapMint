@@ -141,38 +141,77 @@ live implementation. **11/11 verified; 2 low-severity follow-ups; 0 blockers.**
 
 ## G. Repo hygiene & documentation honesty
 
-- [ ] **[H] G1 — No false status claims.** Purge any residual "GA / Production Release complete"
-  language that predates and contradicts this hardening phase.
+- [x] **[H] G1 — No false status claims.** Corrective banners added to the two remaining stale claims
+  (`releases/v1.0.0/RELEASE_NOTES_v1.0.0.md` "production-ready release" and `state/SPRINT.md` "Sprint 8
+  Production Release ✅ COMPLETE"), pointing to ARCHITECTURE_STATUS / PROMOTION_READINESS as
+  authoritative. `state/CURRENT.md` and `state/MILESTONES.md` were already corrected (CP-023 = NOT
+  ESTABLISHED).
 - [ ] **[S] G2 — Declared-but-empty services.** The 7 placeholder backend dirs (analytics, audit,
   clone-detection, gateway, identity, notification, scan) overstate the architecture. Either remove
-  them or mark them explicitly as intentional future stubs in the docs.
+  them or mark them explicitly as intentional future stubs in the docs. **→ see soft-gate disposition.**
 - [x] **G3 — `node_modules` untracked** (M1 hygiene).
-- [ ] **[S] G4 — Reconcile `state/` cards** with the architect layer (AD-002): wrong branch in
-  `state/CURRENT.md`, false "all complete" in `state/MILESTONES.md`.
+- [x] **[S] G4 — `state/` cards reconciled** (AD-002): `state/CURRENT.md`/`MILESTONES.md` already carry
+  honest "not a verified release" corrections; `state/SPRINT.md` now banner-corrected (G1).
 
 ---
 
-## H. Cutover & rollback
+## H. Cutover & rollback — **plan drafted; awaiting execution + sign-off**
 
-- [ ] **[H] H1 — Promotion mechanic decided.** How `main` advances (recommended: `--no-ff` merge of
-  the reviewed `develop` SHA, annotated release tag `vX.Y.0`), and who executes it (never a direct
-  push to `main`; via PR).
-- [ ] **[H] H2 — Rollback plan.** How to revert (revert the merge commit) and the DB implication
-  (which migrations are safe to leave vs. must be downed) if promotion is aborted.
-- [ ] **[S] H3 — Release notes + version tag** summarizing DM-03/DM-04/observability for `main`.
-- [ ] **[H] H4 — Operator sign-off** recorded as an AD in [DECISIONS.md](DECISIONS.md), listing which
-  soft gates were consciously accepted as risk.
+- [x] **[H] H1 — Promotion mechanic decided** (see procedure below): PR `develop → main`, `--no-ff`
+  merge of the reviewed SHA, annotated tag `v1.1.0`. Never a direct push to `main`.
+- [x] **[H] H2 — Rollback plan drafted** (see below): revert the merge commit; migrations `0014–0020`
+  are additive/forward-only — leave applied (no destructive down-migration needed).
+- [ ] **[S] H3 — Release notes + version tag** for `main` summarizing DM-03/DM-04 + observability.
+- [ ] **[H] H4 — Operator sign-off** — **YOURS to give.** Recorded as an AD in [DECISIONS.md](DECISIONS.md),
+  listing the accepted soft-gate risks (below). This is the final gate.
+
+### Promotion procedure (H1)
+1. Confirm `develop` HEAD is the reviewed SHA and CI is green on it (Gate E).
+2. Open PR `develop → main`; CI runs on the PR (must be green).
+3. Merge with `--no-ff` (preserve the integration history); title `release: promote develop → main (vN)`.
+4. Tag the merge commit: `git tag -a v1.1.0 -m "…"; git push origin v1.1.0`.
+5. Post-promote: run the DB migration/bootstrap against the production database as `capmint_admin`;
+   confirm services boot as `capmint_app` (the `assertRlsServiceRole` guard).
+
+### Rollback plan (H2)
+- **Code:** `git revert -m 1 <merge-sha>` on `main` via PR (never force-push `main`).
+- **DB:** migrations promoted (`0014–0020`) are **additive / forward-only** (NOT NULL tightenings,
+  new policies, definer functions, indexes). Reverting the *code* does not require dropping them;
+  they remain compatible with the pre-promotion code. No destructive down-migration is defined —
+  a forward-fix migration is preferred if a schema issue is found.
+- **Ledger:** append-only; never rewound. Any bad append is corrected by a compensating entry, not deletion.
 
 ---
 
-## Recommended sequencing
+## Soft-gate risk dispositions — **recommended (operator ratifies at H4)**
 
-1. **Gate A (security verification pass)** — the biggest unknown; run as a bounded review series
-   (one review per cluster of A-items), since `main` predates the whole hardening line.
-2. **Gates D + E** (migration + CI) — mechanical, mostly already covered by CI; confirm on the SHA.
-3. **Decide soft gates C + F + G2/G4** — each becomes either a closed item or a recorded AD risk.
-4. **Gate G1** — documentation-honesty sweep.
-5. **Gate H** — cutover, tag, operator sign-off.
+Each open `[S]` gate is either *accepted as risk* (recorded AD, ship now) or *build-now*. Architect
+recommendation below; **the acceptance decision is the operator's** and is finalized in the H4 sign-off AD.
+
+| Soft gate | Architect recommendation | Rationale |
+|---|---|---|
+| **B3** RLS ENABLE-not-FORCE | **Accept** | Intentional (owner runs migrations); no prod actor uses the owner role on the request path (startup guard enforces `capmint_app`). |
+| **C2** Ledger external anchoring | **Accept (post-GA)** | Internal hash-chain integrity is verified (Review #18). External notary anchoring is a future enhancement; document as a known limitation. |
+| **C3** Append-identity restriction | **Accept (post-GA)** | Appends already require `JWT_SECRET`; tighter per-service identity is an enhancement, not a blocker. |
+| **C4** Append serialization at scale | **Accept + monitor** | `LOCK TABLE` is correct; a throughput ceiling only at high volume. `ledger_append_total` metric now observes it (O3). |
+| **D3** Migration reversibility | **Accept** | Additive/forward-only set; forward-fix strategy documented (H2). |
+| **F2** Scrape + alerting | **Build-now (light) or Accept** | `/metrics` exists; wiring a scrape target + a few alert rules is small. Recommend a fast follow; acceptable to ship without if monitored manually at first. |
+| **F3** Log destination | **Accept** | Structured JSON to stdout is captured by the host/process manager; formal aggregation is a follow-up. |
+| **F4** `/ready` consumer | **Accept** | No orchestrator (D-003); `/ready` is available for a future process manager / LB health check. |
+| **F-E3** Over-issuance canary secret | **Accept** | Invariant covered by A1 + Review #18 + compliance; wire `CAPMINT_INTEGRATION_DATABASE_URL` later to activate the canary. |
+| **G2** Empty placeholder services | **Build-now (docs)** | Recommend a one-line note in each of the 7 empty dirs (or removal) so architecture isn't overstated. Cheap; do before promotion. |
+| **H3** Release notes + tag | **Build-now** | Part of the cutover; write with H1. |
+
+---
+
+## Remaining before `develop → main`
+
+**Hard gates:** all closed **except H4 (operator sign-off)**. **Soft gates:** dispositions recommended
+above — need your accept/build ruling. Suggested last mile:
+1. You rule on the soft-gate dispositions (accept vs build).
+2. I (or Codex) execute any "build-now" items (G2 stub notes; H3 release notes; optionally F2 alerts).
+3. Open the `develop → main` PR; confirm CI green; merge `--no-ff`; tag `v1.1.0`.
+4. You record the **H4 sign-off AD** in DECISIONS.md — promotion complete.
 
 Promotion proceeds only when **every [H] is checked** and **every open [S] has an accepted-risk AD**.
 

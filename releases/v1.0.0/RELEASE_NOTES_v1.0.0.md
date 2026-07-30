@@ -1,5 +1,12 @@
 # CapMint Release Notes — v1.0.0 ("Genesis Harvest")
 
+> ⚠️ **Historical / not an architect-verified production release.** This v1.0.0 note predates the
+> Security-Hardening + Multi-Tenancy Remediation phase and its "production-ready" framing was never
+> ratified by an architect production-readiness assessment. No GA has been established on `main`
+> (see `state/MILESTONES.md`: *CP-023 Production Release — NOT ESTABLISHED*). The authoritative current
+> state is [docs/architecture/ARCHITECTURE_STATUS.md](../../docs/architecture/ARCHITECTURE_STATUS.md);
+> the promotion gate list is [docs/architecture/PROMOTION_READINESS.md](../../docs/architecture/PROMOTION_READINESS.md).
+
 **Release Date:** 2026-07-20  
 **Version:** `1.0.0`  
 **Compliance Rating:** `52 / 52 Passed (100%)`  
@@ -8,6 +15,10 @@
 
 ## 1. Release Overview
 CapMint v1.0.0 is the initial production-ready release of the capacity-backed anti-counterfeiting and provenance registry platform for agricultural and organic supply chains.
+
+> **Correction:** the "production-ready" claim above is historical and unverified. Production readiness
+> for `develop → main` is gated by [PROMOTION_READINESS.md](../../docs/architecture/PROMOTION_READINESS.md)
+> (Gates A/B/D/E closed; G1/H and soft-gate risk acceptances outstanding).
 
 ---
 

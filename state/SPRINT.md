@@ -1,8 +1,13 @@
 # CapMint — Sprint Tracking
 
+> ⚠️ **Unverified sprint log (AD-002).** "✅ COMPLETE" markers below are self-reported sprint status,
+> **not** architect-verified release assessments. In particular, "Sprint 8 — Production Release" did
+> **not** establish a GA; no production release exists on `main` (see `state/MILESTONES.md` CP-023 =
+> *NOT ESTABLISHED*). Authoritative state: [docs/architecture/ARCHITECTURE_STATUS.md](../docs/architecture/ARCHITECTURE_STATUS.md).
+>
 > **Last Updated:** 2026-07-24  
 > **Current Sprint:** Sprint 9 — Workflow Gap Closures ✅ COMPLETE  
-> **Previous Sprint:** Sprint 8 — Production Release & Hardening ✅ COMPLETE  
+> **Previous Sprint:** Sprint 8 — Production Release & Hardening ✅ COMPLETE *(self-reported; not a verified GA)*  
 
 ---
 
