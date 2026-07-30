@@ -122,4 +122,58 @@ describe('shared structured logging', () => {
       'x-request-id': REQUEST_ID
     });
   });
+
+  it('trusts forwarded client IPs only when explicitly enabled', async () => {
+    async function injectedIp(env: NodeJS.ProcessEnv) {
+      const server = Fastify({
+        ...createLoggingOptions(env),
+        logger: false
+      });
+      server.get('/ip', async request => ({
+        ip: request.ip,
+        loginKey: `ratelimit:login:${request.ip}`,
+        verifyKey: `ratelimit:verify:${request.ip}`
+      }));
+
+      const response = await server.inject({
+        method: 'GET',
+        url: '/ip',
+        headers: {
+          'x-forwarded-for': '1.2.3.4'
+        }
+      });
+      await server.close();
+      return response.json();
+    }
+
+    await expect(injectedIp({} as NodeJS.ProcessEnv)).resolves.toEqual({
+      ip: '127.0.0.1',
+      loginKey: 'ratelimit:login:127.0.0.1',
+      verifyKey: 'ratelimit:verify:127.0.0.1'
+    });
+    await expect(injectedIp({ TRUST_PROXY: 'true' } as NodeJS.ProcessEnv)).resolves.toEqual({
+      ip: '1.2.3.4',
+      loginKey: 'ratelimit:login:1.2.3.4',
+      verifyKey: 'ratelimit:verify:1.2.3.4'
+    });
+  });
+
+  it('accepts a bounded proxy hop count and rejects unsafe configuration', () => {
+    expect((createLoggingOptions({
+      TRUST_PROXY: '1'
+    } as NodeJS.ProcessEnv) as any).trustProxy).toBe(1);
+    expect((createLoggingOptions({
+      TRUST_PROXY: 'false'
+    } as NodeJS.ProcessEnv) as any).trustProxy).toBe(false);
+    expect((createLoggingOptions({} as NodeJS.ProcessEnv) as any).trustProxy).toBe(false);
+
+    expect(() => createLoggingOptions({
+      TRUST_PROXY: 'all'
+    } as NodeJS.ProcessEnv)).toThrow(
+      'TRUST_PROXY must be "true", "false", or an integer hop count from 0 to 255.'
+    );
+    expect(() => createLoggingOptions({
+      TRUST_PROXY: '256'
+    } as NodeJS.ProcessEnv)).toThrow(TypeError);
+  });
 });

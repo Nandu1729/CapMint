@@ -189,8 +189,8 @@ quarantine must be documented so it is not misread as a cryptographic key-compro
 |---|---|
 | **Decision ID** | AD-006 |
 | **Title** | Promote `develop` → `main` as v1.1.0, accepting the recorded soft-gate risks |
-| **Date** | 2026-07-30 (proposed) |
-| **Status** | **PROPOSED — awaiting operator sign-off** (this is promotion Gate H4) |
+| **Date** | 2026-07-30 |
+| **Status** | **APPROVED** |
 
 **Context.** All hard promotion gates are closed and independently verified: **A** security
 (Review #24, 11/11), **B** RLS/tenancy (Review #25), **D** migrations (Review #25), **E** CI green
@@ -198,9 +198,9 @@ quarantine must be documented so it is not misread as a cryptographic key-compro
 [PROMOTION_READINESS.md](PROMOTION_READINESS.md). The only remaining hard gate is this operator
 sign-off (H4). `main` is 215 commits behind `develop`.
 
-**Decision.** _(operator to ratify)_ Promote the reviewed `develop` SHA to `main` via `--no-ff`
-merge + annotated tag `v1.1.0`, **accepting** the following soft-gate risks as consciously deferred
-(architect-recommended dispositions):
+**Decision.** Operator Nandu (`Nandu1729`) approves promotion of reviewed `develop` SHA
+`a48ae385` to `main` via `--no-ff` merge + annotated tag `v1.1.0`, **accepting** the following
+soft-gate risks as consciously deferred (architect-recommended dispositions):
 - **B3** RLS ENABLE-not-FORCE (intentional) · **C2** no external ledger anchoring (post-GA) ·
   **C3** append-identity restriction (post-GA) · **C4** append serialization ceiling (monitored via O3) ·
   **D3** additive/forward-only migrations (forward-fix policy) · **F2** scrape/alerting (fast follow) ·
@@ -218,7 +218,8 @@ full observability layer, and the verified hardening series. The accepted risks 
 post-GA work. Rollback: revert the merge (additive migrations stay). Release notes:
 `releases/v1.1.0/RELEASE_NOTES_v1.1.0.md`.
 
-**Related Commits.** _promotion merge + `v1.1.0` tag — to be recorded on sign-off_
+**Related Commits.** Promotion merge `549c7576ca7e9447705c6fbb5380ff24d30e1c33`;
+annotated tag `v1.1.0`
 **Related Documents.** [PROMOTION_READINESS.md](PROMOTION_READINESS.md),
 [ARCHITECT_REVIEW_HISTORY.md](../../ARCHITECT_REVIEW_HISTORY.md) (Reviews #24–#26),
 `releases/v1.1.0/RELEASE_NOTES_v1.1.0.md`
