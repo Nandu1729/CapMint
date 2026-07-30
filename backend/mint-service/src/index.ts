@@ -16,6 +16,7 @@ import {
   createLoggingOptions,
   registerRequestLogging
 } from '../../../packages/shared/logging.js';
+import { createErrorHandler } from '../../../packages/shared/errors.js';
 import { registerReadiness } from '../../../packages/shared/readiness.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
@@ -29,6 +30,7 @@ declare module 'fastify' {
 
 const server = Fastify(createLoggingOptions());
 registerRequestLogging(server);
+server.setErrorHandler(createErrorHandler());
 
 // Configure JWT plugin
 const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-insecure-secret' : '');

@@ -17,6 +17,7 @@ import {
   forwardHeaders,
   registerRequestLogging
 } from '../../../packages/shared/logging.js';
+import { createErrorHandler } from '../../../packages/shared/errors.js';
 import { registerReadiness } from '../../../packages/shared/readiness.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
@@ -36,6 +37,7 @@ declare module 'fastify' {
 
 const server = Fastify(createLoggingOptions());
 registerRequestLogging(server);
+server.setErrorHandler(createErrorHandler());
 
 // Configure CORS headers manually to support client-side fetch from frontend
 server.addHook('onRequest', async (request, reply) => {

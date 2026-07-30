@@ -14,6 +14,7 @@ import {
   createLoggingOptions,
   registerRequestLogging
 } from '../../../packages/shared/logging.js';
+import { createErrorHandler } from '../../../packages/shared/errors.js';
 import { registerReadiness } from '../../../packages/shared/readiness.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
@@ -27,6 +28,7 @@ declare module 'fastify' {
 
 const server = Fastify(createLoggingOptions());
 registerRequestLogging(server);
+server.setErrorHandler(createErrorHandler());
 
 // Configure JWT plugin (using same shared secret)
 const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-insecure-secret' : '');
@@ -37,22 +39,6 @@ if (!JWT_SECRET) {
 server.register(jwt, {
   secret: JWT_SECRET,
   verify: { algorithms: ['HS256'] }
-});
-
-// Global error handler complying with RFC 7807 Problem Details
-server.setErrorHandler((error, request, reply) => {
-  request.log.error(error);
-  const statusCode = error.statusCode || 500;
-  const errorCode = error.code || 'INTERNAL_SERVER_ERROR';
-  reply.status(statusCode).send({
-    success: false,
-    error: {
-      statusCode,
-      code: errorCode,
-      message: error.message,
-      details: []
-    }
-  });
 });
 
 // Decorator: authenticate

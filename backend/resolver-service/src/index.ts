@@ -12,12 +12,14 @@ import {
   createLoggingOptions,
   registerRequestLogging
 } from '../../../packages/shared/logging.js';
+import { createErrorHandler } from '../../../packages/shared/errors.js';
 import { registerReadiness } from '../../../packages/shared/readiness.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
 const server = Fastify(createLoggingOptions());
 registerRequestLogging(server);
+server.setErrorHandler(createErrorHandler());
 
 // Initialize PostgreSQL Client Pool
 const DATABASE_URL = process.env.DATABASE_URL || '';
@@ -37,22 +39,6 @@ if (!REDIS_URL) {
 }
 const redisClient = new Redis(REDIS_URL);
 registerReadiness(server, { pgPool, redisClient });
-
-// Global error handler complying with RFC 7807 Problem Details
-server.setErrorHandler((error, request, reply) => {
-  request.log.error(error);
-  const statusCode = error.statusCode || 500;
-  const errorCode = error.code || 'INTERNAL_SERVER_ERROR';
-  reply.status(statusCode).send({
-    success: false,
-    error: {
-      statusCode,
-      code: errorCode,
-      message: error.message,
-      details: []
-    }
-  });
-});
 
 // Standard health check route
 server.get('/health', async () => {

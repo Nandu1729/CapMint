@@ -8,6 +8,7 @@ import {
   createLoggingOptions,
   registerRequestLogging
 } from '../../../packages/shared/logging.js';
+import { createErrorHandler } from '../../../packages/shared/errors.js';
 import { registerReadiness } from '../../../packages/shared/readiness.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
@@ -20,6 +21,7 @@ declare module 'fastify' {
 
 const server = Fastify(createLoggingOptions());
 registerRequestLogging(server);
+server.setErrorHandler(createErrorHandler());
 
 const DATABASE_URL = process.env.DATABASE_URL || '';
 if (!DATABASE_URL) {
@@ -71,22 +73,6 @@ async function authorizeIntegrationLookup(request: FastifyRequest, reply: Fastif
     });
   }
 }
-
-// Global error handler complying with RFC 7807 Problem Details
-server.setErrorHandler((error, request, reply) => {
-  request.log.error(error);
-  const statusCode = error.statusCode || 500;
-  const errorCode = error.code || 'INTERNAL_SERVER_ERROR';
-  reply.status(statusCode).send({
-    success: false,
-    error: {
-      statusCode,
-      code: errorCode,
-      message: error.message,
-      details: []
-    }
-  });
-});
 
 // Standard health check route
 server.get('/health', async () => {
