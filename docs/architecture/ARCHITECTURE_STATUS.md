@@ -162,5 +162,6 @@ confirmed the asserted closures.
 | Engineering ADRs | `BRAIN/DECISIONS.md`, `templates/ADR.md` |
 | Review rules | [REVIEW_POLICY.md](REVIEW_POLICY.md) |
 | Codex specs archive | [CODEX_HANDOFF.md](CODEX_HANDOFF.md) |
-| Observability plan (next milestone) | [OBSERVABILITY_PROPOSAL.md](OBSERVABILITY_PROPOSAL.md) |
+| Observability plan (milestone complete) | [OBSERVABILITY_PROPOSAL.md](OBSERVABILITY_PROPOSAL.md) |
+| `develop → main` promotion gates | [PROMOTION_READINESS.md](PROMOTION_READINESS.md) |
 | Raw progress cards (unverified) | `state/` |
