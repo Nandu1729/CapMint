@@ -15,6 +15,7 @@ import {
   createLoggingOptions,
   registerRequestLogging
 } from '../../../packages/shared/logging.js';
+import { createErrorHandler } from '../../../packages/shared/errors.js';
 import { registerReadiness } from '../../../packages/shared/readiness.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
@@ -62,6 +63,7 @@ declare module 'fastify' {
 
 const server = Fastify(createLoggingOptions());
 registerRequestLogging(server);
+server.setErrorHandler(createErrorHandler());
 
 // Configure JWT plugin
 const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-insecure-secret' : '');
@@ -174,24 +176,6 @@ async function rateLimit(bucket: string, ip: string, max: number, windowMs: numb
 }
 const RATE_LIMIT_LOGIN_MAX = parseInt(process.env.RATE_LIMIT_LOGIN_MAX || '100', 10);
 const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000', 10);
-
-// Global error handler complying with RFC 7807 Problem Details
-server.setErrorHandler((error, request, reply) => {
-  request.log.error(error);
-  
-  const statusCode = error.statusCode || 500;
-  const errorCode = error.code || 'INTERNAL_SERVER_ERROR';
-  
-  reply.status(statusCode).send({
-    success: false,
-    error: {
-      statusCode,
-      code: errorCode,
-      message: error.message,
-      details: []
-    }
-  });
-});
 
 // Standard health check route
 server.get('/health', async () => {

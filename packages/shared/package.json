@@ -4,6 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./errors": {
+      "types": "./errors.d.ts",
+      "default": "./errors.js"
+    },
     "./logging": {
       "types": "./logging.d.ts",
       "default": "./logging.js"

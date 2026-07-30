@@ -33,6 +33,7 @@ describe('backend runtime configuration', () => {
         ? 'registerReadiness(server, { pgPool })'
         : 'registerReadiness(server, { pgPool, redisClient })'
     );
+    expect(source).toContain('server.setErrorHandler(createErrorHandler())');
     expect(source).not.toMatch(/logger:\s*true/);
   });
 
