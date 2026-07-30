@@ -1,10 +1,9 @@
-# identity-service — placeholder (not implemented)
+# identity-service — approved future boundary (not implemented)
 
-This directory is an **intentional placeholder**, not a shipped service: it has no `src/index.ts`
-and is not part of the running system. Intended future role: **external identity / SSO**.
+This directory is a documented future build, not a shipped service: it has no package manifest
+or `src/index.ts` and is not part of the running system. Its bounded purpose is tenant-scoped
+organization, producer, certifier, and agricultural-origin profile ownership; user credentials,
+JWT issuance, and RBAC remain with auth-service.
 
-The seven real services are `auth`, `cpq`, `mint`, `resolver`, `transparency`,
-`verification`, and `integration`. Tracked as promotion soft-gate **G2** in
-[docs/architecture/PROMOTION_READINESS.md](../../docs/architecture/PROMOTION_READINESS.md);
-authoritative service inventory is in
-[docs/architecture/ARCHITECTURE_STATUS.md](../../docs/architecture/ARCHITECTURE_STATUS.md).
+Implementation requires a separate architecture and migration gate. See the current
+[placeholder-service disposition](../../docs/architecture/PLACEHOLDER_SERVICES.md).
