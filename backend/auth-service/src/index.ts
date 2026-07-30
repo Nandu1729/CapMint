@@ -28,6 +28,10 @@ async function appendAuditLog(
   payload: any
 ): Promise<void> {
   let previousHash = '0000000000000000000000000000000000000000000000000000000000000000';
+  // Serialize ledger appends on the same SHARE ROW EXCLUSIVE table lock the transparency
+  // service and the registration definer use, so every writer chains onto the same tail
+  // (no FOR UPDATE: log_entries is immutable and would return zero rows under RLS).
+  await client.query('LOCK TABLE log_entries IN SHARE ROW EXCLUSIVE MODE');
   const queryLatest = 'SELECT current_hash FROM log_entries ORDER BY created_at DESC, id DESC LIMIT 1';
   const latestRes = await client.query(queryLatest);
   if (latestRes.rowCount && latestRes.rowCount > 0) {

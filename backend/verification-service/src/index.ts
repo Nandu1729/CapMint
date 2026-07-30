@@ -15,7 +15,11 @@ import { reserveBudgetCapacity, reserveLotIssuance } from '../../../packages/sha
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
-const LEDGER_URL = process.env.TRANSPARENCY_SERVICE_URL || 'http://localhost:8085/api/v1/log';
+// TRANSPARENCY_SERVICE_URL is a service base URL; append the ledger endpoint path so an env
+// override without the path (e.g. http://localhost:8085) still posts to /api/v1/log rather
+// than to `/` (which 404s and silently drops the audit event).
+const LEDGER_BASE = (process.env.TRANSPARENCY_SERVICE_URL || 'http://localhost:8085').replace(/\/+$/, '');
+const LEDGER_URL = `${LEDGER_BASE}/api/v1/log`;
 
 declare module 'fastify' {
   interface FastifyInstance {
