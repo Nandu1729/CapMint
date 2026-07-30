@@ -166,7 +166,7 @@ async function startService(name: keyof typeof PORTS, sourcePath: string): Promi
       REDIS_URL: process.env.REDIS_URL || '',
       JWT_SECRET: jwtSecret,
       CERTIFIER_PRIVATE_KEY: certifierPrivateKey,
-      TRANSPARENCY_SERVICE_URL: `${BASE.transparency}/api/v1/log`,
+      TRANSPARENCY_SERVICE_URL: `${BASE.transparency}`,
       VERIFY_FRONTEND_URL: 'http://127.0.0.1:28180',
       CORS_ORIGIN: 'http://127.0.0.1:28180'
     },

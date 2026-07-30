@@ -253,7 +253,7 @@ async function runIteration(iteration: number): Promise<void> {
       CERTIFIER_PRIVATE_KEY: privateKey,
       CERTIFIER_PUBLIC_KEY: publicKey,
       CAPMINT_DEVELOPMENT_SEED_PASSWORD: developmentPassword,
-      TRANSPARENCY_SERVICE_URL: `http://127.0.0.1:${PORTS.transparency}/api/v1/log`,
+      TRANSPARENCY_SERVICE_URL: `http://127.0.0.1:${PORTS.transparency}`,
       VERIFY_FRONTEND_URL: `http://127.0.0.1:${PORTS.gateway}`,
       CORS_ORIGIN: `http://127.0.0.1:${PORTS.gateway}`
     };
