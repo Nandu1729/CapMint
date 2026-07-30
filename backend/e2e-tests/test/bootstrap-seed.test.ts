@@ -627,7 +627,7 @@ suite('F2 secure bootstrap and development seed', () => {
         DATABASE_URL: appDatabaseUrl,
         REDIS_URL: process.env.REDIS_URL!,
         JWT_SECRET: crypto.randomBytes(48).toString('base64url'),
-        TRANSPARENCY_SERVICE_URL: 'http://127.0.0.1:9/api/v1/log'
+        TRANSPARENCY_SERVICE_URL: 'http://127.0.0.1:9'
       };
       auth = await startService(
         'backend/auth-service/src/index.ts',
