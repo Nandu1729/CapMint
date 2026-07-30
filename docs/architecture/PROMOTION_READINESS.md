@@ -163,8 +163,8 @@ live implementation. **11/11 verified; 2 low-severity follow-ups; 0 blockers.**
   are additive/forward-only — leave applied (no destructive down-migration needed).
 - [x] **[S] H3 — Release notes drafted** (`releases/v1.1.0/RELEASE_NOTES_v1.1.0.md`); `v1.1.0` tag
   applied at the promotion merge.
-- [ ] **[H] H4 — Operator sign-off** — **YOURS to give.** Recorded as an AD in [DECISIONS.md](DECISIONS.md),
-  listing the accepted soft-gate risks (below). This is the final gate.
+- [x] **[H] H4 — Operator sign-off** — Nandu (`Nandu1729`) ratified
+  [AD-006](DECISIONS.md) on 2026-07-30, accepting the listed soft-gate risks.
 
 ### Promotion procedure (H1)
 1. Confirm `develop` HEAD is the reviewed SHA and CI is green on it (Gate E).
@@ -223,4 +223,4 @@ Promotion proceeds only when **every [H] is checked** and **every open [S] has a
 | Role | Name | Gate confirmation | Date |
 |---|---|---|---|
 | Architect | | all [H] verified; [S] risks enumerated | |
-| Operator | | soft-gate risks accepted (AD-___) | |
+| Operator | Nandu (`Nandu1729`) | soft-gate risks accepted (AD-006) | 2026-07-30 |
