@@ -516,6 +516,48 @@ advances to `2100be9d`. Next: O4 (HO-011, uniform error handling) — merges aft
 
 ---
 
+## Review #21 — HO-011: Observability O4 — uniform shared error handling
+
+| Field | Value |
+|---|---|
+| **Review Number** | #21 |
+| **Milestone** | Observability O4 — replace ad-hoc/absent per-service error handlers with one shared `setErrorHandler`: safe client mapping, one structured (redacted) error log, no stack/secret leakage |
+| **Branch** | `feat/ho-011-observability-o4` (rebased onto `develop@d54b7f4e`) → merged (`--no-ff`) into `feat/post-dm03-integration` (`develop`) |
+| **Commit Range Reviewed** | `d54b7f4e..7ced845a` — `07d44547` (implementation) + merge `7ced845a` |
+| **Architecture Status** | PASS — single shared `packages/shared/errors.js`; all seven backends wired, no ad-hoc handlers remain |
+| **Security Status** | PASS — unmapped errors return a generic 500; secret in the thrown message does **not** reach the client (independently proven) |
+| **Migration Status** | N/A (code-only) |
+| **Testing Status** | PASS — `npm run build` exit 0 (7/7); `vitest` 16/16; Codex report: 56 workspace tests, disposable compliance 88/88 |
+| **Approved Decisions** | none new (executes OBSERVABILITY_PROPOSAL O4) |
+| **Outstanding Items** | O3 metrics (HO-010) — hangs its error counter off the insertion point O4 left. **Pre-existing LAB-04 harness debt** surfaced here (see below) — tracked as its own fix (Review #22). |
+| **Next Review Starts From** | `7ced845a`. |
+
+### Findings (delta only)
+- **Contract preserved.** Errors carrying an explicit `statusCode` pass through unchanged (status,
+  `code`, raw message, `details:[]`) — byte-compatible with the prior per-service handlers.
+- **Hardening.** Errors with no `statusCode` → generic **500** `INTERNAL_SERVER_ERROR` with message
+  `"Internal server error"` (raw `error.message`/stack no longer sent). Safe additive Postgres map:
+  `23505`/`23503`→409, `42501`→403, `22P02`/`23514`→400.
+- **Structured log.** `request.log.error({ err, code, statusCode }, 'request failed')` — one line,
+  carries `reqId`, redacted by the O1 layer. O3 counter insertion point left as a comment; **no
+  `prom-client` introduced** (grep-verified — O4 stayed in scope).
+- **Uniform wiring.** All seven `index.ts` call `createErrorHandler()`; the five ad-hoc handlers were
+  replaced and `mint`/`verification` (previously none) now covered.
+- **Independent verification.** Direct injection through the handler: explicit → `409/USERNAME_TAKEN`
+  message intact; unmapped error whose message held `postgres://user:SUPERSECRETpw@…` → generic 500
+  with `SUPERSECRET`/`postgres://` **absent** from the body; simulated `23505` → clean 409 with no DB
+  `detail` leaked. Build exit 0, `vitest` 16/16. Evidence:
+  `docs/operations/HO011_OBSERVABILITY_O4_VERIFICATION.md`.
+- **Codex conduct.** Surfaced a pre-existing compliance-harness anomaly (LAB-04), proved it
+  independent of O4, reverted its temporary check, and made **no** out-of-scope fix — correct.
+
+### Approval
+`APPROVED` — uniform error handling is in place, leak-free, and contract-preserving with no scope
+creep. Boundary advances to `7ced845a`. The observability lane is now O1–O2–O4 done; **O3 (metrics)
+remains**. The LAB-04 harness debt is fixed separately in Review #22.
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 

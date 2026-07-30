@@ -23,6 +23,7 @@
 | [HO-007](#ho-007-confirm-live-smoke-re-run) | Confirm-live smoke re-run (validate 0020 + assigned-lab) | DM-04 smoke gate | 2026-07-29 | HANDED-OFF |
 | [HO-008](#ho-008-observability-o1--structured-logging--redaction--correlation) | Observability O1 — structured logging + redaction + correlation | Observability | 2026-07-29 | EXECUTED (Review #19, `be7d00a9`) |
 | [HO-009](#ho-009-observability-o2--dependency-readiness-probe) | Observability O2 — dependency readiness probe (`/ready`) | Observability | 2026-07-30 | EXECUTED (Review #20, `2100be9d`) |
+| [HO-011](#ho-011-observability-o4--uniform-shared-error-handling) | Observability O4 — uniform shared error handling | Observability | 2026-07-30 | EXECUTED (Review #21, `7ced845a`) |
 
 ---
 
@@ -400,6 +401,38 @@ compliance 88/88.
 EXECUTED and APPROVED at **Review #20**. Independently verified: build exit 0, `vitest` 12/12
 (adversarial 503 + hung-dep timeout measured ~1s), wiring cross-checked against actual Redis usage.
 Evidence: `docs/operations/HO009_READINESS_VERIFICATION.md`.
+
+---
+
+## HO-011: Observability O4 — uniform shared error handling
+
+- **Spec ID:** HO-011 · **Milestone:** Observability (O4) · **Date:** 2026-07-30 · **Status:** EXECUTED (Review #21, commit `07d44547`, merged `7ced845a`)
+- **Related:** [OBSERVABILITY_PROPOSAL.md](OBSERVABILITY_PROPOSAL.md)
+
+### Objective
+Replace the copy-pasted/absent per-service error handlers with one shared `setErrorHandler`: safe
+client responses, one structured (redacted) error log per failure, no stack/secret leakage. Precedes
+O3 so the metrics error counter can hang off the uniform handler.
+
+### Deliverable — `packages/shared/errors.js` (+ `.d.ts`, `./errors` export)
+`createErrorHandler()` returns a Fastify handler preserving the existing contract
+(`{ success:false, error:{ statusCode, code, message, details:[] } }`). Explicit-`statusCode` errors
+pass through unchanged; errors without one map safe Postgres codes
+(`23505`/`23503`→409, `42501`→403, `22P02`/`23514`→400) else a **generic 500** (no raw message/stack
+to the client). One `request.log.error({ err, code, statusCode })` line (redacted by O1); an O3
+counter insertion point left as a comment (no `prom-client`). Wired across all seven backends — the
+five ad-hoc handlers replaced, `mint`/`verification` newly covered.
+
+### Acceptance (met)
+Existing error contract byte-compatible; forced unmapped error → generic 500 with no leakage;
+`23505` → clean 409; build clean; disposable compliance 88/88.
+
+### Outcome
+EXECUTED and APPROVED at **Review #21**. Independently verified via direct injection: explicit
+pass-through intact, secret-bearing 500 leak-free, `23505`→409; build exit 0, `vitest` 16/16, no
+`prom-client` (scope-clean). Surfaced a pre-existing LAB-04 compliance-harness URL double-append
+(HO-007 debt), fixed separately in **Review #22**. Evidence:
+`docs/operations/HO011_OBSERVABILITY_O4_VERIFICATION.md`.
 
 ---
 

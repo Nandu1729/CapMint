@@ -4,7 +4,7 @@
 > [AD-002](DECISIONS.md)). Updated at each milestone approval gate. Where this file and
 > the `state/` cards disagree, this file wins until reconciliation.
 >
-> **Last updated:** 2026-07-30 (Review #20 — HO-009 Observability **O2** landed: dependency readiness `/ready` probes (fail-fast 503) across all seven backends. O1 (Review #19) shipped structured logging + redaction + correlation. DM-04 RLS smoke gate remains GREEN end-to-end (Review #18).)
+> **Last updated:** 2026-07-30 (Review #21 — HO-011 Observability **O4** landed: uniform shared error handling (generic-500 hardening, safe PG-code map, leak-free) across all seven backends. O1–O2 shipped (Reviews #19–#20). O3 metrics is the last observability slice. DM-04 RLS smoke gate remains GREEN end-to-end (Review #18).)
 
 ---
 
@@ -20,7 +20,7 @@
 - **Integration line:** `develop` (== `feat/post-dm03-integration`), **pushed to `origin/develop`**
   for frontend + backend integration testing. Requires `npm ci` (node_modules untracked) and a
   `.env` with the `capmint_app` `DATABASE_URL`.
-- **HEAD:** `2100be9d` (Review #20 — HO-009 Observability O2: readiness probes; merge of `feat/ho-009-observability-o2`)
+- **HEAD:** `7ced845a` (Review #21 — HO-011 Observability O4: uniform error handling; merge of `feat/ho-011-observability-o4`)
 - **RLS runtime status:** **VERIFIED GREEN end-to-end (Review #18).** The live frontend→API→RLS
   smoke passes as the non-owner `capmint_app` (`rolbypassrls=false`) — Attempt 07: compliance
   88/88, `LAB-04` PASS, transparency ledger `unbroken=true` (46 entries, 0 broken links,
@@ -53,13 +53,14 @@
 
   **→ All four smoke-gate defects are now closed.** Remaining pre-production work is the tracked
   follow-ups below plus the remainder of the observability milestone.
-- **Observability milestone (in progress):** **O1 + O2 DONE.** O1 (Review #19, HO-008) — shared
+- **Observability milestone (in progress):** **O1 + O2 + O4 DONE.** O1 (Review #19, HO-008) — shared
   `packages/shared/logging.js` gives all seven backends structured JSON logs with secret redaction
   (independently proven: 0 leaks) and `x-request-id` correlation across the verification→transparency
   hop. O2 (Review #20, HO-009) — shared `packages/shared/readiness.js` adds fail-fast `/ready`
-  probes (Postgres + Redis, 1s timeout → 503) with `/health` preserved as liveness. Remaining:
-  **O4** uniform error handling (HO-011, next) then **O3** metrics `/metrics` (HO-010) — O4 precedes
-  O3 because O3's security counters live in the error paths O4 restructures. See
+  probes (Postgres + Redis, 1s timeout → 503) with `/health` preserved as liveness. O4 (Review #21,
+  HO-011) — shared `packages/shared/errors.js` gives one uniform `setErrorHandler` (generic-500
+  hardening, safe PG-code map, leak-free structured log) across all seven. Remaining: **O3** metrics
+  `/metrics` (HO-010) — the last slice; its error counter hangs off the O4 handler. See
   [OBSERVABILITY_PROPOSAL.md](OBSERVABILITY_PROPOSAL.md).
 - **Tracked follow-ups (separately gated, not started):** (1) **transparency-ledger hardening**
   — external anchoring (the unused `published_anchor_reference`), append-identity restriction,
@@ -102,7 +103,7 @@ bounded review confirms them.
 | **Security** | Improving, unverified | Recent commits assert closure of major gaps (over-issuance/gateway traversal `6b57685`, signature enforcement `173b53e`/`5b9d019`/`e63bae6`, ledger auth `f456646`, fail-closed env `2cd8eae`, JWT HS256 pin `207cba0`, Redis rate limiting `9892c90`, cross-tenant scoping `175a25d`/`9969579`/`38253c7`, secure bootstrap `682ceb4`). **Architect verification pending.** |
 | **Migration** | Improving | Migration engine + state-aware reconciliation (`ab4f1d9`), drift alignment 0007/0009 (`1852b00`), consistency CI (`29b1dff`). DM03 adds tenant column with backfill + FK + tests. |
 | **Testing** | Moderate | Compliance suite runs on disposable Postgres (`876ed03`); tenant containment + backfill tests present. Coverage breadth unverified. |
-| **Operational** | Low→Improving | No container/orchestration by design (D-003 purged Docker/k8s/nginx). Observability **O1 + O2 landed** (Reviews #19–#20): shared structured JSON logging (secret redaction + `x-request-id` correlation) and fail-fast `/ready` dependency probes across all seven services. Metrics + uniform-errors (O3–O4) still pending; no alerting yet. |
+| **Operational** | Low→Improving | No container/orchestration by design (D-003 purged Docker/k8s/nginx). Observability **O1 + O2 + O4 landed** (Reviews #19–#21): shared structured JSON logging (secret redaction + `x-request-id` correlation), fail-fast `/ready` dependency probes, and uniform leak-free error handling across all seven services. Metrics (O3) still pending; no alerting yet. |
 
 Ratings are deliberately conservative because no bounded architect review has yet
 confirmed the asserted closures.
