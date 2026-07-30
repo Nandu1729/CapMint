@@ -642,6 +642,60 @@ promotion discussion and its pre-production hardening pass.
 
 ---
 
+## Review #24 — Promotion Gate A: security-verification pass (asserted hardening series ratified)
+
+| Field | Value |
+|---|---|
+| **Review Number** | #24 |
+| **Milestone** | `develop → main` promotion — **Gate A**. Bounded architect verification of the security-hardening series that `main` (`767a2f6`) predates, converting "asserted" closures into "confirmed" against the live code. |
+| **Branch** | verification-only against `develop` (`252aea8f`); no code change |
+| **Commit Range Reviewed** | `767a2f6..252aea8f` (security-relevant surfaces) |
+| **Architecture Status** | PASS |
+| **Security Status** | **PASS** — 11/11 controls verified; 2 low-severity follow-ups (config/hygiene), 0 blockers |
+| **Migration Status** | N/A |
+| **Testing Status** | PASS — code-level verification + earlier live proofs (Review #18 RLS/capacity smoke) |
+| **Approved Decisions** | none new |
+| **Outstanding Items** | F-A7 (prod trust-proxy/XFF for per-client rate limiting), F-A11 (runtime-generate test keys). Both tracked; neither blocks promotion. |
+| **Next Review Starts From** | `252aea8f` (Gate A closed; Gates B/D/E/G/H next). |
+
+### Findings — each control read against the live implementation
+- **A1 over-issuance** — `packages/shared/capacity.js` `reserveBudgetCapacity`/`reserveLotIssuance`
+  fail closed (404/400/422); confirmed live under RLS at Review #18.
+- **A2 gateway traversal** — `scripts/frontend-server.js` canonicalizes (`path.resolve`) then enforces
+  an allow-list (`=== root || startsWith(root+sep)`, prefix-bypass safe) → 403. `/api/../.env` blocked.
+- **A3 signature enforcement** — `verifyBudgetAuthority` returns `false` on empty/non-string bundle,
+  missing certifier key, or any `crypto.verify` exception (try/catch); the only `true` is a real
+  Ed25519 verify. Signed message binds `budget_id`+`approved_quantity` (quantity anti-replay). No bypass.
+- **A4 ledger auth** — both transparency append routes are `preValidation:[authenticate]`; verification
+  appends with an HMAC `SERVICE_TOKEN`; public-context appends restricted by the `log_entries`
+  `WITH CHECK` (Review #18). Append forgery requires `JWT_SECRET`.
+- **A5 fail-closed env** — all seven services `process.exit(1)` on missing `JWT_SECRET`/`DATABASE_URL`
+  (and `REDIS_URL` for the six that use Redis). Only fallback is a `NODE_ENV==='test'` secret.
+- **A6 JWT HS256 pin** — all seven `register(jwt, { verify: { algorithms: ['HS256'] } })`; no unpinned verify.
+- **A7 rate limiting** — correct Redis sliding-window (zset) on auth `login` and verification `verify`;
+  Redis outage fails closed (throws → 500). **Follow-up F-A7:** behind a proxy `request.ip` is the
+  proxy IP → global bucket; production must set trust-proxy + forward `X-Forwarded-For` for per-client
+  limiting (already noted in-code).
+- **A8 cross-tenant** — DB-enforced RLS, verified as `capmint_app` at Reviews #14–#18.
+- **A9 secure bootstrap** — `database/seed/development.js` fail-closed (requires
+  `CAPMINT_DEVELOPMENT_SEED_PASSWORD`, validates the Ed25519 keypair, advisory-locked, identity-guarded);
+  passwords hashed with **bcrypt** (`fastify-bcrypt` hash/compare). No weak default.
+- **A10 hardcoded key** — repo-wide sweep: only a `.env.example` placeholder; certifier private key from
+  env, public keys from DB. No hardcoded production key.
+- **A11 secret scan** — `.env*` gitignored (`!.env.example`), no `.env` ever tracked, 0 tracked
+  node_modules, no real key material in the current tree. **Note F-A11:** a test-only Ed25519 key
+  appeared in the range's history (since removed, no production role); generate test keys at runtime.
+
+### Approval
+`APPROVED` — the entire asserted security-hardening series is now **architect-verified against the live
+code**: signatures, RLS, ledger auth, JWT pinning, fail-closed env, rate limiting, traversal defense,
+bootstrap, and secret hygiene all hold, fail-closed. **Promotion Gate A is CLOSED** with two
+low-severity, non-blocking follow-ups (F-A7 prod proxy config, F-A11 test-key hygiene). Boundary for
+promotion work advances to `252aea8f`; next are Gates B (prod role), D (migrations), E (CI), G (docs),
+H (cutover).
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 

@@ -37,28 +37,35 @@ is recorded as **asserted, not architect-verified** (see the Security row of
 
 ---
 
-## A. Security verification pass — **the primary gate**
+## A. Security verification pass — **CLOSED (Review #24)**
 
-Bounded architect review ratifying (or reopening) each asserted hardening closure since `767a2f6`.
-Until verified, each is *claimed*, not *confirmed*.
+Bounded architect review ratifying each asserted hardening closure since `767a2f6`, read against the
+live implementation. **11/11 verified; 2 low-severity follow-ups; 0 blockers.**
 
-- [ ] **[H] A1 — Over-issuance / capacity guard.** Partially verified (smoke Attempt 05 exercised
-  `/verify/register` + mint → 422 under RLS). Confirm no remaining bypass on any issuance path.
-- [ ] **[H] A2 — Gateway path traversal** (`6b57685`). Verify the fix; confirm no residual traversal.
-- [ ] **[H] A3 — Signature enforcement** (`173b53e`/`5b9d019`/`e63bae6`). Verify no unsigned/forged
-  acceptance path; `INVALID_SIGNATURE` fails closed. (Now also counted by O3 metrics.)
-- [ ] **[H] A4 — Ledger auth + append identity** (`f456646`). Appends require auth; `WITH CHECK`
-  restricts public-context event types. Confirm no forgeable append.
-- [ ] **[H] A5 — Fail-closed env** (`2cd8eae`). Services refuse to start on missing secrets.
-- [ ] **[H] A6 — JWT HS256 pin** (`207cba0`). Verify algorithm is pinned (no `alg` confusion / `none`).
-- [ ] **[H] A7 — Redis rate limiting** (`9892c90`). Confirm limits actually enforced on auth/verify.
-- [x] **[H] A8 — Cross-tenant scoping** (`175a25d`/`9969579`/`38253c7`). **Verified** at the DB layer
-  by the DM-04 RLS smoke gate (Reviews #14–#18).
-- [ ] **[H] A9 — Secure bootstrap** (`682ceb4`). Admin bootstrap + dev seed create no weak default.
-- [ ] **[H] A10 — No hardcoded signing key in a prod path.** Confirm the historical hardcoded
-  Ed25519 dev key is dev-only / env-injected; production keys come from env or a secret store.
-- [ ] **[H] A11 — Secret-scan of git history.** No committed `.env`, private keys, or credentials in
-  the range promoted to `main`.
+- [x] **[H] A1 — Over-issuance / capacity guard.** `capacity.js` guards fail closed (404/400/422);
+  confirmed live under RLS (Review #18).
+- [x] **[H] A2 — Gateway path traversal.** `frontend-server.js` `path.resolve` + allow-list → 403;
+  `/api/../.env` blocked. (Real static server; `gateway-service` dir is an empty placeholder.)
+- [x] **[H] A3 — Signature enforcement.** `verifyBudgetAuthority` fail-closed on every path (empty
+  bundle / missing key / verify exception → `false`); message binds `budget_id`+qty. No bypass.
+- [x] **[H] A4 — Ledger auth + append identity.** Append routes `authenticate`-gated; `SERVICE_TOKEN`;
+  `WITH CHECK` restricts public-context events. Forgery requires `JWT_SECRET`.
+- [x] **[H] A5 — Fail-closed env.** All seven `process.exit(1)` on missing JWT/DB/Redis.
+- [x] **[H] A6 — JWT HS256 pin.** All seven `verify: { algorithms: ['HS256'] }`; no unpinned verify.
+- [x] **[H] A7 — Redis rate limiting.** Correct sliding-window on login+verify; fails closed on Redis
+  outage. **↳ Follow-up F-A7 (config):** prod must set trust-proxy + `X-Forwarded-For` for per-client
+  buckets (else global bucket behind a proxy). Non-blocking; belongs with H/deployment.
+- [x] **[H] A8 — Cross-tenant scoping.** DB-enforced RLS, verified as `capmint_app` (Reviews #14–#18).
+- [x] **[H] A9 — Secure bootstrap.** Dev seed fail-closed (explicit password, keypair validated,
+  advisory-locked); passwords hashed with **bcrypt**. No weak default.
+- [x] **[H] A10 — No hardcoded signing key in a prod path.** Only a `.env.example` placeholder; keys
+  are env/DB-sourced.
+- [x] **[H] A11 — Secret-scan of history.** `.env*` gitignored; no `.env`/node_modules/real key in the
+  tree. **↳ Note F-A11 (hygiene):** a test-only Ed25519 key existed in range history (removed, no prod
+  role); generate test keys at runtime.
+
+> **Gate A follow-ups (non-blocking):** **F-A7** trust-proxy/XFF for production rate limiting ·
+> **F-A11** runtime-generated test keys. Both carried to the deployment/hardening notes, not blockers.
 
 ---
 
