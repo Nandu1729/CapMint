@@ -1,6 +1,8 @@
 import crypto from 'crypto';
+import { recordSignatureFailure } from './metrics.js';
 
 export function capacityFailure(statusCode, code, message) {
+  if (code === 'INVALID_SIGNATURE') recordSignatureFailure();
   return { ok: false, statusCode, code, message };
 }
 

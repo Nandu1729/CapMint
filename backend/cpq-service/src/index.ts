@@ -15,6 +15,10 @@ import {
   registerRequestLogging
 } from '../../../packages/shared/logging.js';
 import { createErrorHandler } from '../../../packages/shared/errors.js';
+import {
+  recordSignatureFailure,
+  registerMetrics
+} from '../../../packages/shared/metrics.js';
 import { registerReadiness } from '../../../packages/shared/readiness.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
@@ -28,6 +32,7 @@ declare module 'fastify' {
 
 const server = Fastify(createLoggingOptions());
 registerRequestLogging(server);
+registerMetrics(server);
 server.setErrorHandler(createErrorHandler());
 
 // Configure JWT plugin (using same shared secret)
@@ -503,6 +508,7 @@ server.post('/api/v1/budgets/:id/drawdown', {
     // values must all block the drawdown (no bypass).
     const certifierRes = await client.query('SELECT public_key FROM certifiers WHERE id = $1', [budget.certifier_id]);
     if (certifierRes.rows.length === 0) {
+      recordSignatureFailure();
       return reply.status(400).send({
         success: false,
         error: {
@@ -524,6 +530,7 @@ server.post('/api/v1/budgets/:id/drawdown', {
     }
 
     if (!isVerified) {
+      recordSignatureFailure();
       return reply.status(400).send({
         success: false,
         error: {

@@ -18,6 +18,10 @@ import {
   registerRequestLogging
 } from '../../../packages/shared/logging.js';
 import { createErrorHandler } from '../../../packages/shared/errors.js';
+import {
+  recordLedgerAppend,
+  registerMetrics
+} from '../../../packages/shared/metrics.js';
 import { registerReadiness } from '../../../packages/shared/readiness.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
@@ -37,6 +41,7 @@ declare module 'fastify' {
 
 const server = Fastify(createLoggingOptions());
 registerRequestLogging(server);
+registerMetrics(server);
 server.setErrorHandler(createErrorHandler());
 
 // Configure CORS headers manually to support client-side fetch from frontend
@@ -657,7 +662,7 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
 
   if (investigationLedgerEvent) {
     try {
-      await fetch(LEDGER_URL, {
+      const ledgerResponse = await fetch(LEDGER_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -666,7 +671,9 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
         },
         body: JSON.stringify(investigationLedgerEvent)
       });
+      recordLedgerAppend(ledgerResponse.ok ? 'ok' : 'error');
     } catch (logErr) {
+      recordLedgerAppend('error');
       request.log.error(logErr as any, 'Failed to append INVESTIGATION_CREATED to transparency ledger');
     }
   }
@@ -810,7 +817,7 @@ server.post('/api/v1/lots', {
   });
   if (response.success) {
     try {
-      await fetch(LEDGER_URL, {
+      const ledgerResponse = await fetch(LEDGER_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -819,7 +826,9 @@ server.post('/api/v1/lots', {
         },
         body: JSON.stringify(response.ledgerEvent)
       });
+      recordLedgerAppend(ledgerResponse.ok ? 'ok' : 'error');
     } catch (ledgerErr) {
+      recordLedgerAppend('error');
       request.log.error(ledgerErr as any, 'Failed to log lot creation to transparency ledger');
     }
   }
@@ -1301,7 +1310,7 @@ server.post('/api/v1/lots/:id/certify', {
 
     // 4. Append to Transparency Ledger
     try {
-      await fetch(LEDGER_URL, {
+      const ledgerResponse = await fetch(LEDGER_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1315,7 +1324,9 @@ server.post('/api/v1/lots/:id/certify', {
           payload: { lot_id: id, certified_by: (request.user as any).orgId }
         })
       });
+      recordLedgerAppend(ledgerResponse.ok ? 'ok' : 'error');
     } catch (logErr) {
+      recordLedgerAppend('error');
       request.log.error(logErr as any, 'Failed to append LOT_CERTIFIED event to ledger');
     }
     return {
@@ -1589,7 +1600,7 @@ server.post('/api/v1/verify/investigations/:id/approve', {
 
   if (ledgerPublicIdentifier) {
     try {
-      await fetch(LEDGER_URL, {
+      const approvalLedgerResponse = await fetch(LEDGER_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1608,8 +1619,9 @@ server.post('/api/v1/verify/investigations/:id/approve', {
           }
         })
       });
+      recordLedgerAppend(approvalLedgerResponse.ok ? 'ok' : 'error');
 
-      await fetch(LEDGER_URL, {
+      const revocationLedgerResponse = await fetch(LEDGER_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1626,7 +1638,9 @@ server.post('/api/v1/verify/investigations/:id/approve', {
           }
         })
       });
+      recordLedgerAppend(revocationLedgerResponse.ok ? 'ok' : 'error');
     } catch (logErr) {
+      recordLedgerAppend('error');
       request.log.error(logErr as any, 'Failed to append to ledger during approval');
     }
   }
@@ -1669,7 +1683,7 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
 
   if (publicIdentifier) {
     try {
-      await fetch(LEDGER_URL, {
+      const ledgerResponse = await fetch(LEDGER_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1687,7 +1701,9 @@ server.post('/api/v1/verify/investigations/:id/dismiss', {
           }
         })
       });
+      recordLedgerAppend(ledgerResponse.ok ? 'ok' : 'error');
     } catch (logErr) {
+      recordLedgerAppend('error');
       request.log.error(logErr as any, 'Failed to append to ledger during dismissal');
     }
   }
@@ -1900,7 +1916,7 @@ server.post('/api/v1/verify/lab-results', {
   if (reply.sent) return response;
   for (const event of ledgerEvents) {
     try {
-      await fetch(LEDGER_URL, {
+      const ledgerResponse = await fetch(LEDGER_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1914,7 +1930,9 @@ server.post('/api/v1/verify/lab-results', {
           payload: event.payload
         })
       });
+      recordLedgerAppend(ledgerResponse.ok ? 'ok' : 'error');
     } catch (logErr) {
+      recordLedgerAppend('error');
       request.log.error(logErr as any, 'Failed to append laboratory event to ledger');
     }
   }
