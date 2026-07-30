@@ -117,8 +117,9 @@ confirmed the asserted closures.
 2. **Review #1 (DM03):** verify tenant column migration safety, backfill correctness,
    FK/orphan handling, and RLS readiness (`fd6ba35..9070970`).
 3. **Verify asserted security closures** from the hardening series (see Security row).
-4. **Complete or remove placeholder services** (empty `.gitkeep` service dirs) so
-   declared architecture matches shipped code.
+4. **CLOSED — placeholder-service disposition:** six redundant/unplanned service
+   placeholders were removed; identity remains a separately gated future boundary. See
+   [PLACEHOLDER_SERVICES.md](PLACEHOLDER_SERVICES.md).
 5. **Operational maturity:** define monitoring/alerting posture.
 
 ---

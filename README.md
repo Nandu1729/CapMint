@@ -22,8 +22,8 @@ For local development, the root
 [`scripts/frontend-server.js`](scripts/frontend-server.js) process listens on
 port 8080, serves the static frontend, and proxies configured request paths to
 those services on ports 8081–8087. This root development proxy is not a backend
-gateway service: `backend/gateway-service` is an unimplemented `.gitkeep`
-placeholder.
+gateway service. CapMint does not ship an application gateway; production
+ingress remains a deployment responsibility.
 
 ```mermaid
 graph TD
@@ -41,7 +41,7 @@ graph TD
 
 | Service / Process | Port | Endpoint URL / Path | Purpose |
 | :--- | :---: | :--- | :--- |
-| **`scripts/frontend-server.js`** | `8080` | `http://localhost:8080` | Root local-development process serving the static SPA and proxying configured routes; not `backend/gateway-service` |
+| **`scripts/frontend-server.js`** | `8080` | `http://localhost:8080` | Root local-development process serving the static SPA and proxying configured routes; not a production gateway |
 | **`auth-service`** | `8081` | `http://localhost:8081/health` | User auth, Bcrypt hashing, JWT issuance |
 | **`cpq-service`** | `8082` | `http://localhost:8082/health` | Quota budget limits & PostgreSQL FOR UPDATE locks |
 | **`mint-service`** | `8083` | `http://localhost:8083/health` | Barcode serialization & GTIN-14 validation |

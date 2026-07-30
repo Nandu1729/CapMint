@@ -87,11 +87,9 @@ Infrastructure Layer
 
 ## Service Landscape
 
-The CapMint backend is partitioned into 14 distinct logical services:
+The CapMint backend has seven implemented services plus one separately gated future identity
+boundary:
 
-- **gateway-service**:
-  - Purpose: Serves as the single API entry point, handling routing, transport encryption, and rate-limiting.
-  - Canonical Reference: [SYSTEM_CONTEXT.md](../architecture/system/SYSTEM_CONTEXT.md)
 - **auth-service**:
   - Purpose: Manages token issuance, session verification, and API key validations.
   - Canonical Reference: [SECURITY_ARCHITECTURE.md](../architecture/security/SECURITY_ARCHITECTURE.md)
@@ -107,18 +105,6 @@ The CapMint backend is partitioned into 14 distinct logical services:
 - **transparency-service**:
   - Purpose: Publishes hash-chained serial lists to external public ledgers for auditing.
   - Canonical Reference: [DATA_FLOW.md](../architecture/sequence/DATA_FLOW.md)
-- **clone-detection-service**:
-  - Purpose: Runs anomaly detection heuristics to flag duplicate scans of identical serial codes.
-  - Canonical Reference: [SECURITY_ARCHITECTURE.md](../architecture/security/SECURITY_ARCHITECTURE.md)
-- **notification-service**:
-  - Purpose: Coordinates SMS/Email dispatches for out-of-bounds alerts and key rotations.
-  - Canonical Reference: [SYSTEM_CONTEXT.md](../architecture/system/SYSTEM_CONTEXT.md)
-- **audit-service**:
-  - Purpose: Captures immutable history of administrative actions, budget increases, and key changes.
-  - Canonical Reference: [SECURITY_ARCHITECTURE.md](../architecture/security/SECURITY_ARCHITECTURE.md)
-- **analytics-service**:
-  - Purpose: Generates operational yields dashboards, crop summaries, and scanner metrics.
-  - Canonical Reference: [DEPLOYMENT_ARCHITECTURE.md](../architecture/deployment/DEPLOYMENT_ARCHITECTURE.md)
 - **resolver-service**:
   - Purpose: Redirects GS1 Digital Link URIs to public verification payloads.
   - Canonical Reference: [SYSTEM_OVERVIEW.md](../architecture/system/SYSTEM_OVERVIEW.md)
@@ -128,9 +114,11 @@ The CapMint backend is partitioned into 14 distinct logical services:
 - **cpq-service**:
   - Purpose: Coordinates farm plot capacity planning, yield forecasting, and quota pricing.
   - Canonical Reference: [SERVICE_BOUNDARIES.md](../architecture/system/SERVICE_BOUNDARIES.md)
-- **scan-service**:
-  - Purpose: Ingests telemetry scans from the field and feeds anomaly detection buffers.
-  - Canonical Reference: [L1_SYSTEM_CONTEXT.md](../architecture/C4/L1_SYSTEM_CONTEXT.md)
+
+Clone detection and scan ingestion are capabilities of verification-service; immutable audit
+queries are owned by transparency-service; production ingress and alert delivery are
+deployment concerns. The removed placeholder names are not active service boundaries. See
+[PLACEHOLDER_SERVICES.md](../docs/architecture/PLACEHOLDER_SERVICES.md).
 
 ---
 
