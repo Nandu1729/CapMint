@@ -1,126 +1,238 @@
-# DM-04 RLS End-to-End Smoke Report — Attempt 05
+# DM-04 RLS End-to-End Smoke Report — Attempt 07
 
-**Summary verdict: YELLOW — the first proven `capmint_app` RLS run passes every reachable tenant, capacity, public-scan, investigation, cross-tenant, and ledger check with no A–D RLS anomaly; tracked non-RLS defects P1a (seed UUIDs) and P1b (mint health) remain, and P1a blocks assigned-lab success.**
+**Summary verdict: GREEN — both ledger fixes are confirmed live on `fix/ledger-append-rls-and-url`: the full compliance suite passes 88/88 with `LAB-04`, every verification append uses `/api/v1/log`, and the final ledger remains `unbroken=true` with 46 entries, zero errors, and zero broken links after registration, public verification, and a seeded-lab result replacement.**
 
-Run date: 2026-07-29 (Asia/Kolkata). Branch/commit: `fix/smoke-provisioning-blockers` / `8a9f3fab` (base `57327ccc`; no new commit). Attempts 01–04 and this report remain uncommitted.
+Run date: 2026-07-30 (Asia/Kolkata). Branch/commit: `fix/ledger-append-rls-and-url` / `85ed7974f8b5ffe01b2c46866a805d15e75b7dc0`.
+
+Fixes under verification:
+
+- `f98921d0` — derive the transparency ledger append URL from the configured service base;
+- `85ed7974` — serialize ledger writers with a `SHARE ROW EXCLUSIVE` table lock and read the tail with a plain SELECT.
+
+Attempts 01–06 are preserved. This report remains uncommitted.
+
+## Gate result
+
+| Gate | Result |
+|---|---|
+| Mandatory clean reset | PASS |
+| Baseline plus migrations `0010`–`0020` | PASS |
+| `capmint_app` LOGIN / non-owner runtime role | PASS |
+| Eight `/health` endpoints | PASS |
+| F-org empty-GUC directory count | PASS — exactly 3 |
+| Full compliance suite | PASS — 88/88 |
+| `LAB-04` | PASS |
+| `LOT_LAB_TEST_REPLACED` after compliance | PASS — count 1 |
+| Seeded assigned-lab submission and replacement | PASS |
+| Definer registration lifecycle and duplicate conflicts | PASS |
+| Public verification scans | PASS |
+| Final ledger integrity | PASS — 46 entries, zero errors |
+| Capacity canary | PASS |
+| RLS A–D taxonomy | PASS — all zero |
+| HTTP 500 scan | PASS — zero |
 
 ## Environment
 
 | Item | Observed |
 |---|---|
-| Node / npm | `v22.22.3` / `10.9.8` |
-| PostgreSQL / Redis | local `capmint_dev`; PostgreSQL 16.14; Redis 8.8.1 / `PONG` |
+| Node / npm | `v26.3.1` / `11.16.0` |
+| PostgreSQL / Redis | PostgreSQL 16.14 (Homebrew); Redis 8.8.1 / `PONG` |
+| Database | sanctioned local `capmint_dev` |
 | Provisioning role | `capmint_admin` |
 | Runtime service role | `capmint_app`, LOGIN, non-superuser, `BYPASSRLS=false` |
-| Runtime env | all seven started service `.env` paths are local symlinks to `../../.env`; no global `PORT` |
-| Certifier key | one aligned Ed25519 pair for runtime signing and seeded public-key verification |
+| Runtime env | repo-root `.env`; no per-service `.env` or env symlinks |
+| `PORT` | unset |
+| Certifier keys | one aligned Ed25519 keypair across all four certifier variables |
+| Configured ledger base | `http://localhost:8085` |
+| Derived append endpoint | `http://localhost:8085/api/v1/log` |
 
-## Provisioning log
+`npm ci` succeeded from the committed lockfile and installed 218 packages. It emitted the existing `fast-jwt` Node-engine warning and existing npm audit findings.
 
-`npm run db:reset -- --yes` completed:
+## Mandatory reset and migrations
 
-- immutable `capmint-baseline-20260725.sql` recorded as `BASELINE`;
-- migrations `0010`–`0019` recorded `EXECUTED`;
-- `capmint_app` LOGIN provisioned from the root-env password;
-- seed returned `DEVELOPMENT_FIXTURES_SEEDED` (`development-v2`).
+`npm run db:reset -- --yes` completed successfully before any live validation:
 
-The capacity integrity canary completed after the flows: `Capacity integrity canary passed: no over-issued lots found.`
+- dropped and recreated local `capmint_dev`;
+- recorded `capmint-baseline-20260725.sql`;
+- recorded migrations `0010`–`0020`;
+- provisioned `capmint_app` LOGIN;
+- seeded `DEVELOPMENT_FIXTURES_SEEDED` (`development-v2`).
 
-## Runtime DB identity proof
+The owner-run migration check then reported:
 
-This proof was captured before trusting functional results:
+`Result: SAFE / NO PENDING ACTIONS`
 
-1. All seven service env paths resolved to `../../.env`, whose runtime URL identifies `capmint_app`.
-2. A direct connection using that exact `DATABASE_URL` returned `current_user = capmint_app` and database `capmint_dev`.
-3. DB-backed requests were issued to auth (login), CPQ (budget list), verification (public lookup), and mint (scoped lot lookup).
-4. Immediately afterward, owner inspection of `pg_stat_activity` showed:
+There were 12 migration-log rows: the baseline plus `0010`–`0020`, with `0020_tighten_organizations_public_read.sql` last.
 
-| `usename` | state | connections | Attribution |
-|---|---|---:|---|
-| `capmint_app` | idle | 4 | auth, CPQ, verification, and mint requests just issued |
-| `capmint_admin` | active | 1 | the inspection query itself |
+## Runtime role proof
 
-No service connection showed `capmint_admin`. This makes Attempt 05 the first valid live RLS observation.
+Direct role inspection returned:
 
-## Startup / health
+- `rolcanlogin=true`;
+- `rolsuper=false`;
+- `rolbypassrls=false`.
 
-| Process | Port | Clean start | `/health` |
-|---|---:|---|---:|
-| frontend | 8080 | Y | 200 |
-| auth | 8081 | Y | 200 |
-| CPQ | 8082 | Y | 200 |
-| mint | 8083 | Y | **404** |
-| resolver | 8084 | Y | 200 |
-| transparency | 8085 | Y | 200 |
-| verification | 8086 | Y | 200 |
-| integration | 8087 | Y | 200 |
+After live DB-backed requests, `pg_stat_activity` showed four idle `capmint_app` connections. The only `capmint_admin` connection was the active inspection query itself.
 
-Mint’s missing route is tracked P1b and is not an RLS blocker.
+## Health
 
-## Flow results
+| Process | Port | `/health` |
+|---|---:|---:|
+| frontend dev proxy | 8080 | 200 |
+| auth | 8081 | 200 |
+| CPQ | 8082 | 200 |
+| mint | 8083 | 200 |
+| resolver | 8084 | 200 |
+| transparency | 8085 | 200 |
+| verification | 8086 | 200 |
+| integration | 8087 | 200 |
 
-| Step | Actor | Method + path | Expected | Observed (status, key fields, row count) | Verdict | Class |
-|---|---|---|---|---|---|---|
-| 1 Health | public | `/health` on 8080–8087 | eight 200s | seven 200; mint 404 `Route GET:/health not found` | ANOMALY | E / P1b |
-| 2 Login / pre-auth RLS | producer, certifier, lab, lab-isolation, exporter, admin | `POST :8081/api/v1/auth/login` | 200 + JWT | all six 200 with token and user; valid cross-tenant username lookup before org context | PASS | — |
-| 3 Org registration | public / admin / new producer | register, activate, login | 201 / 200 / 200 | 201 with organization/admin user; activation 200; new-user login 200 + JWT | PASS | — |
-| 4 Budget review/activate | certifier | seed budget `/review`, `/activate` | 200 / 200 | 200 `REVIEWING`; 200 active budget | PASS | — |
-| 4 Budget scoped read | producer | `GET :8082/api/v1/budgets` | own rows | 200, row count 1 | PASS | — |
-| 4 Lot create | producer | `POST :8086/api/v1/lots` | fresh v4 lot | 200, lot `300fd94e-a072-43f6-b58c-3023eecac56e` | PASS | — |
-| 4 UI register path | producer | `POST :8086/api/v1/verify/register` | persist one code | 200, persisted successfully | PASS | — |
-| 4 Mint | producer | `POST :8083/api/v1/mint` quantity 2 | 201 | 201, `mintedCount=2` | PASS | — |
-| 4 Lot over-capacity | producer | mint 3 more into 5-unit lot with 3 already issued | reject | 422 `EXCEEDS_LOT_CAPACITY`; message reports `3/5.00 already issued` | PASS | — |
-| 4 Drawdown | producer | amount 1 | 200 | 200 with budget | PASS | — |
-| 4 Budget over-capacity | producer | amount 20000 | reject | 422 `EXCEEDS_CAPACITY`, remaining 9993 | PASS | — |
-| 5 Resolver | public | `GET /01/:gtin/21/:serial` | redirect | 302 to frontend verify URL | PASS | — |
-| 5 Verify | public | `POST /verify/:gtin/:serial` | verified + scan insert | 200, verdict payload returned | PASS | — |
-| 5 Public identifier | public | `POST /verify/v/:public_identifier` | public read + scans | two 200 responses; public identifier tied to registered code | PASS | — |
-| 6 Fresh lab lot | producer | `POST /lots` | v4 lot | 200, lot `76666d4d-4f43-4f16-9305-010afb5d5c8d` | PASS | — |
-| 6 Assign laboratory | certifier | fresh lot `/assign-laboratory`, lab org `…0004` | 200 | 400 `BAD_REQUEST`: seeded lab organization ID fails strict UUID version/variant validator | ANOMALY | E / P1a |
-| 6 Assigned lab result | lab | `POST /verify/lab-results` | success | 403 `LAB_ASSIGNMENT_REQUIRED` because assignment was rejected first | NOT EXERCISED | E prerequisite |
-| 6 Isolation fail-closed | lab-isolation | same fresh lot result | 403 | 403 `LAB_ASSIGNMENT_REQUIRED` | PASS (fail-closed) | — |
-| 6 Lab list scope | lab / lab-isolation | `GET /verify/lots` | assigned only / empty | lab 200, row count 1 (seed assignment); isolation 200, row count 0 | PASS | — |
-| 7 Investigation trigger | public duplicate/geovelocity scan | two public-identifier scans | one investigation | scans 200; certifier list 200, row count 1 | PASS | — |
-| 7 Investigation lifecycle | certifier | `/assign`, `/approve`, `/close` | 200 each | 200 / 200 / 200; product revoked then case closed | PASS | — |
-| 8 Other-tenant read | new producer | `GET /budgets` | empty | 200, row count 0 | PASS | — |
-| 8 Other-tenant budget mutation | new producer | seed budget `/drawdown` | 404 non-disclosing | 404 `NOT_FOUND`, no budget details | PASS | — |
-| 8 Other-tenant lot mutation | new producer | mint from producer lot | 404 non-disclosing | 404 `NOT_FOUND`, “revoked, or unauthorized” | PASS | — |
-| 8 Role negative | exporter | certifier-only `/activate` | 403 | 403 `FORBIDDEN` | PASS | — |
-| 9 Ledger chain | public | `GET :8085/api/v1/log/verify` | intact | 200; `unbroken=true`, `logCount=12`, no errors | PASS | — |
-| 9 Ledger entries | public | `GET :8085/api/v1/log/entries` | readable | 200, row count 12 | PASS | — |
+Mint returned the expected `{ "status": "healthy", "service": "mint-service" }` body.
 
-Post-flow owner counts were: organizations 7, users 7, budgets 1, lots 3, unit codes 3, scan events 3, investigations 1, lab results 1, and ledger entries 12.
+## F-org
 
-## RLS error scan
+Before the compliance suite created additional organizations, an empty-GUC `capmint_app` query returned exactly:
+
+| Organization | Type | Status |
+|---|---|---|
+| `…0001` | `CERTIFICATION_BODY` | `ACTIVATED` |
+| `…0004` | `NABL_LABORATORY` | `ACTIVATED` |
+| `…0007` | `NABL_LABORATORY` | `ACTIVATED` |
+
+Count: **3**. No producer, exporter, or system-administrator organization was visible.
+
+## Full compliance suite
+
+`playground/test_runner.js` completed against the live stack:
+
+| Area | Result |
+|---|---|
+| Authentication and identity | all pass |
+| RBAC | all pass |
+| CPQ / capacity / concurrency | all pass |
+| Signature containment | all pass |
+| Mint / resolver | all pass |
+| Lot lifecycle | all pass |
+| NABL assignment, result, replacement, isolation | all pass |
+| Certification | all pass |
+| Verification and clone detection | all pass |
+| Tenant isolation `TENANT-01`–`TENANT-25` | all 25 pass |
+| Transparency checks | all pass |
+| Integration, security, performance, audit | all pass |
+| End-to-end business flow | pass |
+| Redis rate limits | both pass |
+| **Total** | **88 passed / 0 pending / 0 failed** |
+
+### Ledger URL / `LAB-04`
+
+- `LAB-04`: PASS;
+- `LOT_LAB_TEST_REPLACED` count immediately after compliance: **1**;
+- captured verification-to-transparency appends to `POST /api/v1/log`: **8**;
+- `POST /` route misses: **0**;
+- ledger after compliance: `unbroken=true`, `logCount=34`, `errors=[]`;
+- direct chain scan: zero broken links.
+
+The compliance runner’s deliberate `LEDGER-06` fake entry was removed as designed; the independent post-suite integrity check remained GREEN.
+
+## Targeted regression
+
+The rate-limit assertions intentionally filled the two local Redis windows. Their exact ephemeral keys were cleared before the independent continuation:
+
+- `ratelimit:login:127.0.0.1`;
+- `ratelimit:verify:127.0.0.1`.
+
+No application or database state was bypassed.
+
+| Check | Observed | Verdict |
+|---|---|---|
+| Seeded producer, certifier, lab, lab-isolation, exporter, admin login | six 200 responses | PASS |
+| Definer registration | 201 | PASS |
+| Ledger immediately after registration | `unbroken=true`, `logCount=41`, zero errors | PASS |
+| Pending organization login | 403 `INACTIVE_ORGANIZATION` | PASS |
+| Duplicate tax ID | 409 `REGISTRATION_EXISTS` | PASS |
+| Duplicate registration number | 409 `REGISTRATION_EXISTS` | PASS |
+| Admin activation | 200 | PASS |
+| Activated producer login | 200 | PASS |
+| Public GTIN/serial verification | 200 | PASS |
+| Public-identifier verification | 200 | PASS |
+| Ledger after public verification | `unbroken=true`, `logCount=43`, zero errors | PASS |
+| Assign seed lot `…0050` to lab org `…0004` | 200 | PASS |
+| Assigned lab initial result | 200 | PASS |
+| Assigned lab replacement | 200 | PASS |
+| Isolation lab submission | 403 `LAB_ASSIGNMENT_REQUIRED` | PASS |
+| Assigned lab list | contains seed lot | PASS |
+| Isolation lab list | excludes seed lot | PASS |
+| Registration audit | exactly one matching event | PASS |
+| Seed-lot replacement audit | exactly one matching event | PASS |
+| Total replacement events | 2 | PASS |
+
+## Final ledger integrity
+
+Final `GET :8085/api/v1/log/verify`:
+
+```json
+{
+  "unbroken": true,
+  "logCount": 46,
+  "error": null,
+  "errors": []
+}
+```
+
+The count is accounted for:
+
+- 34 entries after the full compliance suite;
+- six seeded-user login audit entries plus one definer registration append: 41;
+- activation and activated-login audit entries: 43;
+- initial seeded-lab result append: 44;
+- replacement and replacement-pass appends: 46.
+
+The two public verification calls returned 200 and did not add a ledger event in this run. A direct owner-ordered link scan independently found **0 broken links**.
+
+## Chain-tail / taxonomy B proof
+
+In a `capmint_app` transaction with the system-admin GUC:
+
+1. `LOCK TABLE log_entries IN SHARE ROW EXCLUSIVE MODE` succeeded.
+2. The following plain ordered tail SELECT returned exactly one row.
+
+This is the same lock/read sequence used by the fixed service append path. The previous empty-tail behavior is absent, so taxonomy B is zero.
+
+## Capacity and A–E scan
+
+`Capacity integrity canary passed: no over-issued lots found.`
 
 | Taxonomy | Count | Evidence |
 |---|---:|---|
-| A — `42501` / permission denied | 0 | no current-run PostgreSQL or captured service occurrence |
-| B — empty where data expected | 0 | producer budget row count 1; assigned lab seed-list count 1; investigation count 1 |
-| C — cross-tenant leak | 0 | other producer budget list 0; budget/lot mutations 404; isolation lab list 0 |
-| D — fail-open empty GUC | 0 | public routes returned only registered public code data; protected routes required JWT |
-| E — functional/non-RLS | 2 tracked defects | P1a seed UUID validation; P1b missing mint health |
-| HTTP 500 | 0 | no request returned 500 |
+| A — `42501` / permission denied | 0 | no current-run service-log occurrence |
+| B — empty where data expected | 0 | locked chain-tail read returned one row; all expected tenant rows were present |
+| C — cross-tenant leak | 0 | `TENANT-01`–`TENANT-25` all passed; isolation lab excluded the seed lot |
+| D — fail-open empty GUC | 0 | pre-flow public organization count was exactly the three activated directory organizations |
+| E — other functional | 0 | no functional acceptance failure |
+| HTTP 500 | 0 | parsed 798 structured service-log records; no 500 response |
 
-The PostgreSQL log tail for the run contains no current `42501`, permission-denied, RLS-policy violation, or other current-run ERROR. Older July 26/28 compliance/provisioning errors were excluded by timestamp.
+Final service-log totals:
 
-**RLS verdict: clean for every exercised `capmint_app` path.**
+- verification-to-transparency `POST /api/v1/log` requests: **11**;
+- `POST /` route misses: **0**;
+- PostgreSQL `42501`: **0**;
+- permission-denied records: **0**.
 
-## Cross-tenant negatives
+## Commands run
 
-All reached negative checks passed:
+- environment/key/role validation without printing secrets
+- `npm ci`
+- `npm run db:reset -- --yes`
+- owner-run `playground/run_migrations.js --check`
+- empty-GUC F-org query
+- `npm run dev`
+- `/health` probes on ports 8080–8087
+- `playground/test_runner.js` with owner test-fixture access
+- direct `LOT_LAB_TEST_REPLACED` and ordered chain probes
+- targeted registration, duplicates, activation, public verification, seeded lab, isolation, and ledger checks
+- `scripts/check-overfilled-lots.mjs`
+- parsed current-run service-log scan
 
-- another producer saw zero budgets;
-- the same actor received non-disclosing 404s for the seed budget drawdown and another producer’s lot mint;
-- exporter received 403 for certifier activation;
-- isolation lab saw zero lots and received fail-closed `LAB_ASSIGNMENT_REQUIRED`;
-- no leaked response row or 500 occurred.
+## Scope self-audit
 
-## Prioritized defects
-
-1. **P1a — seed IDs conflict with strict route UUID validation (E).** The fresh v4 lot is accepted, but seeded lab organization ID `00000000-0000-0000-0000-000000000004` has version nibble `0`; `/assign-laboratory` validates both path and lab organization IDs using RFC version/variant constraints and returns 400. The same inconsistency affects seed lot `…0050`. This prevents the assigned-lab success half of flow 6. Logged only.
-2. **P1b — mint service has no `/health` route (E).** Port 8083 serves mint requests correctly but returns 404 for `/health`. Logged only.
-
-## Not exercised
-
-The assigned laboratory’s successful result submission could not be exercised because P1a rejects the only seeded assigned-lab organization ID before authorization/RLS evaluation. All other requested flow groups were exercised. No product code, seed, migration, policy, validator, role, tenant GUC, or `withTenantTx` behavior was changed or bypassed.
+No product, migration, policy, schema, seed, service, manifest, dependency, CI, architecture, or tracked environment file was modified during verification. Only smoke-report evidence was added or updated. The root `.env` remains ignored, the pre-existing `.codex/` tree remains untouched and untracked, and no commit, push, PR, or merge was created.
