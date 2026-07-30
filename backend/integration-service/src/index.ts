@@ -8,6 +8,7 @@ import {
   createLoggingOptions,
   registerRequestLogging
 } from '../../../packages/shared/logging.js';
+import { registerReadiness } from '../../../packages/shared/readiness.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
@@ -28,6 +29,7 @@ if (!DATABASE_URL) {
 const pgPool = new pg.Pool({
   connectionString: DATABASE_URL
 });
+registerReadiness(server, { pgPool });
 
 // Configure JWT plugin. Fail closed: never fall back to a hardcoded secret in real environments.
 const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-insecure-secret' : '');

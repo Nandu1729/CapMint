@@ -14,6 +14,7 @@ import {
   createLoggingOptions,
   registerRequestLogging
 } from '../../../packages/shared/logging.js';
+import { registerReadiness } from '../../../packages/shared/readiness.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
@@ -145,6 +146,7 @@ if (!REDIS_URL) {
   process.exit(1);
 }
 const redisClient = new Redis(REDIS_URL);
+registerReadiness(server, { pgPool, redisClient });
 
 async function lockProducerBudget(client: pg.PoolClient, budgetId: string, organizationId: string) {
   return client.query(
