@@ -1,0 +1,100 @@
+groups:
+  - name: capmint-service-availability
+    interval: 15s
+    rules:
+      - alert: CapMintServiceDown
+        expr: >-
+          up{job=~"capmint-(auth|cpq|mint|resolver|transparency|verification|integration)"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CapMint service {{ $labels.job }} is down"
+          description: >-
+            Prometheus has been unable to scrape {{ $labels.instance }} for at
+            least one minute.
+
+  - name: capmint-application-errors
+    interval: 15s
+    rules:
+      - alert: CapMintHigh5xxRate
+        expr: >-
+          sum by (job) (
+            rate(http_request_duration_seconds_count{
+              job=~"capmint-(auth|cpq|mint|resolver|transparency|verification|integration)",
+              status_code=~"5.."
+            }[5m])
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High 5xx rate for {{ $labels.job }}"
+          description: >-
+            {{ $labels.job }} has sustained more than 0.1 HTTP 5xx responses
+            per second for five minutes.
+
+      - alert: CapMintHighHandledErrorRate
+        expr: >-
+          sum by (job) (
+            rate(errors_total{
+              job=~"capmint-(auth|cpq|mint|resolver|transparency|verification|integration)"
+            }[5m])
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High handled-error rate for {{ $labels.job }}"
+          description: >-
+            {{ $labels.job }} has sustained more than 0.5 normalized errors
+            per second for five minutes.
+
+      - alert: CapMintRlsDenialSpike
+        expr: >-
+          sum by (job) (
+            increase(errors_total{
+              job=~"capmint-(auth|cpq|mint|resolver|transparency|verification|integration)",
+              code="FORBIDDEN"
+            }[5m])
+          ) >= 5
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RLS-denial spike for {{ $labels.job }}"
+          description: >-
+            {{ $labels.job }} recorded at least five FORBIDDEN errors in five
+            minutes. Investigate tenant context and PostgreSQL RLS denials.
+
+      - alert: CapMintSignatureVerificationFailureSpike
+        expr: >-
+          sum by (job) (
+            increase(signature_verification_failures_total{
+              job=~"capmint-(auth|cpq|mint|resolver|transparency|verification|integration)"
+            }[5m])
+          ) >= 3
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Signature-verification failures for {{ $labels.job }}"
+          description: >-
+            {{ $labels.job }} recorded at least three signature-verification
+            failures in five minutes.
+
+      - alert: CapMintLedgerAppendFailure
+        expr: >-
+          sum by (job) (
+            increase(ledger_append_total{
+              job=~"capmint-(auth|cpq|mint|resolver|transparency|verification|integration)",
+              result="error"
+            }[5m])
+          ) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Transparency-ledger append failed for {{ $labels.job }}"
+          description: >-
+            {{ $labels.job }} recorded a failed transparency-ledger append
+            during the last five minutes.
