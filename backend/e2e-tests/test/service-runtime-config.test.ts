@@ -51,4 +51,20 @@ describe('backend runtime configuration', () => {
     expect(outboundCallCount).toBeGreaterThan(0);
     expect(forwardedRequestIdCount).toBe(outboundCallCount);
   });
+
+  it('keys login and verification rate limits from the shared Fastify request IP', () => {
+    const authSource = fs.readFileSync(
+      path.join(ROOT, 'backend', 'auth-service', 'src', 'index.ts'),
+      'utf8'
+    );
+    const verificationSource = fs.readFileSync(
+      path.join(ROOT, 'backend', 'verification-service', 'src', 'index.ts'),
+      'utf8'
+    );
+
+    expect(authSource).toContain("rateLimit('login', request.ip");
+    expect(authSource).toContain('const key = `ratelimit:${bucket}:${ip}`;');
+    expect(verificationSource).toContain("rateLimit('verify', request.ip");
+    expect(verificationSource).toContain('const key = `ratelimit:${bucket}:${ip}`;');
+  });
 });

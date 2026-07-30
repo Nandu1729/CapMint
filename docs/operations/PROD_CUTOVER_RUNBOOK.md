@@ -214,6 +214,7 @@ The service secret set must contain:
 
 ```text
 DATABASE_URL=postgresql://capmint_app:<secret>@<host>:<port>/<database>
+TRUST_PROXY=<trusted proxy hop count>
 ```
 
 Do not inject `ADMIN_DATABASE_URL` into any runtime service. Do not create
@@ -227,6 +228,16 @@ configuration contract and call `assertRlsServiceRole` before binding:
 - transparency
 - verification
 - integration
+
+Leave `TRUST_PROXY` unset or `false` when a service is directly reachable.
+Behind a controlled ingress, set the exact trusted hop count (for example,
+`TRUST_PROXY=1` for one proxy). `TRUST_PROXY=true` is supported for deployments
+where every path to the service is constrained to trusted proxies, but a fixed
+hop count is safer. The ingress must overwrite or strip client-supplied
+`X-Forwarded-For`; otherwise a client can spoof the rate-limit identity. Invalid
+values fail service startup. With trust enabled, Fastify derives `request.ip`
+from the forwarded chain, and the login and consumer-verification Redis
+limiters use that value in their per-client keys.
 
 Build once, then start the seven services under the production process manager:
 
