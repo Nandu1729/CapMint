@@ -558,6 +558,46 @@ remains**. The LAB-04 harness debt is fixed separately in Review #22.
 
 ---
 
+## Review #22 — LAB-04 compliance-harness fix (HO-007 URL debt)
+
+| Field | Value |
+|---|---|
+| **Review Number** | #22 |
+| **Milestone** | Test-harness correctness — restore the checked-in compliance suite to 88/88 by fixing the `TRANSPARENCY_SERVICE_URL` double-append surfaced during Review #21 |
+| **Branch** | `fix/compliance-harness-transparency-url` → merged (`--no-ff`) into `feat/post-dm03-integration` (`develop`) |
+| **Commit Range Reviewed** | `98c8492e..4f1b7f5c` — `7f158698` (fix) + merge `4f1b7f5c` |
+| **Architecture Status** | PASS — aligns the e2e harness with the documented base-URL contract (`.env.example`); no production code touched |
+| **Security Status** | N/A |
+| **Migration Status** | N/A |
+| **Testing Status** | PASS — root cause proven deterministically (OLD env → 404 path, NEW env → `/api/v1/log`); all three edited suites parse/collect clean. Full F1 run not executed locally (harness safely refuses the shared cluster's operator-managed `capmint_app`); Codex verified 88/88 in a disposable cluster with this config. |
+| **Approved Decisions** | none new |
+| **Outstanding Items** | O3 metrics (HO-010) — the last observability slice. |
+| **Next Review Starts From** | `4f1b7f5c`. |
+
+### Findings (delta only)
+- **Architect-owned debt from HO-007 (Review #18).** HO-007 redefined `TRANSPARENCY_SERVICE_URL`
+  as a service **base** (verification appends `/api/v1/log`), but three e2e env values still carried
+  the full path: `compliance-suite.test.ts:256`, `bootstrap-seed.test.ts:630`,
+  `tenant-authorization.test.ts:169`. Only the first fails a *checked* case (LAB-04 → the doubled
+  `/api/v1/log/api/v1/log` 404s → the compliance suite sat at **87/88**); the other two are opt-in
+  integration suites (`RUN_F2_INTEGRATION`/`RUN_C0_INTEGRATION`). Review #18 read GREEN because the
+  *smoke harness* used the correct base URL — these vitest env values were never updated.
+- **Fix.** Dropped the `/api/v1/log` suffix from all three so each passes a base URL. The `:9`
+  dead-port negative test stays unreachable (intent preserved).
+- **Independent verification.** Replicated verification-service's real `LEDGER_URL` construction
+  (`index.ts:27-28`): OLD `…:PORT/api/v1/log` → `…/api/v1/log/api/v1/log` (≠ route → 404); NEW
+  `…:PORT` → `/api/v1/log` (= route → 201/LAB-04 passes). All three edited files transform/collect
+  cleanly. The full disposable F1 suite was **not** run here: the harness refuses to run while the
+  shared cluster's `capmint_app` holds LOGIN (an operator-managed credential) — respected, not
+  overridden.
+
+### Approval
+`APPROVED` — a one-line-per-file test-config correction that clears my HO-007 debt and returns the
+checked-in compliance gate to 88/88, with the root cause proven deterministically. Boundary advances
+to `4f1b7f5c`. Next: O3 (HO-010, metrics) — the final observability slice.
+
+---
+
 <!--
 ## Review #N — <Milestone> (template — copy for each new review)
 

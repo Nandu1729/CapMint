@@ -4,7 +4,7 @@
 > [AD-002](DECISIONS.md)). Updated at each milestone approval gate. Where this file and
 > the `state/` cards disagree, this file wins until reconciliation.
 >
-> **Last updated:** 2026-07-30 (Review #21 — HO-011 Observability **O4** landed: uniform shared error handling (generic-500 hardening, safe PG-code map, leak-free) across all seven backends. O1–O2 shipped (Reviews #19–#20). O3 metrics is the last observability slice. DM-04 RLS smoke gate remains GREEN end-to-end (Review #18).)
+> **Last updated:** 2026-07-30 (Review #22 — LAB-04 compliance-harness `TRANSPARENCY_SERVICE_URL` double-append fixed (HO-007 debt); checked-in compliance suite back to 88/88. Observability O1–O2–O4 landed (Reviews #19–#21); O3 metrics is the last slice. DM-04 RLS smoke gate remains GREEN end-to-end (Review #18).)
 
 ---
 
@@ -20,7 +20,7 @@
 - **Integration line:** `develop` (== `feat/post-dm03-integration`), **pushed to `origin/develop`**
   for frontend + backend integration testing. Requires `npm ci` (node_modules untracked) and a
   `.env` with the `capmint_app` `DATABASE_URL`.
-- **HEAD:** `7ced845a` (Review #21 — HO-011 Observability O4: uniform error handling; merge of `feat/ho-011-observability-o4`)
+- **HEAD:** `4f1b7f5c` (Review #22 — LAB-04 compliance-harness URL fix; merge of `fix/compliance-harness-transparency-url`)
 - **RLS runtime status:** **VERIFIED GREEN end-to-end (Review #18).** The live frontend→API→RLS
   smoke passes as the non-owner `capmint_app` (`rolbypassrls=false`) — Attempt 07: compliance
   88/88, `LAB-04` PASS, transparency ledger `unbroken=true` (46 entries, 0 broken links,
@@ -135,6 +135,7 @@ confirmed the asserted closures.
 | Declared-but-empty services overstate architecture | Medium | Open. |
 | No monitoring/observability | Medium | **Partially addressed (Reviews #19–#20)** — O1 structured logging + redaction + correlation and O2 readiness `/ready` shipped; metrics (O3) and uniform errors (O4) still open. |
 | Secrets leaking into logs via unredacted `logger: true` | Medium | **Closed (Review #19)** — shared pino config redacts auth/cookie headers + password/JWT/PEM/`signature_bundle` fields (recursively); independently proven 0 leaks. |
+| Checked-in compliance suite red (87/88, LAB-04) from stale `TRANSPARENCY_SERVICE_URL` in the e2e harness (HO-007 debt) | Low | **Closed (Review #22)** — three harness env values corrected to the documented service base; root cause proven deterministically; suite back to 88/88. |
 
 ---
 
