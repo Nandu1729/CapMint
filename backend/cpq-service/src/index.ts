@@ -10,6 +10,10 @@ import {
   tenantContextFromUser,
   withTenantTx
 } from '../../../packages/shared/tenant-db.js';
+import {
+  createLoggingOptions,
+  registerRequestLogging
+} from '../../../packages/shared/logging.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
@@ -20,9 +24,8 @@ declare module 'fastify' {
   }
 }
 
-const server = Fastify({
-  logger: true
-});
+const server = Fastify(createLoggingOptions());
+registerRequestLogging(server);
 
 // Configure JWT plugin (using same shared secret)
 const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-insecure-secret' : '');
@@ -37,7 +40,7 @@ server.register(jwt, {
 
 // Global error handler complying with RFC 7807 Problem Details
 server.setErrorHandler((error, request, reply) => {
-  server.log.error(error);
+  request.log.error(error);
   const statusCode = error.statusCode || 500;
   const errorCode = error.code || 'INTERNAL_SERVER_ERROR';
   reply.status(statusCode).send({
@@ -423,7 +426,7 @@ server.post('/api/v1/budgets/:id/activate', {
     const message = `budget_id:${id};approved_quantity:${budget.approved_quantity}`;
     const certifierPrivateKey = process.env.CERTIFIER_PRIVATE_KEY;
     if (!certifierPrivateKey) {
-      server.log.error('CERTIFIER_PRIVATE_KEY is not configured; cannot co-sign budget activation.');
+      request.log.error('CERTIFIER_PRIVATE_KEY is not configured; cannot co-sign budget activation.');
       return reply.status(500).send({
         success: false,
         error: { statusCode: 500, code: 'SIGNING_UNAVAILABLE', message: 'Certifier signing key is not configured.' }
@@ -434,7 +437,7 @@ server.post('/api/v1/budgets/:id/activate', {
     try {
       signatureBundle = crypto.sign(null, Buffer.from(message), certifierPrivateKey).toString('hex');
     } catch (err) {
-      server.log.error(err as any, 'Ed25519 signing failed');
+      request.log.error(err as any, 'Ed25519 signing failed');
       return reply.status(500).send({
         success: false,
         error: { statusCode: 500, code: 'SIGNING_FAILED', message: 'Budget activation could not be signed.' }
@@ -529,7 +532,7 @@ server.post('/api/v1/budgets/:id/drawdown', {
     try {
       isVerified = crypto.verify(null, Buffer.from(message), pubKeyPem, Buffer.from(budget.signature_bundle, 'hex'));
     } catch (err) {
-      server.log.error(err as any, 'Ed25519 budget signature verification error');
+      request.log.error(err as any, 'Ed25519 budget signature verification error');
     }
 
     if (!isVerified) {

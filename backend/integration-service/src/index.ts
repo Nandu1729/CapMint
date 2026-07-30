@@ -4,6 +4,10 @@ import dotenv from 'dotenv';
 import pg from 'pg';
 import { fileURLToPath } from 'node:url';
 import { assertRlsServiceRole } from '../../../packages/shared/tenant-db.js';
+import {
+  createLoggingOptions,
+  registerRequestLogging
+} from '../../../packages/shared/logging.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
@@ -13,9 +17,8 @@ declare module 'fastify' {
   }
 }
 
-const server = Fastify({
-  logger: true
-});
+const server = Fastify(createLoggingOptions());
+registerRequestLogging(server);
 
 const DATABASE_URL = process.env.DATABASE_URL || '';
 if (!DATABASE_URL) {
@@ -69,7 +72,7 @@ async function authorizeIntegrationLookup(request: FastifyRequest, reply: Fastif
 
 // Global error handler complying with RFC 7807 Problem Details
 server.setErrorHandler((error, request, reply) => {
-  server.log.error(error);
+  request.log.error(error);
   const statusCode = error.statusCode || 500;
   const errorCode = error.code || 'INTERNAL_SERVER_ERROR';
   reply.status(statusCode).send({

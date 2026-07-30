@@ -11,6 +11,10 @@ import {
   tenantContextFromUser,
   withTenantTx
 } from '../../../packages/shared/tenant-db.js';
+import {
+  createLoggingOptions,
+  registerRequestLogging
+} from '../../../packages/shared/logging.js';
 
 dotenv.config({ path: fileURLToPath(new URL('../../../.env', import.meta.url)) });
 
@@ -55,9 +59,8 @@ declare module 'fastify' {
   }
 }
 
-const server = Fastify({
-  logger: true
-});
+const server = Fastify(createLoggingOptions());
+registerRequestLogging(server);
 
 // Configure JWT plugin
 const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === 'test' ? 'test-only-insecure-secret' : '');
@@ -172,7 +175,7 @@ const RATE_LIMIT_WINDOW_MS = parseInt(process.env.RATE_LIMIT_WINDOW_MS || '60000
 
 // Global error handler complying with RFC 7807 Problem Details
 server.setErrorHandler((error, request, reply) => {
-  server.log.error(error);
+  request.log.error(error);
   
   const statusCode = error.statusCode || 500;
   const errorCode = error.code || 'INTERNAL_SERVER_ERROR';
