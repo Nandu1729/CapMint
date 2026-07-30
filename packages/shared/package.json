@@ -8,6 +8,10 @@
       "types": "./logging.d.ts",
       "default": "./logging.js"
     },
+    "./readiness": {
+      "types": "./readiness.d.ts",
+      "default": "./readiness.js"
+    },
     "./tenant-db": {
       "types": "./tenant-db.d.ts",
       "default": "./tenant-db.js"
