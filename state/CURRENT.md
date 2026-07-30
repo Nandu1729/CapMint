@@ -1,45 +1,35 @@
 # CapMint — Current State
 
-> **Last updated:** 2026-07-26
->
+> **Reconciled:** 2026-07-31 under
+> [AD-002](../docs/architecture/DECISIONS.md#ad-002-state-cards-are-input-material-not-authoritative-status).
 > [Architecture Status](../docs/architecture/ARCHITECTURE_STATUS.md) is the
-> authoritative status record under AD-002.
+> authoritative current-state record. If this summary drifts, the architect layer wins.
 
-## Current phase
+## Current reviewed baseline
 
-CapMint is in an active **security-hardening and multi-tenancy remediation**
-phase. Earlier state cards describing the platform as 100% complete or
-production-ready are not verified release assessments.
-
-| Property | Current state |
+| Property | Reconciled state |
 |---|---|
-| Baseline branch | `feat/dm03-tenant-column` |
-| Current milestone | DM-03 — enforceable scope **COMPLETE** |
-| Next tenancy milestone | DM-04 — PostgreSQL Row-Level Security **OPEN** |
-| Open security defect | Capacity / over-issuance enforcement **OPEN** pending bounded verification and closure |
-| Overall status | Remediation in progress; production readiness is not established |
+| Development baseline | `develop`; active work uses short-lived feature branches |
+| Released baseline | `v1.1.0` promoted to `main` at `549c7576ca7e9447705c6fbb5380ff24d30e1c33` under AD-006 |
+| DM-03 | Application-layer tenant ownership and enforcement complete through Review #4 |
+| DM-04 | PostgreSQL RLS complete and runtime-verified as non-owner `capmint_app` through Review #18 |
+| Capacity enforcement | Primary issuance paths verified fail-closed against over-issuance |
+| Observability O1–O4 | Architect-reviewed complete through Reviews #19–#23 |
+| Production deployment | Not established by this card; a code promotion/tag is not proof of a production cutover |
 
-## Approved DM-03 scope
+Earlier statements that the baseline was `feat/dm03-tenant-column`, DM-04 was open, or
+the capacity defect remained open are superseded by the reviewed record above.
 
-DM-03 C2, C3a, C3b, and C3c passed architect review. The approved scope
-establishes FK-backed tenant ownership and application-layer enforcement,
-including fail-closed lab controls and tightened ownership constraints.
+## Current direction
 
-DM-03 does not provide database-enforced tenant isolation. PostgreSQL RLS is
-separately gated as DM-04.
-
-## Immediate priorities
-
-1. Design and implement DM-04 PostgreSQL RLS through its architect gate.
-2. Verify and close the capacity / over-issuance defect on the primary
-   issuance path.
-3. Continue bounded verification of previously asserted security closures.
-4. Treat production-release claims as unverified until an architect-approved
-   release assessment establishes them.
+The architect layer tracks post-release work and accepted risks. At the current recorded
+boundary, these include transparency-ledger hardening follow-ups and ongoing operational
+and architecture reconciliation. Do not infer closure from a task branch, a historical
+sprint checkbox, or a state-card date.
 
 ## Resume checklist
 
 1. Read [Architecture Status](../docs/architecture/ARCHITECTURE_STATUS.md).
-2. Confirm the checked-out branch and review boundary.
-3. Read the relevant architect decision and handoff before implementation.
-4. Run the repository's documented setup and test commands.
+2. Confirm the checked-out branch and current review boundary from Git.
+3. Read the relevant architect decision, task handoff, and acceptance criteria.
+4. Run the repository's documented setup and verification commands.
