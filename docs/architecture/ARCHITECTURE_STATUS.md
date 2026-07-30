@@ -4,7 +4,7 @@
 > [AD-002](DECISIONS.md)). Updated at each milestone approval gate. Where this file and
 > the `state/` cards disagree, this file wins until reconciliation.
 >
-> **Last updated:** 2026-07-30 (Review #23 — HO-010 Observability **O3** (Prometheus `/metrics`) landed; **observability milestone O1–O4 COMPLETE**. Checked-in compliance suite 88/88. DM-04 RLS smoke gate remains GREEN end-to-end (Review #18). Next phase: `develop → main` promotion.)
+> **Last updated:** 2026-07-30 (Review #26 — promotion prep: Gates **A** (security), **B**, **D**, **E** (CI green) closed; observability O1–O4 complete. CI green on `develop` (run `30529546326`). Remaining before `develop → main`: G1 doc sweep, H cutover + operator sign-off, soft-gate risk ADs.)
 
 ---
 
@@ -20,7 +20,7 @@
 - **Integration line:** `develop` (== `feat/post-dm03-integration`), **pushed to `origin/develop`**
   for frontend + backend integration testing. Requires `npm ci` (node_modules untracked) and a
   `.env` with the `capmint_app` `DATABASE_URL`.
-- **HEAD:** `ddb6e638` (Review #23 — HO-010 Observability O3 metrics; merge of `feat/ho-010-observability-o3`)
+- **HEAD:** `9e5811d2` (Review #26 — HO-012 CI toolchain tsx 4 + Node 22; **CI green**. Promotion Gates A/B/D/E closed.)
 - **RLS runtime status:** **VERIFIED GREEN end-to-end (Review #18).** The live frontend→API→RLS
   smoke passes as the non-owner `capmint_app` (`rolbypassrls=false`) — Attempt 07: compliance
   88/88, `LAB-04` PASS, transparency ledger `unbroken=true` (46 entries, 0 broken links,
@@ -103,7 +103,7 @@ bounded review confirms them.
 | **Architecture** | Moderate | ~7 real Fastify services (each a single `index.ts`); several declared services are empty `.gitkeep` placeholders (e.g. analytics/gateway/identity). Monorepo via npm workspaces (D-001). |
 | **Security** | **Verified (Review #24)** | The hardening series is now architect-verified against the live code (promotion Gate A): over-issuance/traversal, signature enforcement (fail-closed), ledger auth (`WITH CHECK` + `SERVICE_TOKEN`), fail-closed env, JWT HS256 pin, Redis rate limiting, cross-tenant RLS, secure bootstrap (bcrypt), and secret hygiene — all confirmed. Two non-blocking follow-ups: **F-A7** prod trust-proxy/XFF for per-client rate limiting, **F-A11** runtime-generated test keys. |
 | **Migration** | Improving | Migration engine + state-aware reconciliation (`ab4f1d9`), drift alignment 0007/0009 (`1852b00`), consistency CI (`29b1dff`). DM03 adds tenant column with backfill + FK + tests. |
-| **Testing** | Moderate — **CI red** | Compliance suite runs on disposable Postgres (`876ed03`); tenant containment + backfill tests present. **CI is currently failing on `develop`** (Review #25): an HO-010 PEM-literal regression (fixed `ac9166c2`) + a tsx/Node-24 `--loader` incompatibility (handed to Codex as **HO-012**). Gate E green pending HO-012. |
+| **Testing** | Moderate — **CI green** | Compliance suite runs on disposable Postgres (`876ed03`); tenant containment + backfill tests present. **CI is green on `develop`** (Review #26, run `30529546326`): compliance 88/88, bootstrap-seed 9/9, on Node 22.23.1 / tsx 4.23.1. Two prior failures fixed (`ac9166c2` PEM-literal + HO-012 tsx/Node). Residual: over-issuance canary skipped without an integration-DB secret (F-E3). |
 | **Operational** | Improving | No container/orchestration by design (D-003 purged Docker/k8s/nginx). **Observability milestone complete (O1–O4, Reviews #19–#23):** shared structured JSON logging (redaction + correlation), fail-fast `/ready` probes, uniform leak-free error handling, and `prom-client` `/metrics` (latency + security counters) across all seven services. Remaining operational gap: **alerting/scrape wiring** (no Prometheus server/alert rules yet). |
 
 Ratings are deliberately conservative because no bounded architect review has yet

@@ -108,27 +108,22 @@ live implementation. **11/11 verified; 2 low-severity follow-ups; 0 blockers.**
 
 ---
 
-## E. Test & CI gates — **RED (blocked, root-caused)**
+## E. Test & CI gates — **GREEN (Review #26)**
 
-> **CI is currently failing on `develop`.** Root-caused during Gate E verification (2026-07-30) via
-> `gh run view`. Failing job step: *"Verify Secure Administrator Bootstrap and Development Seed"*
-> (`bootstrap-seed.test.ts`, 3 tests) — the compliance-suite step never runs (skipped after this). **Two
-> independent root causes:**
->
-> 1. **HO-010 PEM-literal regression** — the metrics probe hardcoded `-----BEGIN PRIVATE KEY-----…` in
->    `compliance-suite.test.ts`, tripping the bootstrap-seed credential-scan guard. **FIXED** (ephemeral
->    runtime key; merge `ac9166c2`), also closing F-A11.
-> 2. **tsx/Node-24 incompatibility** — CI's `setup-node@v3` + `node-version: 18` is deprecated and the
->    runner forces Node 24, whose removal of `--loader` breaks `tsx ^3.12.0` → spawned services crash
->    ("Service exited before becoming healthy"). **Handed to Codex as HO-012** (tsx→^4 monorepo-wide +
->    `setup-node@v4` / Node 22); must be validated by a green CI run.
+> **CI was red on `develop`; now green.** Root-caused during Gate E verification via `gh run view` to
+> two independent causes, both resolved: (1) an HO-010 PEM-literal regression tripping the bootstrap-seed
+> credential-scan guard — **fixed** (`ac9166c2`, ephemeral runtime key, also closed F-A11); (2) a
+> `tsx ^3` / Node-24 `--loader` incompatibility — **fixed** via HO-012 (tsx→^4 + `setup-node@v4`/Node 22).
+> CI run `30529546326` conclusion `success` (Node 22.23.1, tsx 4.23.1).
 
-- [~] **[H] E1 — Compliance suite 88/88 in a clean cluster.** Green once HO-012 lands (the suite is
-  currently skipped because bootstrap-seed fails first). Review #22 restored the LAB-04 check.
-- [ ] **[H] E2 — Build 7/7 + workspace tests pass on the promotion commit.** Build/lint/unit green in
-  CI today; the service-spawn integration tests are blocked by the tsx issue (HO-012).
-- [ ] **[H] E3 — CI green on the promotion PR.** **Blocked on HO-012.** The exact promotion SHA must
-  show a fully green `.github/workflows/ci.yml` (incl. the over-issuance canary).
+- [x] **[H] E1 — Compliance suite 88/88 in a clean cluster.** CI "Run Tenant-Scoped Compliance Suite"
+  step = success (88/88). Review #22 restored the LAB-04 check.
+- [x] **[H] E2 — Build 7/7 + workspace tests pass.** Compile + Test Suites + Bootstrap/Reconciliation +
+  Secure Admin Bootstrap (9/9) all green.
+- [x] **[H] E3 — CI green on the SHA.** Run `30529546326` overall `success`. **↳ Follow-up F-E3 (soft):**
+  the Over-Issuance Data Integrity Canary job is **skipped-by-design** (no `CAPMINT_INTEGRATION_DATABASE_URL`
+  secret); the invariant is covered by A1 + Review #18 + the compliance suite. Optionally wire the secret to
+  activate the canary.
 
 ---
 

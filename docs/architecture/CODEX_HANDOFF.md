@@ -25,7 +25,7 @@
 | [HO-009](#ho-009-observability-o2--dependency-readiness-probe) | Observability O2 — dependency readiness probe (`/ready`) | Observability | 2026-07-30 | EXECUTED (Review #20, `2100be9d`) |
 | [HO-011](#ho-011-observability-o4--uniform-shared-error-handling) | Observability O4 — uniform shared error handling | Observability | 2026-07-30 | EXECUTED (Review #21, `7ced845a`) |
 | [HO-010](#ho-010-observability-o3--prometheus-metrics) | Observability O3 — Prometheus metrics (`/metrics`) | Observability | 2026-07-30 | EXECUTED (Review #23, `ddb6e638`) |
-| [HO-012](#ho-012-ci-toolchain--tsx-4--node-22-node-24-compatibility) | CI toolchain — tsx 4 + Node 22 (Node-24 compatibility) | Promotion Gate E | 2026-07-30 | HANDED-OFF |
+| [HO-012](#ho-012-ci-toolchain--tsx-4--node-22-node-24-compatibility) | CI toolchain — tsx 4 + Node 22 (Node-24 compatibility) | Promotion Gate E | 2026-07-30 | EXECUTED (Review #26, `9e5811d2`) |
 
 ---
 
@@ -473,7 +473,7 @@ error codes clamped to `UNKNOWN`; `npm ci`/build/tests clean. Evidence:
 
 ## HO-012: CI toolchain — tsx 4 + Node 22 (Node-24 compatibility)
 
-- **Spec ID:** HO-012 · **Milestone:** Promotion Gate E · **Date:** 2026-07-30 · **Status:** HANDED-OFF
+- **Spec ID:** HO-012 · **Milestone:** Promotion Gate E · **Date:** 2026-07-30 · **Status:** EXECUTED (Review #26, commit `69b9d9ed`, merged `9e5811d2`) — CI run `30529546326` `success`
 - **Related:** [PROMOTION_READINESS.md](PROMOTION_READINESS.md) Gate E; surfaced in Review #25.
 
 ### Objective

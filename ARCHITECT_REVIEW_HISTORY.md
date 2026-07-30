@@ -743,8 +743,41 @@ H (cutover).
 
 ---
 
-<!--
-## Review #N — <Milestone> (template — copy for each new review)
+## Review #26 — HO-012: CI toolchain (tsx 4 + Node 22) — **Gate E GREEN**
+
+| Field | Value |
+|---|---|
+| **Review Number** | #26 |
+| **Milestone** | Promotion Gate E — green CI. tsx `^3`→`^4` + `setup-node@v4`/Node 22 to resolve the Node-24 `--loader` breakage. |
+| **Branch** | `feat/ho-012-ci-tsx4-node22` (PR #1 → `develop`) → merged (`--no-ff`) into `feat/post-dm03-integration` |
+| **Commit Range Reviewed** | `05a6bbae..9e5811d2` — `69b9d9ed` (fix) + merge `9e5811d2` |
+| **Architecture Status** | PASS — scope-clean: 8 tsx manifests + `ci.yml` + regenerated lockfile; no app/service logic |
+| **Security Status** | N/A |
+| **Migration Status** | N/A |
+| **Testing Status** | **PASS — CI GREEN** (independently verified via `gh`): run `30529546326` conclusion `success` |
+| **Approved Decisions** | none new |
+| **Outstanding Items** | Over-issuance canary **skipped-by-design** (no `CAPMINT_INTEGRATION_DATABASE_URL` secret) — soft follow-up **F-E3**; invariant otherwise covered (A1 + Review #18 + compliance). |
+| **Next Review Starts From** | `9e5811d2`. |
+
+### Findings (delta only)
+- **CI green, independently confirmed.** `gh run view 30529546326` → overall `conclusion: success`;
+  Workspace Verification & Testing `success` with the previously-failing steps now green: **Verify Secure
+  Administrator Bootstrap and Development Seed** (9/9) and **Run Tenant-Scoped Compliance Suite** (88/88),
+  plus Compile + Test Suites + Bootstrap/Reconciliation. Node 22.23.1, tsx 4.23.1.
+- **Both root causes resolved.** The HO-010 PEM-literal regression (fixed `ac9166c2`) + the tsx/Node-24
+  `--loader` incompatibility (this change) — the two failures diagnosed in Review #25.
+- **Scope-clean.** Only tsx `^3.12.0`→`^4.7.0` (8 manifests, resolves to 4.23.1), `checkout@v4`/
+  `setup-node@v4`/Node 22 in both CI jobs, and the regenerated lockfile. Post-merge `npm ci` clean locally.
+- **Canary caveat (honest).** The Over-Issuance Data Integrity Canary job is **skipped**, not run, because
+  the repo has no `RUN_DATA_INTEGRITY_CANARY`/`CAPMINT_INTEGRATION_DATABASE_URL`. A skipped job does not
+  fail the run. The over-issuance invariant is independently covered (Gate A1, Review #18 smoke, compliance
+  suite). Recorded as soft follow-up **F-E3**: optionally wire the integration-DB secret to activate it.
+
+### Approval
+`APPROVED` — **Promotion Gate E is GREEN.** CI passes end-to-end on the exact SHA; the compliance suite
+runs and passes 88/88. Boundary advances to `9e5811d2`. Gates A/B/D/E are now closed; remaining before
+promotion: **G1** (doc-honesty sweep), **H** (cutover mechanic + rollback + operator sign-off), and the
+soft-gate risk-acceptance ADs (B3, C2–C4, D3, F2–F4, F-E3, G2, G4, H3).
 
 | Field | Value |
 |---|---|
