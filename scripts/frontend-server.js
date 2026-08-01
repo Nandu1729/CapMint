@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 8080;
+const PORT = process.env.PORT || 8080;
 const PUBLIC_DIR = path.join(__dirname, '..', 'frontend');
 
 const MIME_TYPES = {
@@ -19,11 +19,11 @@ const MIME_TYPES = {
   '.yml': 'text/yaml'
 };
 
-const proxyApi = (targetPort, req, res) => {
+const proxyApi = (targetPort, req, res, targetPath = req.url) => {
   const options = {
     hostname: '127.0.0.1',
     port: targetPort,
-    path: req.url,
+    path: targetPath,
     method: req.method,
     headers: req.headers
   };
@@ -45,7 +45,9 @@ const server = http.createServer((req, res) => {
   const urlPath = req.url.split('?')[0];
 
   // Proxy API requests to backend microservices
-  if (urlPath.startsWith('/api/v1/auth')) {
+  if (urlPath === '/api/v1/auth/health') {
+    return proxyApi(8081, req, res, '/health');
+  } else if (urlPath.startsWith('/api/v1/auth')) {
     return proxyApi(8081, req, res);
   } else if (urlPath.startsWith('/api/v1/budgets')) {
     return proxyApi(8082, req, res);

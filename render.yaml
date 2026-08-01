@@ -1,0 +1,53 @@
+services:
+  - type: keyvalue
+    name: capmint-practice-redis
+    plan: free
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru
+
+  - type: web
+    name: capmint-practice
+    runtime: node
+    plan: free
+    branch: feat/ho-025-render-free-deploy
+    buildCommand: npm install && npm run build
+    startCommand: node scripts/render-start.js
+    healthCheckPath: /
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ADMIN_DATABASE_URL
+        fromDatabase:
+          name: capmint-practice-db
+          property: connectionString
+      - key: CAPMINT_APP_PASSWORD
+        generateValue: true
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: capmint-practice-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: WEBHOOK_SECRET
+        generateValue: true
+      - key: CAPMINT_CERTIFIER_KEY_SEED
+        generateValue: true
+      - key: TRUST_PROXY
+        value: "1"
+      - key: CAPMINT_BOOTSTRAP_ADMIN_USERNAME
+        sync: false
+      - key: CAPMINT_BOOTSTRAP_ADMIN_ORG_NAME
+        sync: false
+      - key: CAPMINT_BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: CAPMINT_BOOTSTRAP_ADMIN_PASSWORD
+        generateValue: true
+
+databases:
+  - name: capmint-practice-db
+    plan: free
+    postgresMajorVersion: "16"
+    databaseName: capmint_practice
+    ipAllowList: []

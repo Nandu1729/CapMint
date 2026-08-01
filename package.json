@@ -20,7 +20,7 @@
     "clean": "rm -rf node_modules **/node_modules **/dist",
     "seed:development": "node database/seed/development.js",
     "db:reset": "node scripts/db-reset.js",
-    "start": "concurrently \"node scripts/frontend-server.js\" \"npm run start --workspace=backend/auth-service\" \"npm run start --workspace=backend/cpq-service\" \"npm run start --workspace=backend/mint-service\" \"npm run start --workspace=backend/resolver-service\" \"npm run start --workspace=backend/transparency-service\" \"npm run start --workspace=backend/verification-service\" \"npm run start --workspace=backend/integration-service\"",
+    "start": "concurrently --kill-others-on-fail --names gateway,auth,cpq,mint,resolver,transparency,verification,integration \"node scripts/frontend-server.js\" \"env PORT=8081 node backend/auth-service/dist/index.js\" \"env PORT=8082 node backend/cpq-service/dist/index.js\" \"env PORT=8083 node backend/mint-service/dist/index.js\" \"env PORT=8084 node backend/resolver-service/dist/index.js\" \"env PORT=8085 node backend/transparency-service/dist/index.js\" \"env PORT=8086 node backend/verification-service/dist/index.js\" \"env PORT=8087 node backend/integration-service/dist/index.js\"",
     "dev": "concurrently \"node scripts/frontend-server.js\" \"npm run dev --workspace=backend/auth-service\" \"npm run dev --workspace=backend/cpq-service\" \"npm run dev --workspace=backend/mint-service\" \"npm run dev --workspace=backend/resolver-service\" \"npm run dev --workspace=backend/transparency-service\" \"npm run dev --workspace=backend/verification-service\" \"npm run dev --workspace=backend/integration-service\""
   },
   "dependencies": {
