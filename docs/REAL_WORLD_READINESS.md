@@ -45,6 +45,21 @@ Severity: 🔴 blocker · 🟠 high · 🟡 watch. Owner: **OP** operator/founde
 | RW-14 | Tune geovelocity thresholds for real logistics (air freight > 500 km/h); don't auto-escalate on location alone. | Prevents false "CRITICAL" on legitimate fast shipments and GPS-denied scans. | CX | ☐ |
 | RW-15 | Consumer result page: i18n (EU/US buyers), anti-phishing trust cues, offline/cold-start UX. | Buyers won't install an app; the web result page IS the product's face and a spoofing target. | CX | ☐ |
 
+## 🔗 Integration boundary — see [SCOPE_BOUNDARY.md](SCOPE_BOUNDARY.md)
+
+CapMint integrates with — but never *becomes* — AgriStack, NABL, and TraceNet. It provides
+budget + minting + trust; it is not a certification body, a lab, or a government registry.
+
+| ID | Fix | Why | Owner | Status |
+| :-- | :-- | :-- | :--: | :--: |
+| RW-16 | Label AgriStack / TraceNet / NABL integrations as **simulated (mock)** in docs and UI; never present mock government data as live. | `integration-service` returns hardcoded mock records; showing them as real gov data misleads users and auditors. | CX | ☐ |
+
+## Business / partnership track (not engineering)
+
+| ID | Item | Why it's not code | Owner | Status |
+| :-- | :-- | :-- | :--: | :--: |
+| RW-17 | Pursue authorized API access to **AgriStack**, **APEDA-TraceNet (NPOP)**, and **NABL** lab verification. | Legal/partnership approvals, not features. Until granted, integrations stay mock and real Certification Bodies / labs use CapMint manually. CapMint never *becomes* these authorities. | OP | ☐ |
+
 ## ☑ Already done (context)
 
 - RLS multi-tenancy, capacity/over-issuance guard, observability O1–O4, security verification pass, CI green, promotion to `main` (v1.1.0). See ARCHITECTURE_STATUS.
