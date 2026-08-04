@@ -77,6 +77,9 @@ async function dropDatabase(name: string): Promise<void> {
 
 async function withPool<T>(name: string, action: (pool: pg.Pool) => Promise<T>): Promise<T> {
   const pool = new pg.Pool({ connectionString: databaseUrl(name) });
+  // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
+  // unhandled 'error' event is fatal in Node and fails otherwise-green runs.
+  pool.on('error', poolError => process.stderr.write(`[e2e] idle client error: ${(poolError as Error).message}\n`));
   try {
     return await action(pool);
   } finally {
@@ -259,6 +262,9 @@ suite('F2 secure bootstrap and development seed', () => {
     const adminUrl = new URL(sourceUrl);
     adminUrl.pathname = '/postgres';
     adminPool = new pg.Pool({ connectionString: adminUrl.toString() });
+    // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
+    // unhandled 'error' event is fatal in Node and fails otherwise-green runs.
+    adminPool.on('error', poolError => process.stderr.write(`[e2e] idle client error: ${(poolError as Error).message}\n`));
   });
 
   afterAll(async () => {
@@ -558,6 +564,9 @@ suite('F2 secure bootstrap and development seed', () => {
         connectionString: appDatabaseUrl,
         max: 1
       });
+      // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
+      // unhandled 'error' event is fatal in Node and fails otherwise-green runs.
+      appPool.on('error', poolError => process.stderr.write(`[e2e] idle client error: ${(poolError as Error).message}\n`));
       try {
         await withTenantTx(
           appPool,

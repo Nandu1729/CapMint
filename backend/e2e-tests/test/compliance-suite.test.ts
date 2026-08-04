@@ -187,8 +187,14 @@ async function runIteration(iteration: number): Promise<void> {
   const adminUrl = new URL(sourceDatabase);
   adminUrl.pathname = '/postgres';
   const adminPool = new pg.Pool({ connectionString: adminUrl.toString() });
+  // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
+  // unhandled 'error' event is fatal in Node and fails otherwise-green runs.
+  adminPool.on('error', poolError => process.stderr.write(`[e2e] idle client error: ${(poolError as Error).message}\n`));
   const testUrl = databaseUrl(sourceDatabase, databaseName);
   const testPool = new pg.Pool({ connectionString: testUrl });
+  // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
+  // unhandled 'error' event is fatal in Node and fails otherwise-green runs.
+  testPool.on('error', poolError => process.stderr.write(`[e2e] idle client error: ${(poolError as Error).message}\n`));
   const children: RunningChild[] = [];
   const tempDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'capmint-f1-'));
   let databaseCreated = false;

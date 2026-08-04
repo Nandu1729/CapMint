@@ -429,6 +429,9 @@ suite('C0 tenant authorization containment', () => {
     const adminUrl = new URL(sourceDatabaseUrl);
     adminUrl.pathname = '/postgres';
     adminPool = new pg.Pool({ connectionString: adminUrl.toString() });
+    // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
+    // unhandled 'error' event is fatal in Node and fails otherwise-green runs.
+    adminPool.on('error', poolError => process.stderr.write(`[e2e] idle client error: ${(poolError as Error).message}\n`));
     const existing = await adminPool.query('SELECT 1 FROM pg_database WHERE datname = $1', [TEST_DATABASE_NAME]);
     if (existing.rowCount !== 0) {
       throw new Error(`Disposable database ${TEST_DATABASE_NAME} already exists; refusing to overwrite it.`);
@@ -438,6 +441,9 @@ suite('C0 tenant authorization containment', () => {
     databaseCreated = true;
     testDatabaseUrl = makeDatabaseUrl(sourceDatabaseUrl, TEST_DATABASE_NAME);
     testPool = new pg.Pool({ connectionString: testDatabaseUrl });
+    // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
+    // unhandled 'error' event is fatal in Node and fails otherwise-green runs.
+    testPool.on('error', poolError => process.stderr.write(`[e2e] idle client error: ${(poolError as Error).message}\n`));
     const migrationLogSchema = await fs.readFile(
       path.join(ROOT, 'database/schema/migrations_log.sql'),
       'utf8'
@@ -580,6 +586,9 @@ suite('C0 tenant authorization containment', () => {
 
   it('enforces identity-table isolation on raw capmint_app queries', async () => {
     const appPool = new pg.Pool({ connectionString: appDatabaseUrl, max: 1 });
+    // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
+    // unhandled 'error' event is fatal in Node and fails otherwise-green runs.
+    appPool.on('error', poolError => process.stderr.write(`[e2e] idle client error: ${(poolError as Error).message}\n`));
     try {
       await withTenantTx(appPool, PUBLIC_TENANT_CONTEXT, async client => {
         const directory = await client.query(
@@ -771,6 +780,9 @@ suite('C0 tenant authorization containment', () => {
 
   it('enforces provenance-chain isolation and preserves transitive actor access', async () => {
     const appPool = new pg.Pool({ connectionString: appDatabaseUrl, max: 1 });
+    // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
+    // unhandled 'error' event is fatal in Node and fails otherwise-green runs.
+    appPool.on('error', poolError => process.stderr.write(`[e2e] idle client error: ${(poolError as Error).message}\n`));
     const producerContext = {
       access: 'authenticated' as const,
       orgId: ids.producerOrgA,
@@ -1007,6 +1019,9 @@ suite('C0 tenant authorization containment', () => {
     );
 
     const appPool = new pg.Pool({ connectionString: appDatabaseUrl, max: 1 });
+    // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
+    // unhandled 'error' event is fatal in Node and fails otherwise-green runs.
+    appPool.on('error', poolError => process.stderr.write(`[e2e] idle client error: ${(poolError as Error).message}\n`));
     const producerContext = {
       access: 'authenticated' as const,
       orgId: ids.producerOrgA,
@@ -1220,6 +1235,9 @@ suite('C0 tenant authorization containment', () => {
       [ledgerId]
     );
     const appPool = new pg.Pool({ connectionString: appDatabaseUrl, max: 1 });
+    // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
+    // unhandled 'error' event is fatal in Node and fails otherwise-green runs.
+    appPool.on('error', poolError => process.stderr.write(`[e2e] idle client error: ${(poolError as Error).message}\n`));
     const context = { access: 'authenticated' as const, orgId: ids.producerOrgA, isSystemAdmin: false };
     try {
       await withTenantTx(appPool, context, async client => {
