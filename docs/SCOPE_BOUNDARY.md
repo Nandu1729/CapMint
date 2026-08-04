@@ -75,9 +75,24 @@ You do **not** build AgriStack, TraceNet, or NABL. You build **budget + minting 
 thin adapters to those authorities. This is a **smaller, legal, and defensible** scope — and it
 is the only scope the government would permit.
 
-## Open decision (tracked, not yet locked)
+## Mint timing — SETTLED (2026-08-04)
 
-- **Mint timing** — mint *before* the lab (with an export/ship certification gate) **or** mint
-  *after* certification (single mint-time gate, zero waste, no "pending" window). Decided by one
-  operational question: can producers apply the QR label *after* certification (a separate
-  labeling step)? If yes → mint-after-certification is preferred. See the workflow discussion.
+**Mint before certification, attach the physical QR label after certification.** This is a
+deliberate hybrid, not a fallback:
+
+- **Mint** (generating the digital serial/QR identity in the system) happens **before** the NABL
+  lab report, matching how the real industry already serializes/registers product. This requires
+  **no change to existing real-world producer workflows** — critical, since that's not something
+  a private platform can impose on the government-regulated process.
+- **Attach** (physically printing/sticking the QR onto the packaged jar) happens **only after**
+  the lab passes and the certifier certifies the lot. This is the actual gate: since nothing is
+  physically scannable until it's attached, and attachment only occurs post-certification, a
+  consumer can never scan an uncertified product — the same protection a "mint-after-certification"
+  model would give, without forcing a process change on producers.
+- Minting itself is near-costless (a digital serial number) — the real cost/risk was always
+  printing a *physical* label before certification, which "attach after" eliminates directly.
+
+This supersedes the earlier "mint before vs. mint after" framing — both were partial answers; the
+mint/attach split resolves the concern each one was trying to address. See RW-01 in
+[REAL_WORLD_READINESS.md](REAL_WORLD_READINESS.md): verification must still never claim "certified"
+before it's true, since an internal/unattached scan (e.g. a warehouse test) should show honestly.
