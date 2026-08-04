@@ -32,9 +32,8 @@
   DM-04 D1–D3c (migrations `0015`–`0019`, `packages/shared/tenant-db.js`) · M1 repo hygiene
   (`node_modules` untracked, docs reconciled) · capacity/over-issuance fix + shared
   `packages/shared/capacity.js` guard.
-- **`main`:** unchanged at `767a2f6`. Promotion **`develop → main`** is a separate decision, gated
-  on a pre-production hardening pass (transparency-ledger external anchoring + bounded security
-  review) after integration testing on `develop`.
+- **`main`:** `v1.1.0` promoted at merge commit
+  `549c7576ca7e9447705c6fbb5380ff24d30e1c33` via PR #2 on 2026-07-30.
 - **Tracked defects from the smoke gate (Review #14; triage before `develop→main`):**
   1. ~~CRITICAL (config-integrity) — per-service `.env` shadow root, defaulting services to the
      owner role → RLS off.~~ **RESOLVED (Review #15, `fa6df817`).** All seven services now load the
@@ -118,8 +117,9 @@ confirmed the asserted closures.
 2. **Review #1 (DM03):** verify tenant column migration safety, backfill correctness,
    FK/orphan handling, and RLS readiness (`fd6ba35..9070970`).
 3. **Verify asserted security closures** from the hardening series (see Security row).
-4. **Complete or remove placeholder services** (empty `.gitkeep` service dirs) so
-   declared architecture matches shipped code.
+4. **CLOSED — placeholder-service disposition:** six redundant/unplanned service
+   placeholders were removed; identity remains a separately gated future boundary. See
+   [PLACEHOLDER_SERVICES.md](PLACEHOLDER_SERVICES.md).
 5. **Operational maturity:** define monitoring/alerting posture.
 
 ---

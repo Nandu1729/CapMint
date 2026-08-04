@@ -27,6 +27,27 @@ const PINO_REDACT_PATHS = [
   'req.body.signature_bundle'
 ];
 
+function trustProxyFromEnvironment(value) {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'false') return false;
+  if (normalized === 'true') return true;
+
+  if (/^(0|[1-9][0-9]*)$/.test(normalized)) {
+    const hops = Number(normalized);
+    if (Number.isSafeInteger(hops) && hops <= 255) {
+      return hops;
+    }
+  }
+
+  throw new TypeError(
+    'TRUST_PROXY must be "true", "false", or an integer hop count from 0 to 255.'
+  );
+}
+
 function isSensitiveFieldName(fieldName) {
   const normalized = fieldName.toLowerCase();
   if (SENSITIVE_FIELD_NAMES.has(normalized)) {
@@ -81,6 +102,7 @@ function requestIdFromHeader(rawRequest) {
 
 export function createLoggingOptions(env = process.env) {
   return {
+    trustProxy: trustProxyFromEnvironment(env.TRUST_PROXY),
     logger: {
       level: env.LOG_LEVEL || 'info',
       redact: {

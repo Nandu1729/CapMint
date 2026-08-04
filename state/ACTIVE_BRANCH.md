@@ -1,117 +1,58 @@
-# CapMint — Active Branch
+# CapMint — Branch State
 
-> **Last Updated:** 2026-07-08  
-> **Current Branch:** `develop`  
-> **Strategy:** Trunk-Based Development with Short-Lived Feature Branches
+> **Reconciled:** 2026-07-31 under
+> [AD-002](../docs/architecture/DECISIONS.md#ad-002-state-cards-are-input-material-not-authoritative-status).
+> [Architecture Status](../docs/architecture/ARCHITECTURE_STATUS.md) is authoritative.
+> This card describes the workflow; it does not claim which branch a worktree currently
+> has checked out.
 
----
+## Branch baseline
 
-## Current Branch State
+| Property | Reconciled state |
+|---|---|
+| Development baseline | `develop` |
+| Active work | Short-lived feature branches created from `develop` |
+| Release branch | `main`; updated only through the sanctioned promotion path |
+| Latest architect-recorded release | `v1.1.0`, promoted through PR #2 under AD-006 |
+| Checked-out branch | Run `git branch --show-current`; do not rely on this card |
+| CI | Configured; use Architecture Status and the current GitHub checks for the latest result |
 
-| Property        | Value                              |
-|-----------------|------------------------------------|
-| Active Branch   | `main`                             |
-| Checkpoint      | All Checkpoints Complete ✅         |
-| Last Commit     | GA Release Sign-Off (2026-07-11)   |
-| Protected       | Yes — no direct pushes to `main`   |
-| CI Status       | N/A (CI not yet configured)        |
+The historical claim that `main` was the active development branch with “all
+checkpoints complete” has been withdrawn. The CP-000–CP-023 branch mapping predated
+architect governance and is only asserted history; it is not completion evidence.
 
----
+## Branching strategy
 
-## Branching Strategy
-
-The project follows a strict development workflow:
-
+```text
+main
+  └── tagged releases promoted through review
+develop
+  └── integration baseline
+feature/*
+  └── bounded implementation work
 ```
-      main
-       │ (stable, protected releases)
-       ▼
-    develop
-       │ (integration and testing)
-       ▼
-feature branches
-         (individual task/checkpoint development)
-```
 
-1. **`main`**: Production-ready code only. Tagged releases.
-2. **`develop`**: Integration branch. All features merge here first. This is the base branch for active development.
-3. **`feature/*`**: Individual short-lived feature branches, branched off of `develop`.
+1. Never commit or push directly to `main`.
+2. Branch active implementation work from the current `develop` baseline.
+3. Merge reviewed feature work into `develop` before any release promotion.
+4. Use a reviewed PR and merge commit for `develop` → `main`.
+5. Check the live branch and review boundary before starting work.
 
----
+## Commit convention
 
-## Checkpoint-to-Branch Mapping
-
-| Checkpoint | Working Branch | Merge Target | Status |
-|------------|----------------|--------------|--------|
-| CP-000 | `develop` | `main` | ✅ COMPLETE |
-| CP-001 | `feature/architecture-lock` | `develop` | ✅ COMPLETE |
-| CP-002 | `feature/database-design` | `develop` | ✅ COMPLETE |
-| CP-003 | `feature/api-contracts` | `develop` | ✅ COMPLETE |
-| CP-004 | `feature/auth` *(and modules)*| `develop`| ✅ COMPLETE |
-| CP-005 | `feature/frontend` | `develop` | ✅ COMPLETE |
-| CP-006 | `feature/infrastructure` | `develop` | ✅ COMPLETE |
-| CP-007 | `feature/qa` | `develop` | ✅ COMPLETE |
-| CP-008 | `feature/production-readiness` | `develop` | ✅ COMPLETE |
-
-
----
-
-## Merge Rules
-
-### Feature → Develop
-1. All acceptance criteria for the checkpoint must be met.
-2. All lint checks and tests pass (when CI is configured).
-3. No merge conflicts.
-4. State tracking documents updated.
-5. Conventional commit messages used throughout.
-6. Squash merge preferred for clean history.
-
-### Develop → Main (Release Transitions)
-1. Checkpoint sign-off completed by Tech Lead.
-2. Integration tests pass.
-3. No regressions in existing functionality.
-4. `CHANGELOG.md` updated.
-5. Version tag created (e.g., `v0.1.0-cp000`).
-6. Merge commit (no squash) to preserve history.
-
----
-
-## Commit Message Convention
-
-```
+```text
 <type>(<scope>): <description>
-
-[optional body]
-
-[optional footer]
 ```
 
-| Type | Usage |
-|------|-------|
-| `feat` | New feature or capability |
-| `fix` | Bug fix |
-| `docs` | Documentation changes |
-| `chore` | Maintenance, tooling, config |
-| `refactor` | Code restructuring (no behavior change) |
-| `test` | Adding or updating tests |
-| `ci` | CI/CD pipeline changes |
+Common types are `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, and `ci`.
+Repository-specific task instructions and architect decisions take precedence over this
+summary.
 
----
-
-## Cross-References
+## Cross-references
 
 | Document | Purpose |
-|----------|---------|
-| [AI_RULES.md](../AI_RULES.md) | AI agent behavioral rules |
-| [CURRENT_STATE.md](../CURRENT_STATE.md) | Current project state |
-| [ACTIVE_CHECKPOINT.md](ACTIVE_CHECKPOINT.md) | Checkpoint roadmap |
-
----
-
-## AI Agent Branch Instructions
-
-1. **Always verify** the current branch before making changes: `git branch --show-current`
-2. **Never commit directly** to `main` — use feature branches.
-3. **Create the branch** if it doesn't exist yet for the active checkpoint.
-4. **Sync frequently** with `develop` to avoid large merge conflicts.
-5. Follow the commit convention above for all commits.
+|---|---|
+| [Architecture Status](../docs/architecture/ARCHITECTURE_STATUS.md) | Authoritative current state and reviewed boundaries |
+| [Architect Decisions](../docs/architecture/DECISIONS.md) | Governance decisions, including AD-002 and AD-006 |
+| [Current State](CURRENT.md) | Reconciled non-authoritative summary |
+| [Milestones](MILESTONES.md) | Reviewed milestones and qualified historical CP catalog |

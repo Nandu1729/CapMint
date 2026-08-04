@@ -76,8 +76,25 @@ async function dropDatabase(name: string): Promise<void> {
   createdDatabases.delete(name);
 }
 
+/**
+ * Pools must carry an `error` listener. node-postgres emits `error` on idle clients, and an
+ * unhandled `error` event is a fatal, unhandled exception in Node. Teardown drops disposable
+ * databases with `WITH (FORCE)`, which terminates any connection the server still holds open,
+ * so this event is expected during cleanup. Without a listener it surfaces as an "unhandled
+ * error" that fails the run even when every assertion passed.
+ *
+ * This only intercepts errors on idle clients — a failure during an active query still rejects
+ * that query normally, so genuine test failures remain visible.
+ */
+function attachPoolErrorHandler(pool: pg.Pool, label: string): void {
+  pool.on('error', error => {
+    process.stderr.write(`[migration-reconciliation] idle client error on ${label}: ${(error as Error).message}\n`);
+  });
+}
+
 async function withPool<T>(name: string, action: (pool: pg.Pool) => Promise<T>): Promise<T> {
   const pool = new pg.Pool({ connectionString: databaseUrl(name) });
+  attachPoolErrorHandler(pool, name);
   try {
     return await action(pool);
   } finally {
@@ -286,6 +303,7 @@ suite('C1 migration reconciliation', () => {
     const adminUrl = new URL(sourceUrl);
     adminUrl.pathname = '/postgres';
     adminPool = new pg.Pool({ connectionString: adminUrl.toString() });
+    attachPoolErrorHandler(adminPool, 'admin');
   });
 
   afterAll(async () => {

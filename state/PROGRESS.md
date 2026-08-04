@@ -1,51 +1,41 @@
-# CapMint — Progress
+# CapMint — Progress Record
 
-> **Last Updated:** 2026-07-24  
-> **Status Summary:** All core end-to-end capabilities and workflow gaps are fully resolved, implemented, and verified.
+> **Reconciled:** 2026-07-31 under
+> [AD-002](../docs/architecture/DECISIONS.md#ad-002-state-cards-are-input-material-not-authoritative-status).
+> This is a qualified historical summary. [Architecture Status](../docs/architecture/ARCHITECTURE_STATUS.md)
+> is authoritative for current and verified progress.
 
----
+## Architect-reviewed progress
 
-## Progress Overview
+| Workstream | Reconciled status | Evidence boundary |
+|---|---|---|
+| DM-03 application tenancy | Architect-reviewed complete | Reviews #1–#4 |
+| DM-04 database RLS | Architect-reviewed complete | Live non-owner path through Review #18 |
+| Capacity enforcement | Architect-reviewed closed | Registration, drawdown, mint, and overfill checks |
+| Observability O1–O4 | Architect-reviewed complete | Reviews #19–#23 |
+| `develop` → `main` v1.1.0 promotion | Approved and recorded | AD-006 and PR #2 |
 
-The platform features are divided into six end-to-end operational capabilities:
+## Legacy capability register
 
-```
-[ Security & Identity ] ──► [ Budget & Capacity ] ──► [ Serialization ] ──► [ Ledger Audit ] ──► [ Clone Detection ] ──► [ Integration ]
-      ✅ Verified                 ✅ Verified            ✅ Verified          ✅ Verified            ✅ Verified            ✅ Verified
-```
+The 2026-07-24 register previously labelled every capability “verified” from a single
+day's self-report. Those labels are withdrawn. The entries remain useful as an inventory,
+but require the architect layer or a bounded test report for any verification claim.
 
----
+| Capability | Associated services | Reconciled classification |
+|---|---|---|
+| Authentication and RBAC | `auth-service` | Historical implementation claim; verification is bounded by later reviews |
+| Budgeting and capacity | `cpq-service` | Historical claim; later tenancy and capacity controls were separately reviewed |
+| Serialization and GS1 links | `mint-service`, `resolver-service` | Historical implementation claim |
+| Laboratory reports and lot certification | `verification-service` | Historical claim; later lab isolation was separately reviewed |
+| Transparency ledger | `transparency-service` | Historical claim; current verified properties are listed in Architecture Status |
+| Clone detection and investigations | `verification-service` | Historical implementation claim |
+| External integrations | `integration-service` | Historical simulation/implementation claim, not proof of live regulator integration |
 
-## Feature Progress Register
+## Superseded metrics and packaging claims
 
-| Capability | Associated Services | Status | Verified Date | Key Verification Outputs |
-| :--- | :--- | :---: | :--- | :--- |
-| **Authentication & RBAC** | `auth-service` | ✅ VERIFIED | 2026-07-24 | Onboarding document upload, admin review, and verification evidence. |
-| **AgriStack & CPQ Budgeting** | `cpq-service` | ✅ VERIFIED | 2026-07-24 | Certifier submission, review, rejection, and revision-request workflow. |
-| **Serialization & GS1 link** | `mint-service`, `resolver-service` | ✅ VERIFIED | 2026-07-24 | Alphanumeric random serial generation, GTIN check-digit. |
-| **NABL Reports & Lot Certification** | `verification-service` | ✅ VERIFIED | 2026-07-24 | PDF hash verification, duplicate prevention, and lab status registry checking. |
-| **Transparency Ledger Logs** | `transparency-service` | ✅ VERIFIED | 2026-07-24 | SHA-256 block hash chaining and non-blocking verifying scanners. |
-| **Geovelocity Clone Detection** | `verification-service` | ✅ VERIFIED | 2026-07-24 | Haversine travel checks, caseworker assignment, notes logs, timelines, and closure. |
-| **External Systems Integrations**| `integration-service` | ✅ VERIFIED | 2026-07-24 | Mock TraceNet proxy and network timeout handlers. |
-
----
-
-## Key Metrics
-
-| Metric                        | Value      |
-|-------------------------------|------------|
-| Total Verified Capabilities   | 7 / 7      |
-| Active Compliance Test Cases  | 52 / 52    |
-| Blocked Capabilities          | 0          |
-| Database Migrations Applied   | 8 / 8      |
-
----
-
-## Velocity (Incremental Milestone Logs)
-
-* **Baseline Services setup**: Auth, CPQ, Mint, Resolver, Ledger, Verification, and Integration services initialized.
-* **Integrity Features**: Added spatial clone detection, Haversine checks, and block ledger chaining.
-* **NABL Lab Upgrades**: Added duplicate checking, PDF validation checks, and replacement audit logs.
-* **Idempotent Migration Engine**: Created migration scripts `0001` through `0008` with automatic triggers and pre-seeded database baseline tables.
-* **Production Packaging**: Created Docker image automation, Helm deployment configurations, GitHub Actions pipelines, and Prometheus scraping targets.
-* **Workflow Gap Closures**: Addressed onboarding document review, certifier budgets lifecycle, explicit lot packaging, PDF/CSV code exports, caseworker investigations, and consumer verification page.
+- The former `7/7 verified`, `52/52` compliance, and `8/8` migration totals were dated
+  snapshots, not current governance evidence. Architecture Status records the later reviewed
+  compliance and migration boundaries.
+- The former claim that Docker images, Helm deployment, and Kubernetes infrastructure were
+  production-packaged is withdrawn. Container/orchestration artifacts were purged by D-003.
+- A release tag or CI configuration does not establish a live production deployment.

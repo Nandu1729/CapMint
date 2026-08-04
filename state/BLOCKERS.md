@@ -1,120 +1,42 @@
-# CapMint — Blockers
+# CapMint — Execution Blockers
 
-> **Last Updated:** 2026-07-24  
-> **Active Blockers:** 0  
-> **Status:** 🟢 ALL CLEAR
+> **Reconciled:** 2026-07-31 under
+> [AD-002](../docs/architecture/DECISIONS.md#ad-002-state-cards-are-input-material-not-authoritative-status).
+> [Architecture Status](../docs/architecture/ARCHITECTURE_STATUS.md) is authoritative
+> for risks, defects, gates, and milestone status.
 
----
+## Scope
 
-## Current Blockers
+This file is a lightweight log of immediate engineering impediments. “No recorded
+execution blocker” does **not** mean that all architecture risks, follow-ups, release
+gates, or production-deployment work are closed.
 
-**No active blockers.** The project is proceeding without impediments.
+## Current snapshot
 
----
+No unresolved execution blocker is recorded in this card as of the reconciliation date.
+Consult Architecture Status before work begins; raise a blocker here if an in-scope task
+cannot proceed safely.
 
-## Blocker Tracking Table
+## Blocker register
 
-| ID      | Severity | Checkpoint | Summary | Raised | Owner | Status | Resolution | Resolved |
-|---------|----------|------------|---------|--------|-------|--------|------------|----------|
-| _BLK-001_ | _—_    | _—_        | _—_     | _—_    | _—_   | _—_    | _—_        | _—_      |
+| ID | Severity | Scope | Summary | Raised | Owner | Status | Resolution |
+|---|---|---|---|---|---|---|---|
+| _None recorded_ | — | — | — | — | — | — | — |
 
-### Column Definitions
+## Recording rules
 
-| Column      | Description                                              |
-|-------------|----------------------------------------------------------|
-| **ID**      | Unique identifier: `BLK-XXX`                            |
-| **Severity**| 🔴 Critical · 🟠 High · 🟡 Medium · 🟢 Low              |
-| **Checkpoint** | Which checkpoint is blocked                           |
-| **Summary** | Brief description of the blocker                         |
-| **Raised**  | Date the blocker was identified (YYYY-MM-DD)             |
-| **Owner**   | Person or agent responsible for resolution               |
-| **Status**  | 🔴 BLOCKED · 🟡 IN PROGRESS · ✅ RESOLVED · ⬜ DEFERRED  |
-| **Resolution** | How the blocker was resolved (or mitigation plan)     |
-| **Resolved**| Date resolved (YYYY-MM-DD)                               |
+1. Give each blocker a `BLK-NNN` identifier.
+2. Record the affected task or milestone, evidence, owner, and safe stopping point.
+3. Escalate blockers that require new authority or a governance decision.
+4. When resolved, preserve the row and add the resolution and date.
+5. Track non-blocking defects and accepted risks in the architect layer, not as “all
+   clear” assertions here.
 
----
+## Cross-references
 
-## Severity Levels
-
-| Level      | Impact                                                    | Response Time |
-|------------|-----------------------------------------------------------|---------------|
-| 🔴 Critical | Blocks all progress; checkpoint cannot advance           | Immediate     |
-| 🟠 High     | Blocks a specific module or feature                      | Within 1 day  |
-| 🟡 Medium   | Slows progress but workaround exists                     | Within 3 days |
-| 🟢 Low      | Minor inconvenience; does not block progress             | Next sprint   |
-
----
-
-## Escalation Process
-
-```
-1. Identify blocker
-   └── AI Agent or Human raises BLK-XXX in this file
-
-2. Classify severity
-   └── Use severity matrix above
-
-3. Assign owner
-   └── Person or agent best suited to resolve
-
-4. Attempt resolution
-   ├── 🟢🟡 Resolve within normal workflow
-   └── 🟠🔴 Escalate immediately:
-        ├── Notify project lead
-        ├── Update CURRENT_STATE.md with blocker reference
-        └── Consider checkpoint rollback if Critical
-
-5. Document resolution
-   └── Update this file with resolution details and date
-
-6. Post-mortem (Critical only)
-   └── Document root cause and prevention measures
-```
-
-### Escalation Contacts
-
-| Role            | Contact    | Escalation Scope       |
-|-----------------|------------|------------------------|
-| Project Lead    | TBD        | 🔴 Critical blockers    |
-| Tech Lead       | TBD        | 🟠 High technical issues |
-| AI Agent        | Automated  | 🟡🟢 Self-resolvable     |
-
----
-
-## Resolved Blockers (Archive)
-
-| ID | Severity | Summary | Resolution | Duration |
-|----|----------|---------|------------|----------|
-| _No resolved blockers yet_ | | | | |
-
----
-
-## Blocker Metrics
-
-| Metric                     | Value |
-|----------------------------|-------|
-| Total Blockers Raised      | 0     |
-| Currently Active           | 0     |
-| Resolved                   | 0     |
-| Average Resolution Time    | N/A   |
-| Critical Blockers (all time)| 0    |
-
----
-
-## Cross-References
-
-| Document                                    | Purpose                    |
-|---------------------------------------------|----------------------------|
-| [CURRENT_STATE.md](../CURRENT_STATE.md)     | Project state (refs blockers) |
-| [ACTIVE_CHECKPOINT.md](ACTIVE_CHECKPOINT.md)| Checkpoint affected by blockers |
-| [PROGRESS.md](PROGRESS.md)                  | Progress impact tracking     |
-| [SPRINT.md](SPRINT.md)                      | Sprint-level blocker impact  |
-
----
-
-## AI Agent Instructions
-
-- **Check this file** before starting any checkpoint to verify no blockers exist.
-- **Raise blockers immediately** when identified — do not wait for a review cycle.
-- **Self-resolve** 🟢 and 🟡 blockers when possible; document the resolution.
-- **Escalate** 🟠 and 🔴 blockers by updating [CURRENT_STATE.md](../CURRENT_STATE.md).
+| Document | Purpose |
+|---|---|
+| [Architecture Status](../docs/architecture/ARCHITECTURE_STATUS.md) | Authoritative risks, defects, and outstanding work |
+| [Architect Decisions](../docs/architecture/DECISIONS.md) | Approved decisions and accepted risks |
+| [Current State](CURRENT.md) | Reconciled state summary |
+| [Sprint Log](SPRINT.md) | Qualified historical sprint record |

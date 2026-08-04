@@ -162,10 +162,6 @@ To maintain focus and prevent out-of-scope alterations, load files based on the 
 
 When modifying application services, restrict context loading to the specific service path and its corresponding architecture specifications:
 
-- **gateway-service**:
-  - Required Folder: `backend/gateway-service/`
-  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`, `../architecture/SERVICE_BOUNDARIES.md`
-  - Optional Dependencies: `api/`
 - **identity-service**:
   - Required Folder: `backend/identity-service/`
   - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`, `../architecture/SERVICE_BOUNDARIES.md`
@@ -194,30 +190,10 @@ When modifying application services, restrict context loading to the specific se
   - Required Folder: `backend/transparency-service/`
   - Required Architecture: `../architecture/DATA_FLOW.md`
   - Optional Dependencies: `packages/`
-- **clone-detection-service**:
-  - Required Folder: `backend/clone-detection-service/`
-  - Required Architecture: `../architecture/SECURITY_ARCHITECTURE.md`
-  - Optional Dependencies: `backend/verification-service/`
-- **notification-service**:
-  - Required Folder: `backend/notification-service/`
-  - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`
-  - Optional Dependencies: `packages/`
 - **integration-service**:
   - Required Folder: `backend/integration-service/`
   - Required Architecture: `../architecture/SYSTEM_CONTEXT.md`
   - Optional Dependencies: `api/`
-- **analytics-service**:
-  - Required Folder: `backend/analytics-service/`
-  - Required Architecture: `../architecture/DEPLOYMENT_ARCHITECTURE.md`
-  - Optional Dependencies: `backend/verification-service/`
-- **audit-service**:
-  - Required Folder: `backend/audit-service/`
-  - Required Architecture: `../architecture/SECURITY_ARCHITECTURE.md`
-  - Optional Dependencies: `backend/transparency-service/`
-- **scan-service**:
-  - Required Folder: `backend/scan-service/`
-  - Required Architecture: `../architecture/L1_SYSTEM_CONTEXT.md`
-  - Optional Dependencies: `backend/verification-service/`
 
 ---
 

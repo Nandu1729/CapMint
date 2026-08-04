@@ -1,0 +1,592 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CapMint Console</title>
+<style>
+  :root{
+    --bg:#F4F6F8; --surface:#FFFFFF; --surface-2:#FBFBFC;
+    --ink:#1A1F26; --muted:#667085; --faint:#98A2B3;
+    --border:#E5E8EC; --border-strong:#D6DAE0;
+    --accent:#B4791A; --accent-soft:#FBF2E1; --accent-ink:#8A5C11;
+    --good:#12805C; --good-soft:#E4F5EE;
+    --warn:#B4791A; --warn-soft:#FBF2E1;
+    --bad:#C0392B; --bad-soft:#FBEAE7;
+    --info:#2E6A8E; --info-soft:#E7F1F7;
+    --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+    --shadow:0 1px 2px rgba(16,24,40,.04),0 1px 3px rgba(16,24,40,.06);
+    --shadow-md:0 4px 12px rgba(16,24,40,.06),0 2px 6px rgba(16,24,40,.04);
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit}
+  a{color:var(--accent-ink)}
+  .hidden{display:none!important}
+  .mono{font-family:var(--mono)}
+  .tnum{font-variant-numeric:tabular-nums}
+
+  /* ---------- LOGIN ---------- */
+  .login-wrap{min-height:100%;display:grid;grid-template-columns:1.1fr .9fr}
+  .login-hero{background:linear-gradient(160deg,#171C22,#0F1317);color:#EAECEF;padding:56px 60px;display:flex;flex-direction:column;justify-content:center;gap:28px}
+  .login-hero .badge{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);font-weight:700}
+  .login-hero h1{font-size:40px;line-height:1.1;margin:0;font-weight:700;letter-spacing:-.02em}
+  .login-hero p{color:#9BA3AD;max-width:44ch;margin:0;font-size:15px}
+  .login-hero .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+  .chip{border:1px solid #2A3138;border-radius:999px;padding:6px 12px;font-size:12px;color:#B9C0C8}
+  .chip.on{border-color:var(--accent);color:var(--accent);background:rgba(180,121,26,.1)}
+  .login-hero .feats{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px}
+  .login-hero .feat{font-size:13px;color:#AEB6BF}
+  .login-hero .feat b{display:block;color:#E7EAED;font-size:13px;margin-bottom:2px}
+
+  .login-panel{display:flex;align-items:center;justify-content:center;padding:40px}
+  .login-card{width:100%;max-width:400px}
+  .brand{display:flex;align-items:center;gap:10px;margin-bottom:28px}
+  .brand .dot{width:11px;height:11px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+  .brand .name{font-weight:700;font-size:18px;letter-spacing:-.01em}
+  .brand .name span{color:var(--muted);font-weight:500}
+  .login-card h2{margin:0 0 6px;font-size:22px;letter-spacing:-.01em}
+  .login-card .sub{color:var(--muted);margin:0 0 24px}
+  .field{margin-bottom:16px}
+  .field label{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.04em}
+  .input{width:100%;height:44px;padding:0 14px;border:1px solid var(--border-strong);border-radius:10px;font-size:14px;background:var(--surface);color:var(--ink);transition:border-color .15s,box-shadow .15s}
+  .input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .btn{height:44px;padding:0 18px;border:1px solid transparent;border-radius:10px;font-weight:600;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:filter .15s,background .15s,border-color .15s}
+  .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{filter:brightness(1.06)}
+  .btn-ghost{background:var(--surface);border-color:var(--border-strong);color:var(--ink)}
+  .btn-ghost:hover{background:var(--surface-2)}
+  .btn-sm{height:34px;padding:0 12px;font-size:13px;border-radius:8px}
+  .btn-block{width:100%}
+  .btn[disabled]{opacity:.55;cursor:not-allowed}
+  .alert{padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:16px}
+  .alert-bad{background:var(--bad-soft);color:var(--bad);border:1px solid #F0C9C2}
+  .alert-good{background:var(--good-soft);color:var(--good);border:1px solid #C6E7DA}
+  .creds{margin-top:22px;border:1px dashed var(--border-strong);border-radius:10px;padding:14px;background:var(--surface-2)}
+  .creds h4{margin:0 0 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .creds .row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .creds .pill{border:1px solid var(--border-strong);background:var(--surface);border-radius:8px;padding:5px 10px;font-size:12px;cursor:pointer;font-family:var(--mono)}
+  .creds .pill:hover{border-color:var(--accent);color:var(--accent-ink)}
+  .creds .pw{font-size:12px;color:var(--muted)}
+  .creds .pw code{font-family:var(--mono);color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:2px 6px}
+
+  /* ---------- APP SHELL ---------- */
+  .app{display:grid;grid-template-columns:244px 1fr;min-height:100%}
+  .side{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px 14px;gap:6px;position:sticky;top:0;height:100vh}
+  .side .brand{padding:0 8px;margin-bottom:18px}
+  .navlbl{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);padding:12px 10px 4px;font-weight:700}
+  .nav{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:10px;color:var(--muted);cursor:pointer;font-weight:500;font-size:14px;border:1px solid transparent}
+  .nav:hover{background:var(--surface-2);color:var(--ink)}
+  .nav.active{background:var(--accent-soft);color:var(--accent-ink);border-color:#EEDCBB;font-weight:600}
+  .nav svg{width:18px;height:18px;flex:0 0 auto}
+  .side .spacer{flex:1}
+  .who{border-top:1px solid var(--border);padding-top:14px;margin-top:8px;font-size:13px}
+  .who .u{font-weight:600}
+  .who .r{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+
+  .main{min-width:0;display:flex;flex-direction:column}
+  .topbar{height:64px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:space-between;padding:0 32px;position:sticky;top:0;z-index:5}
+  .topbar h1{font-size:18px;margin:0;letter-spacing:-.01em}
+  .topbar .rt{display:flex;align-items:center;gap:10px}
+  .content{padding:28px 32px 60px;max-width:1180px;width:100%}
+
+  .grid{display:grid;gap:20px}
+  .g-2{grid-template-columns:1fr 1fr}
+  .g-3{grid-template-columns:repeat(3,1fr)}
+  @media(max-width:1024px){.g-2,.g-3{grid-template-columns:1fr}.app{grid-template-columns:1fr}.side{display:none}}
+
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .card-h{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .card-h h3{margin:0;font-size:15px;letter-spacing:-.01em}
+  .card-h .hint{color:var(--muted);font-size:12.5px}
+  .card-b{padding:22px}
+  .card-b.tight{padding:0}
+
+  .stat{padding:20px 22px}
+  .stat .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+  .stat .v{font-size:30px;font-weight:700;letter-spacing:-.02em;margin-top:6px}
+  .stat .v small{font-size:14px;font-weight:500;color:var(--muted)}
+
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700;padding:12px 22px;border-bottom:1px solid var(--border);background:var(--surface-2)}
+  td{padding:14px 22px;border-bottom:1px solid var(--border);font-size:13.5px;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:var(--surface-2)}
+
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;padding:4px 9px;border-radius:999px;border:1px solid transparent}
+  .t-good{background:var(--good-soft);color:var(--good);border-color:#C6E7DA}
+  .t-warn{background:var(--warn-soft);color:var(--warn);border-color:#EEDCBB}
+  .t-bad{background:var(--bad-soft);color:var(--bad);border-color:#F0C9C2}
+  .t-mut{background:#F0F1F3;color:var(--muted);border-color:var(--border)}
+  .t-info{background:var(--info-soft);color:var(--info);border-color:#CFE3EE}
+
+  .meter{height:8px;border-radius:999px;background:#EEF0F2;overflow:hidden;margin-top:8px}
+  .meter i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#D9A64B);border-radius:999px}
+
+  .empty{padding:40px 22px;text-align:center;color:var(--muted);font-size:13.5px}
+  .empty svg{width:34px;height:34px;opacity:.4;margin-bottom:8px}
+
+  .row-form{display:grid;grid-template-columns:1fr 160px auto;gap:12px;align-items:end}
+  @media(max-width:640px){.row-form{grid-template-columns:1fr}}
+  select.input{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:34px}
+
+  .kv{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px dashed var(--border)}
+  .kv:last-child{border-bottom:none}
+  .kv .k{color:var(--muted)}
+  .kv .v{font-weight:600;text-align:right}
+
+  .qrgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:14px}
+  .qrcell{border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;background:var(--surface-2)}
+  .qrcell img{width:96px;height:96px;image-rendering:pixelated;background:#fff;border-radius:6px}
+  .qrcell .s{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-top:8px;word-break:break-all}
+
+  .verdict{text-align:center;padding:14px 0 4px}
+  .verdict .seal{width:80px;height:80px;border-radius:50%;display:grid;place-items:center;margin:0 auto 14px;border:3px solid currentColor}
+  .verdict .seal svg{width:38px;height:38px}
+  .verdict .w{font-size:26px;font-weight:700;letter-spacing:-.01em}
+  .verdict .d{color:var(--muted);max-width:36ch;margin:8px auto 0}
+  .v-good{color:var(--good)} .v-bad{color:var(--bad)} .v-warn{color:var(--warn)} .v-info{color:var(--info)}
+
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:#1A1F26;color:#fff;padding:12px 18px;border-radius:10px;font-size:13.5px;box-shadow:var(--shadow-md);opacity:0;pointer-events:none;transition:.25s;z-index:50;max-width:90vw}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.bad{background:var(--bad)}
+  .spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;display:inline-block}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){.spin{animation:none}.toast{transition:none}}
+</style>
+</head>
+<body>
+
+<!-- ================= LOGIN ================= -->
+<div id="login" class="login-wrap">
+  <div class="login-hero">
+    <div class="badge">Digital Trust Infrastructure</div>
+    <h1>Verifiable origin for organic supply chains.</h1>
+    <p>A multi-tenant registry that caps issuance to certified capacity, serializes every unit, and lets anyone verify authenticity with a scan.</p>
+    <div class="flow">
+      <span class="chip">AgriStack</span><span>→</span>
+      <span class="chip">Producer</span><span>→</span>
+      <span class="chip">NABL Lab</span><span>→</span>
+      <span class="chip">Certifier</span><span>→</span>
+      <span class="chip on">CapMint</span><span>→</span>
+      <span class="chip">Consumer</span>
+    </div>
+    <div class="feats">
+      <div class="feat"><b>Metered mint</b>Never issue more than was certified.</div>
+      <div class="feat"><b>Multi-tenant RLS</b>Each org sees only its own data.</div>
+      <div class="feat"><b>Signed budgets</b>Certifier co-signature required.</div>
+      <div class="feat"><b>Append-only ledger</b>Tamper-evident history.</div>
+    </div>
+  </div>
+
+  <div class="login-panel">
+    <div class="login-card">
+      <div class="brand"><span class="dot"></span><span class="name">Cap<span>Mint</span> Console</span></div>
+      <h2>Sign in</h2>
+      <p class="sub">Access your organization workspace.</p>
+      <div id="login-err" class="alert alert-bad hidden"></div>
+      <div class="field">
+        <label for="u">Username</label>
+        <input id="u" class="input" autocomplete="username" placeholder="e.g. producer" value="producer">
+      </div>
+      <div class="field">
+        <label for="p">Password</label>
+        <input id="p" class="input" type="password" autocomplete="current-password" placeholder="••••••••">
+      </div>
+      <button id="loginBtn" class="btn btn-primary btn-block" onclick="doLogin()">Sign in</button>
+
+      <div class="creds">
+        <h4>Demo credentials — click a role to fill</h4>
+        <div class="row" id="credRoles"></div>
+        <div class="pw">Password (all demo roles): <code id="demoPw">click to reveal</code> <a href="#" onclick="revealPw();return false;" style="font-size:12px">reveal &amp; fill</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="app" class="app hidden">
+  <aside class="side">
+    <div class="brand"><span class="dot"></span><span class="name">Cap<span>Mint</span></span></div>
+    <div class="navlbl">Workspace</div>
+    <div class="nav" data-view="overview" onclick="go('overview')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg> Overview</div>
+    <div class="nav" data-view="producer" onclick="go('producer')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 21V9l6 4V9l6 4V6l6 3v12z"/></svg> Producer</div>
+    <div class="nav" data-view="certifier" onclick="go('certifier')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8V6z"/><path d="M9 12l2 2 4-4" stroke-linecap="round"/></svg> Certifier</div>
+    <div class="navlbl">Public</div>
+    <div class="nav" data-view="verify" onclick="go('verify')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4"/><path d="M4 12h16"/></svg> Verify a code</div>
+    <div class="nav" data-view="ledger" onclick="go('ledger')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/><path d="M11 7.5h3.5A2 2 0 0 1 16.5 9.5V13"/></svg> Transparency ledger</div>
+    <div class="spacer"></div>
+    <div class="who">
+      <div class="u" id="whoU">—</div>
+      <div class="r" id="whoR">—</div>
+      <button class="btn btn-ghost btn-sm btn-block" style="margin-top:12px" onclick="logout()">Log out</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <h1 id="viewTitle">Overview</h1>
+      <div class="rt"><button class="btn btn-ghost btn-sm" onclick="refresh()">Refresh</button></div>
+    </div>
+    <div class="content">
+
+      <!-- OVERVIEW -->
+      <section id="v-overview" class="view">
+        <div class="grid g-3" id="ovStats"></div>
+        <div class="card" style="margin-top:20px">
+          <div class="card-h"><h3>How the flow works</h3></div>
+          <div class="card-b">
+            <p style="margin:0 0 10px;color:var(--muted)">A producer requests capacity → a certifier signs it → the producer mints serialized codes (never more than certified) → a consumer scans and verifies. Every step is written to an append-only ledger.</p>
+            <div class="flow" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+              <span class="tag t-mut">Budget requested</span>→
+              <span class="tag t-warn">Pending approval</span>→
+              <span class="tag t-good">Certifier signs</span>→
+              <span class="tag t-info">Lot + mint</span>→
+              <span class="tag t-good">Verified</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PRODUCER -->
+      <section id="v-producer" class="view hidden">
+        <div class="grid g-2">
+          <div class="card">
+            <div class="card-h"><h3>Active capacity</h3><span class="hint">what you're certified to issue</span></div>
+            <div class="card-b" id="prodBudget"><div class="empty">Loading…</div></div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Create packaging lot</h3><span class="hint">draws from an active budget</span></div>
+            <div class="card-b">
+              <div class="row-form">
+                <div class="field" style="margin:0">
+                  <label>Select active budget</label>
+                  <select id="lotBudget" class="input"></select>
+                </div>
+                <div class="field" style="margin:0">
+                  <label>Batch size</label>
+                  <input id="lotSize" class="input" type="number" min="1" value="500">
+                </div>
+                <button class="btn btn-primary" onclick="createLot()">Create lot</button>
+              </div>
+              <div id="lotMsg" style="margin-top:12px;font-size:13px"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:20px">
+          <div class="card-h"><h3>Packaging lots &amp; minting</h3><span class="hint">mint refuses beyond certified capacity</span></div>
+          <div class="card-b tight" id="lotsTable"><div class="empty">Loading…</div></div>
+        </div>
+
+        <div class="card" style="margin-top:20px" id="mintedCard" >
+          <div class="card-h"><h3>Generated QR catalog</h3></div>
+          <div class="card-b" id="mintedGrid"><div class="empty">Mint a lot to generate serialized QR codes.</div></div>
+        </div>
+      </section>
+
+      <!-- CERTIFIER -->
+      <section id="v-certifier" class="view hidden">
+        <div class="card">
+          <div class="card-h"><h3>Pending budget approvals</h3><span class="hint">approve to make capacity mintable</span></div>
+          <div class="card-b tight" id="pendTable"><div class="empty">Loading…</div></div>
+        </div>
+        <div class="card" style="margin-top:20px">
+          <div class="card-h"><h3>Approved &amp; active budgets</h3></div>
+          <div class="card-b tight" id="activeTable"><div class="empty">Loading…</div></div>
+        </div>
+      </section>
+
+      <!-- VERIFY -->
+      <section id="v-verify" class="view hidden">
+        <div class="grid g-2">
+          <div class="card">
+            <div class="card-h"><h3>Verify a unit</h3><span class="hint">scan-to-verify simulation</span></div>
+            <div class="card-b">
+              <div class="field"><label>GTIN-14</label><input id="vGtin" class="input mono" value="07612345678900"></div>
+              <div class="field"><label>Serial</label><input id="vSerial" class="input mono" placeholder="serial from a minted code"></div>
+              <button class="btn btn-primary btn-block" onclick="doVerify()">Verify</button>
+              <p style="color:var(--muted);font-size:12.5px;margin:12px 0 0">Tip: mint a lot in the Producer workspace, then paste one of its serials here.</p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-h"><h3>Result</h3></div>
+            <div class="card-b" id="verifyResult"><div class="empty">Enter a code and press Verify.</div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- LEDGER -->
+      <section id="v-ledger" class="view hidden">
+        <div class="card">
+          <div class="card-h"><h3>Transparency ledger</h3><span class="hint">append-only, hash-chained</span></div>
+          <div class="card-b tight" id="ledgerTable"><div class="empty">Loading…</div></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+  var API=""; // same-origin: the gateway proxies /api/* and /log
+  var DEMO_PW="CapMintHo003aSeedPassword_2026!Local";
+  var ROLES=["admin","producer","certifier","lab","exporter"];
+  var state={token:localStorage.getItem("capmint_console_token")||"",user:null};
+  try{state.user=JSON.parse(localStorage.getItem("capmint_console_user")||"null")}catch(e){}
+  var lastLots=[];
+
+  /* ---------- tiny helpers ---------- */
+  function $(id){return document.getElementById(id)}
+  function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+  function toast(msg,bad){var t=$("toast");t.textContent=msg;t.className="toast show"+(bad?" bad":"");clearTimeout(toast._t);toast._t=setTimeout(function(){t.className="toast"},2600)}
+  function num(n){var x=Number(n);return isNaN(x)?"—":x.toLocaleString()}
+
+  async function api(method,path,body){
+    var opt={method:method,headers:{}};
+    if(state.token)opt.headers["Authorization"]="Bearer "+state.token;
+    if(body!==undefined){opt.headers["Content-Type"]="application/json";opt.body=JSON.stringify(body)}
+    var res,json;
+    try{res=await fetch(API+path,opt)}catch(e){return {ok:false,status:0,error:"Cannot reach the server. Is the backend running?"}}
+    try{json=await res.json()}catch(e){json={}}
+    if(!res.ok||json.success===false){
+      return {ok:false,status:res.status,error:(json.error&&json.error.message)||json.message||("Request failed ("+res.status+")"),data:json.data}
+    }
+    return {ok:true,status:res.status,data:json.data!==undefined?json.data:json}
+  }
+  function listOf(d){if(Array.isArray(d))return d;if(!d)return [];return d.budgets||d.lots||d.logs||d.entries||d.items||d.results||d.unitCodes||d.codes||[]}
+  // normalize a budget to a consistent shape regardless of API naming
+  function nb(b){var alloc=Number(b.allocated!=null?b.allocated:(b.approved_quantity||0));var cons=Number(b.consumed!=null?b.consumed:(b.consumed_quantity||0));return {id:b.id,status:b.status,crop:b.crop||b.source_unit_type||"Capacity",producer:b.producer||"",allocated:alloc,consumed:cons,remaining:Math.max(0,alloc-cons),start:b.start,end:b.end}}
+
+  /* ---------- login ---------- */
+  function renderCreds(){
+    $("credRoles").innerHTML=ROLES.map(function(r){return '<span class="pill" onclick="fillRole(\''+r+'\')">'+r+'</span>'}).join("");
+  }
+  window.fillRole=function(r){$("u").value=r;$("p").value=DEMO_PW;$("demoPw").textContent=DEMO_PW};
+  window.revealPw=function(){$("demoPw").textContent=DEMO_PW;$("p").value=DEMO_PW};
+  window.doLogin=async function(){
+    var u=$("u").value.trim(),p=$("p").value;
+    var err=$("login-err");err.className="alert alert-bad hidden";
+    if(!u||!p){err.textContent="Enter a username and password.";err.className="alert alert-bad";return}
+    var btn=$("loginBtn");btn.disabled=true;var old=btn.innerHTML;btn.innerHTML='<span class="spin"></span> Signing in…';
+    var r=await api("POST","/api/v1/auth/login",{username:u,password:p});
+    btn.disabled=false;btn.innerHTML=old;
+    if(!r.ok){err.textContent=r.error||"Authentication failed.";err.className="alert alert-bad";return}
+    state.token=r.data.token;state.user=r.data.user||{username:u};
+    localStorage.setItem("capmint_console_token",state.token);
+    localStorage.setItem("capmint_console_user",JSON.stringify(state.user));
+    enterApp();
+  };
+  window.logout=function(){state.token="";state.user=null;localStorage.removeItem("capmint_console_token");localStorage.removeItem("capmint_console_user");$("app").classList.add("hidden");$("login").classList.remove("hidden")};
+
+  function enterApp(){
+    $("login").classList.add("hidden");$("app").classList.remove("hidden");
+    var u=state.user||{};
+    $("whoU").textContent=u.username||u.name||"User";
+    $("whoR").textContent=(u.role||"member")+(u.orgType?" · "+u.orgType:"");
+    go("overview");
+  }
+
+  /* ---------- navigation ---------- */
+  var TITLES={overview:"Overview",producer:"Producer workspace",certifier:"Certifier workspace",verify:"Verify a code",ledger:"Transparency ledger"};
+  window.go=function(v){
+    document.querySelectorAll(".view").forEach(function(s){s.classList.add("hidden")});
+    $("v-"+v).classList.remove("hidden");
+    document.querySelectorAll(".nav").forEach(function(n){n.classList.toggle("active",n.getAttribute("data-view")===v)});
+    $("viewTitle").textContent=TITLES[v]||v;
+    state.view=v;refresh();
+  };
+  window.refresh=function(){
+    if(state.view==="overview")loadOverview();
+    else if(state.view==="producer")loadProducer();
+    else if(state.view==="certifier")loadCertifier();
+    else if(state.view==="ledger")loadLedger();
+  };
+
+  /* ---------- data loaders ---------- */
+  async function getBudgets(){var r=await api("GET","/api/v1/budgets");return r.ok?listOf(r.data).map(nb):[]}
+  async function getLots(){var r=await api("GET","/api/v1/verify/lots");return r.ok?listOf(r.data).map(function(l){return {id:l.id||l.lot_id,budgetId:l.budgetId||l.budget_id,crop:l.crop||"—",weight:Number(l.weight!=null?l.weight:(l.batch_size||0)),status:l.status||l.revocation_status||"ACTIVE",lab:l.lab_status,cert:l.certification_status||l.certificationStatus}}):[]}
+
+  function statusTag(s){
+    s=String(s||"").toUpperCase();
+    if(s==="ACTIVE"||s==="VERIFIED"||s==="CERTIFIED")return '<span class="tag t-good">'+esc(s)+'</span>';
+    if(s==="PENDING_APPROVAL"||s==="REVIEWING"||s==="PENDING"||s==="DRAFT")return '<span class="tag t-warn">'+esc(s)+'</span>';
+    if(s==="REVOKED"||s==="FAILED"||s==="REJECTED")return '<span class="tag t-bad">'+esc(s)+'</span>';
+    if(s==="EXHAUSTED")return '<span class="tag t-mut">'+esc(s)+'</span>';
+    return '<span class="tag t-mut">'+esc(s||"—")+'</span>';
+  }
+
+  async function loadOverview(){
+    var b=await getBudgets();
+    var active=b.filter(function(x){return x.status==="ACTIVE"});
+    var pending=b.filter(function(x){return x.status==="PENDING_APPROVAL"});
+    var lots=await getLots();
+    var cards=[
+      ["Budgets",b.length,active.length+" active · "+pending.length+" pending"],
+      ["Packaging lots",lots.length,"across your workspace"],
+      ["Approved capacity",active.reduce(function(a,x){return a+Number(x.allocated||0)},0),"units certified"]
+    ];
+    $("ovStats").innerHTML=cards.map(function(c){return '<div class="card stat"><div class="k">'+c[0]+'</div><div class="v tnum">'+num(c[1])+' <small>'+esc(c[2])+'</small></div></div>'}).join("");
+  }
+
+  async function loadProducer(){
+    var budgets=await getBudgets();
+    var active=budgets.filter(function(b){return b.status==="ACTIVE"});
+    var pb=$("prodBudget");
+    if(active.length){
+      pb.innerHTML=active.slice(0,3).map(function(b){
+        var pct=b.allocated?Math.min(100,Math.round(b.consumed/b.allocated*100)):0;
+        return '<div style="margin-bottom:18px"><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px"><span style="font-weight:600">'+esc(b.crop)+'</span><span class="tnum" style="font-size:20px;font-weight:700">'+num(b.allocated)+'</span></div>'+
+          '<div class="meter"><i style="width:'+pct+'%"></i></div>'+
+          '<div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--muted);margin-top:6px"><span>Consumed '+num(b.consumed)+'</span><span style="color:var(--accent-ink);font-weight:600">Remaining '+num(b.remaining)+'</span></div></div>';
+      }).join("");
+    }else{
+      pb.innerHTML='<div class="empty">No <b>active</b> capacity. A certifier must approve a budget first.<br><br><button class="btn btn-ghost btn-sm" onclick="go(\'certifier\')">Go to certifier approvals →</button></div>';
+    }
+    var sel=$("lotBudget");
+    sel.innerHTML=active.length?active.map(function(b){return '<option value="'+esc(b.id)+'">'+esc(b.crop)+' · '+num(b.remaining)+' remaining</option>'}).join(""):'<option value="">No active budget available</option>';
+    var lots=await getLots();lastLots=lots;
+    var lt=$("lotsTable");
+    if(lots.length){
+      lt.innerHTML='<table><thead><tr><th>Lot</th><th>Crop</th><th>Size</th><th>Lab</th><th>Status</th><th style="text-align:right">Action</th></tr></thead><tbody>'+
+        lots.map(function(l){
+          return '<tr><td class="mono" style="font-size:12px">'+esc(String(l.id).slice(0,8))+'…</td>'+
+            '<td>'+esc(l.crop)+'</td>'+
+            '<td class="tnum">'+num(l.weight)+'</td>'+
+            '<td>'+(l.lab?statusTag(l.lab):'<span class="tag t-mut">—</span>')+'</td>'+
+            '<td>'+statusTag(l.status)+'</td>'+
+            '<td style="text-align:right"><button class="btn btn-primary btn-sm" onclick="mintLot(\''+esc(l.id)+'\','+Number(l.weight||0)+')">Mint codes</button></td></tr>';
+        }).join("")+'</tbody></table>';
+    }else{
+      lt.innerHTML='<div class="empty">No packaging lots yet. Create one above.</div>';
+    }
+  }
+
+  window.createLot=async function(){
+    var budget_id=$("lotBudget").value, batch_size=parseInt($("lotSize").value,10);
+    var msg=$("lotMsg");msg.textContent="";
+    if(!budget_id){msg.innerHTML='<span style="color:var(--bad)">Select an active budget first (a certifier must approve one).</span>';return}
+    if(!batch_size||batch_size<1){msg.innerHTML='<span style="color:var(--bad)">Enter a positive batch size.</span>';return}
+    msg.innerHTML='<span class="spin" style="border-color:#ccc;border-top-color:var(--accent)"></span> Creating…';
+    var r=await api("POST","/api/v1/lots",{budget_id:budget_id,batch_size:batch_size,product_metadata:{name:"Organic White Honey",manufacturer:state.user&&state.user.username||"Producer",farm_name:"Registered apiaries"}});
+    if(!r.ok){msg.innerHTML='<span style="color:var(--bad)">'+esc(r.error)+'</span>';return}
+    msg.innerHTML='<span style="color:var(--good)">Lot created.</span>';
+    toast("Packaging lot created");
+    loadProducer();
+  };
+
+  window.mintLot=async function(lotId,batch){
+    var qty=prompt("How many unit codes to mint for this lot? (batch size "+batch+")","50");
+    if(qty===null)return;
+    qty=parseInt(qty,10);
+    if(!qty||qty<1){toast("Enter a positive quantity",true);return}
+    toast("Minting "+qty+" codes…");
+    var r=await api("POST","/api/v1/mint",{lot_id:lotId,gtin:"07612345678900",quantity:qty});
+    if(!r.ok){toast(r.error||"Mint failed",true);showMinted(null,r.error);return}
+    toast("Minted "+ (r.data.mintedCount||qty) +" codes ✓");
+    showMinted(r.data);
+    loadProducer();
+  };
+
+  function showMinted(d,err){
+    var g=$("mintedGrid");
+    if(err){g.innerHTML='<div class="empty" style="color:var(--bad)">'+esc(err)+'</div>';return}
+    var serials=(d&&d.serials)||[], qrs=(d&&(d.qrCodes||d.qrCodesList))||[];
+    if(!serials.length){g.innerHTML='<div class="empty">Minted, but no serials returned.</div>';return}
+    var cells=serials.slice(0,24).map(function(s,i){
+      var img=qrs[i]?'<img src="'+esc(qrs[i])+'" alt="QR">':'<div style="width:96px;height:96px;display:grid;place-items:center;color:var(--faint);font-size:11px">QR</div>';
+      return '<div class="qrcell">'+img+'<div class="s">'+esc(s)+'</div></div>';
+    }).join("");
+    g.innerHTML='<div style="margin-bottom:12px;color:var(--muted);font-size:13px">Showing '+Math.min(24,serials.length)+' of '+serials.length+' minted codes. Copy a serial into <a href="#" onclick="go(\'verify\');return false">Verify</a> to test a scan.</div><div class="qrgrid">'+cells+'</div>';
+  }
+
+  /* ---------- certifier ---------- */
+  async function loadCertifier(){
+    var budgets=await getBudgets();
+    var pending=budgets.filter(function(b){return b.status==="PENDING_APPROVAL"});
+    var active=budgets.filter(function(b){return b.status==="ACTIVE"});
+    var pt=$("pendTable");
+    if(pending.length){
+      pt.innerHTML='<table><thead><tr><th>Budget</th><th>Crop</th><th>Requested</th><th>Status</th><th style="text-align:right">Action</th></tr></thead><tbody>'+
+        pending.map(function(b){return '<tr><td class="mono" style="font-size:12px">'+esc(String(b.id).slice(0,8))+'…</td>'+
+          '<td>'+esc(b.crop)+'</td><td class="tnum">'+num(b.allocated)+'</td>'+
+          '<td>'+statusTag(b.status)+'</td>'+
+          '<td style="text-align:right"><button class="btn btn-primary btn-sm" onclick="approve(\''+esc(b.id)+'\',this)">Approve &amp; activate</button></td></tr>'}).join("")+'</tbody></table>';
+    }else{pt.innerHTML='<div class="empty">No budgets awaiting your approval.</div>'}
+    var at=$("activeTable");
+    at.innerHTML=active.length?'<table><thead><tr><th>Budget</th><th>Crop</th><th>Approved</th><th>Remaining</th><th>Status</th></tr></thead><tbody>'+
+      active.map(function(b){return '<tr><td class="mono" style="font-size:12px">'+esc(String(b.id).slice(0,8))+'…</td><td>'+esc(b.crop)+'</td><td class="tnum">'+num(b.allocated)+'</td><td class="tnum">'+num(b.remaining)+'</td><td>'+statusTag(b.status)+'</td></tr>'}).join("")+'</tbody></table>':'<div class="empty">No active budgets yet.</div>';
+  }
+  window.approve=async function(id,btn){
+    btn.disabled=true;btn.innerHTML='<span class="spin"></span>';
+    var r=await api("POST","/api/v1/budgets/"+id+"/activate",{});
+    if(!r.ok){toast(r.error||"Approval failed",true);btn.disabled=false;btn.textContent="Approve & activate";return}
+    toast("Budget approved — capacity is now mintable ✓");
+    loadCertifier();
+  };
+
+  /* ---------- verify ---------- */
+  window.doVerify=async function(){
+    var g=$("vGtin").value.trim(),s=$("vSerial").value.trim();
+    var box=$("verifyResult");
+    if(!g||!s){box.innerHTML='<div class="empty" style="color:var(--bad)">Enter both a GTIN and a serial.</div>';return}
+    box.innerHTML='<div class="empty"><span class="spin" style="border-color:#ccc;border-top-color:var(--accent)"></span> Verifying…</div>';
+    var r=await api("POST","/api/v1/verify/"+encodeURIComponent(g)+"/"+encodeURIComponent(s),{device_metadata:{source:"console"}});
+    if(!r.ok){
+      var bad=r.status===404;
+      box.innerHTML=verdictCard(bad?"MISMATCH":"ERROR","v-bad",bad?"No record found for this code. It may be invalid or never issued.":esc(r.error));
+      return;
+    }
+    var d=r.data||{},verdict=(d.verdict||d.status||"VERIFIED").toUpperCase();
+    var cls="v-good",desc="This unit is genuine and traceable to source.";
+    if(verdict==="REVOKED"){cls="v-bad";desc="This batch was invalidated after issuance — do not trust it."}
+    else if(verdict.indexOf("CLONE")>=0){cls="v-warn";desc="Scanned in an impossible pattern — a copy may be circulating."}
+    else if(verdict==="EXPIRED"){cls="v-warn";desc="This code is past its validity window."}
+    else if(verdict==="MISMATCH"){cls="v-bad";desc="This code does not resolve to a valid issued unit."}
+    var extra='<div style="margin-top:16px">'+
+      '<div class="kv"><span class="k">GTIN</span><span class="v mono">'+esc(d.gtin||g)+'</span></div>'+
+      '<div class="kv"><span class="k">Serial</span><span class="v mono">'+esc(d.serial||s)+'</span></div>'+
+      (d.labResult&&d.labResult.status?'<div class="kv"><span class="k">Lab</span><span class="v">'+esc(d.labResult.status)+'</span></div>':"")+
+      '</div>';
+    box.innerHTML=verdictCard(verdict,cls,desc)+extra;
+  };
+  function verdictCard(word,cls,desc){
+    var ic=cls==="v-good"?'<path d="M5 12.5l4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>':
+      cls==="v-warn"?'<path d="M12 3l9 16H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4M12 16.5h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>':
+      '<path d="M7 7l10 10M17 7L7 17" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>';
+    return '<div class="verdict '+cls+'"><div class="seal"><svg viewBox="0 0 24 24">'+ic+'</svg></div><div class="w">'+esc(word)+'</div><div class="d">'+esc(desc)+'</div></div>';
+  }
+
+  /* ---------- ledger ---------- */
+  async function loadLedger(){
+    var r=await api("GET","/log/api/v1/log/entries");
+    var t=$("ledgerTable");
+    if(!r.ok){t.innerHTML='<div class="empty" style="color:var(--bad)">'+esc(r.error||"Could not load the ledger.")+'</div>';return}
+    var entries=listOf(r.data);
+    if(!entries.length){t.innerHTML='<div class="empty">Ledger is empty.</div>';return}
+    t.innerHTML='<table><thead><tr><th>#</th><th>Event</th><th>Entity</th><th>Hash</th></tr></thead><tbody>'+
+      entries.slice(0,80).map(function(e,i){
+        return '<tr><td class="tnum" style="color:var(--muted)">'+esc(e.index!=null?e.index:i)+'</td>'+
+          '<td>'+statusEvent(e.event)+'</td>'+
+          '<td class="mono" style="font-size:12px">'+esc((e.entity||"")+" "+String(e.id||"").slice(0,8))+'</td>'+
+          '<td class="mono" style="font-size:11.5px;color:var(--muted)">'+esc(String(e.currentHash||e.hash||"").slice(0,20))+'…</td></tr>';
+      }).join("")+'</tbody></table>';
+  }
+  function statusEvent(ev){ev=String(ev||"EVENT");var c="t-info";if(/REVOK|FAIL/.test(ev))c="t-bad";else if(/CERTIF|APPROV|VERIF|MINT/.test(ev))c="t-good";else if(/PENDING|REVIEW/.test(ev))c="t-warn";return '<span class="tag '+c+'">'+esc(ev)+'</span>'}
+
+  /* ---------- boot ---------- */
+  renderCreds();
+  if(state.token){enterApp()}else{$("login").classList.remove("hidden")}
+  $("p").addEventListener("keydown",function(e){if(e.key==="Enter")doLogin()});
+})();
+</script>
+</body>
+</html>
