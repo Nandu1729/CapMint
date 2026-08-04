@@ -2,9 +2,16 @@
 
 **Authenticate Everything. Counterfeit Nothing.**
 
-CapMint is an agricultural supply-chain provenance codebase designed to support
-anti-counterfeiting workflows through capacity controls, cryptographic
-serialization, spatial clone detection, and an auditable application ledger.
+CapMint is a provenance and anti-counterfeiting codebase for **India's certified
+organic agricultural exports** (NPOP / APEDA / TraceNet, with NABL laboratory
+evidence). It supports anti-counterfeiting workflows through capacity controls
+("metered mint" — you cannot issue more unit codes than a certifier approved),
+cryptographic serialization, spatial clone detection, and an auditable
+application ledger.
+
+> **Not affiliated with CapMint / Mintcap Brokers Pvt Ltd** (the SEBI-registered
+> stock-trading app at capmint.com). This project is unrelated to financial
+> services or trading.
 
 The repository is in an active **security-hardening and multi-tenancy
 remediation** phase. DM-03's enforceable scope is complete, while DM-04
