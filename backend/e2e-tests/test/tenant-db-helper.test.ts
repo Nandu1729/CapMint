@@ -97,6 +97,9 @@ integrationSuite('withTenantTx PostgreSQL lifecycle', () => {
     const adminUrl = new URL(sourceUrl);
     adminUrl.pathname = '/postgres';
     adminPool = new pg.Pool({ connectionString: adminUrl.toString() });
+    // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
+    // unhandled 'error' event is fatal in Node and fails otherwise-green runs.
+    adminPool.on('error', poolError => process.stderr.write(`[e2e] idle client error: ${(poolError as Error).message}\n`));
 
     const existing = await adminPool.query(
       'SELECT 1 FROM pg_database WHERE datname = $1',
@@ -115,6 +118,9 @@ integrationSuite('withTenantTx PostgreSQL lifecycle', () => {
       connectionString: tenantUrl.toString(),
       max: 1
     });
+    // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
+    // unhandled 'error' event is fatal in Node and fails otherwise-green runs.
+    tenantPool.on('error', poolError => process.stderr.write(`[e2e] idle client error: ${(poolError as Error).message}\n`));
   });
 
   afterAll(async () => {
