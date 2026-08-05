@@ -1911,15 +1911,35 @@
       const select = document.getElementById('req-budget-certifier');
       if (!select) return;
 
+      // An empty dropdown with no explanation leaves the producer unable to act and unable
+      // to see why, so every failure path states what happened and disables submission.
+      const setUnavailable = (text) => {
+        select.replaceChildren();
+        const notice = document.createElement('option');
+        notice.value = '';
+        notice.textContent = text;
+        select.appendChild(notice);
+        select.disabled = true;
+      };
+
       try {
         const response = await fetch(`${API_BASE_URL}/api/v1/certifiers`, {
           headers: { 'Authorization': 'Bearer ' + AUTH_TOKEN }
         });
         const res = await response.json();
-        if (!res.success || !res.data || !Array.isArray(res.data.certifiers)) return;
+        if (!res.success || !res.data || !Array.isArray(res.data.certifiers)) {
+          setUnavailable('Could not load certification bodies — retry shortly');
+          return;
+        }
 
         DB.certifiers = res.data.certifiers;
+        if (DB.certifiers.length === 0) {
+          setUnavailable('No accredited certification body is currently available');
+          return;
+        }
+
         select.replaceChildren();
+        select.disabled = false;
         const placeholder = document.createElement('option');
         placeholder.value = '';
         placeholder.textContent = 'Select certification body';
@@ -1932,6 +1952,7 @@
         }
       } catch (err) {
         console.error('Failed to load certification bodies from backend:', err);
+        setUnavailable('Could not reach the service — check your connection');
       }
     }
 
