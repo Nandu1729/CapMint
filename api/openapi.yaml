@@ -184,7 +184,7 @@ paths:
   /api/v1/budgets:
     post:
       summary: Propose a crop yield quota budget
-      description: The authenticated producer organization is authoritative. The backend resolves its single producer profile when producer_id is omitted; a legacy producer_id is accepted only when it names a caller-owned profile, and ambiguous ownership fails closed.
+      description: The authenticated producer organization is authoritative. The backend resolves its single producer profile when producer_id is omitted; a legacy producer_id is accepted only when it names a caller-owned profile, and ambiguous ownership fails closed. Draft requests do not carry certifier signatures; activation adds the certifier signature after the budget ID exists.
       tags:
       - Quota & Budgets (CPQ)
       security:
@@ -202,7 +202,6 @@ paths:
               yield_assumptions:
                 crop: Organic White Honey
                 land_area_hectares: 5.0
-              signature_bundle: sig_bundle_xyz123
               effective_start_date: '2026-07-17T00:00:00Z'
               effective_end_date: '2027-07-17T00:00:00Z'
       responses:
@@ -242,6 +241,20 @@ paths:
           $ref: ./components/responses/ForbiddenError.yaml
         '422':
           $ref: ./components/responses/ValidationErrorResponse.yaml
+  /api/v1/certifiers:
+    get:
+      summary: List active certification bodies available for budget requests
+      tags:
+      - Quota & Budgets (CPQ)
+      security:
+      - BearerAuth: []
+      responses:
+        '200':
+          $ref: ./components/responses/CertifierListResponse.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
+        '500':
+          $ref: ./components/responses/InternalServerError.yaml
   /api/v1/budgets/{id}/activate:
     post:
       summary: Approve/Activate a budget assigned to the caller's certifier

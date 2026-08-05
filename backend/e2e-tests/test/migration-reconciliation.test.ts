@@ -22,6 +22,7 @@ const provenanceRlsMigrationPath = path.join(ROOT, 'database/migrations/0017_ena
 const supportingRlsMigrationPath = path.join(ROOT, 'database/migrations/0018_enable_supporting_table_rls.sql');
 const finalRlsMigrationPath = path.join(ROOT, 'database/migrations/0019_enable_users_and_ledger_rls.sql');
 const organizationReadMigrationPath = path.join(ROOT, 'database/migrations/0020_tighten_organizations_public_read.sql');
+const nullableBudgetSignatureMigrationPath = path.join(ROOT, 'database/migrations/0022_make_budget_signature_nullable.sql');
 const allLegacyFiles = [
   '0001_add_certification_status_and_updated_at.sql',
   '0002_add_investigations_table.sql',
@@ -318,7 +319,7 @@ suite('C1 migration reconciliation', () => {
     if (adminPool) await adminPool.end();
   }, 60_000);
 
-  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0021, and becomes a no-op', async () => {
+  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0022, and becomes a no-op', async () => {
     const name = databaseName('bootstrap');
     await createDatabase(name);
     try {
@@ -337,7 +338,7 @@ suite('C1 migration reconciliation', () => {
          FROM migrations_log
          ORDER BY id`
       ).then(result => result.rows));
-      expect(rows).toHaveLength(13);
+      expect(rows).toHaveLength(14);
       expect(rows[0]).toMatchObject({
         filename: 'capmint-baseline-20260725.sql',
         application_mode: 'BASELINE',
@@ -394,6 +395,10 @@ suite('C1 migration reconciliation', () => {
         filename: '0021_add_not_certified_scan_verdict.sql',
         application_mode: 'EXECUTED'
       });
+      expect(rows[13]).toMatchObject({
+        filename: '0022_make_budget_signature_nullable.sql',
+        application_mode: 'EXECUTED'
+      });
       const baselineState = await withPool(name, pool => pool.query(
         `SELECT
            EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'uuid-ossp') AS has_uuid_ossp,
@@ -405,12 +410,30 @@ suite('C1 migration reconciliation', () => {
         organization_count: 0,
         user_count: 0
       });
+      const signatureColumn = await withPool(name, pool => pool.query(
+        `SELECT format_type(a.atttypid, a.atttypmod) AS type,
+                a.attnotnull AS not_null,
+                pg_get_expr(d.adbin, d.adrelid) AS default_expr
+         FROM pg_attribute a
+         LEFT JOIN pg_attrdef d
+           ON d.adrelid = a.attrelid
+          AND d.adnum = a.attnum
+         WHERE a.attrelid = 'budgets'::regclass
+           AND a.attname = 'signature_bundle'
+           AND NOT a.attisdropped`
+      ).then(result => result.rows));
+      expect(signatureColumn).toEqual([{
+        type: 'text',
+        not_null: false,
+        default_expr: null
+      }]);
+      await applySqlFile(name, nullableBudgetSignatureMigrationPath);
 
       const bootstrapNoOpApply = runRunner(name, ['--apply']);
       expect(bootstrapNoOpApply.status, bootstrapNoOpApply.stderr).toBe(0);
       expect(runRunner(name, ['--check']).status).toBe(0);
       const count = await withPool(name, pool => pool.query('SELECT count(*)::int AS count FROM migrations_log').then(result => result.rows[0].count));
-      expect(count).toBe(13);
+      expect(count).toBe(14);
     } finally {
       await dropDatabase(name);
     }
@@ -433,7 +456,8 @@ suite('C1 migration reconciliation', () => {
         expect.objectContaining({ action: 'ADOPT', target: '0009_widen_investigations_status_check.sql' }),
         expect.objectContaining({ action: 'ADOPT', target: '0011_add_profile_organization_id.sql' }),
         expect.objectContaining({ action: 'ADOPT', target: '0012_add_derived_tenant_relationships.sql' }),
-        expect.objectContaining({ action: 'ADOPT', target: '0013_tighten_tenant_constraints.sql' })
+        expect.objectContaining({ action: 'ADOPT', target: '0013_tighten_tenant_constraints.sql' }),
+        expect.objectContaining({ action: 'ADOPT', target: '0022_make_budget_signature_nullable.sql' })
       ]));
 
       const adoption = runRunner(name, [
@@ -442,7 +466,8 @@ suite('C1 migration reconciliation', () => {
         '0009_widen_investigations_status_check.sql',
         '0011_add_profile_organization_id.sql',
         '0012_add_derived_tenant_relationships.sql',
-        '0013_tighten_tenant_constraints.sql'
+        '0013_tighten_tenant_constraints.sql',
+        '0022_make_budget_signature_nullable.sql'
       ]);
       expect(adoption.status, adoption.stderr).toBe(0);
       expect(await schemaFingerprint(name)).toBe(before);
@@ -450,17 +475,18 @@ suite('C1 migration reconciliation', () => {
       const adoptedRows = await withPool(name, pool => pool.query(
         `SELECT filename, application_mode, checksum_sha256, evidence_fingerprint
          FROM migrations_log
-         WHERE filename IN ($1, $2, $3, $4, $5)
+         WHERE filename IN ($1, $2, $3, $4, $5, $6)
          ORDER BY filename`,
         [
           '0007_add_producer_brandings_table.sql',
           '0009_widen_investigations_status_check.sql',
           '0011_add_profile_organization_id.sql',
           '0012_add_derived_tenant_relationships.sql',
-          '0013_tighten_tenant_constraints.sql'
+          '0013_tighten_tenant_constraints.sql',
+          '0022_make_budget_signature_nullable.sql'
         ]
       ).then(result => result.rows));
-      expect(adoptedRows).toHaveLength(5);
+      expect(adoptedRows).toHaveLength(6);
       for (const row of adoptedRows) {
         expect(row.application_mode).toBe('ADOPTED');
         expect(row.checksum_sha256).toMatch(/^[a-f0-9]{64}$/);
@@ -509,7 +535,8 @@ suite('C1 migration reconciliation', () => {
         '--adopt',
         '0011_add_profile_organization_id.sql',
         '0012_add_derived_tenant_relationships.sql',
-        '0013_tighten_tenant_constraints.sql'
+        '0013_tighten_tenant_constraints.sql',
+        '0022_make_budget_signature_nullable.sql'
       ]).status).toBe(0);
       expect(runRunner(name, ['--apply']).status).toBe(0);
       expect(runRunner(name, ['--check']).status).toBe(0);
@@ -565,7 +592,8 @@ suite('C1 migration reconciliation', () => {
           '--adopt',
           '0011_add_profile_organization_id.sql',
           '0012_add_derived_tenant_relationships.sql',
-          '0013_tighten_tenant_constraints.sql'
+          '0013_tighten_tenant_constraints.sql',
+          '0022_make_budget_signature_nullable.sql'
         ]).status).toBe(0);
       }
       await withPool(supported, async pool => {
@@ -601,7 +629,8 @@ suite('C1 migration reconciliation', () => {
         '0009_widen_investigations_status_check.sql',
         '0011_add_profile_organization_id.sql',
         '0012_add_derived_tenant_relationships.sql',
-        '0013_tighten_tenant_constraints.sql'
+        '0013_tighten_tenant_constraints.sql',
+        '0022_make_budget_signature_nullable.sql'
       ]).status).toBe(0);
       const badChecksum = '0'.repeat(64);
       await withPool(name, pool => pool.query(

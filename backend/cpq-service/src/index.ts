@@ -172,6 +172,30 @@ server.get('/health', async () => {
   return { status: 'healthy', service: 'cpq-service' };
 });
 
+// Route: List active certifiers available for budget requests
+server.get('/api/v1/certifiers', {
+  preValidation: [server.authenticate]
+}, async (request) => {
+  return withAuthenticatedTenantTx(request, async (client) => {
+    const result = await client.query(
+      `SELECT c.id, c.name, c.accreditation_details AS accreditation
+       FROM certifiers c
+       JOIN organizations o ON o.id = c.organization_id
+       WHERE c.key_status = 'ACTIVE'
+         AND o.type = 'CERTIFICATION_BODY'
+         AND o.status = 'ACTIVATED'
+       ORDER BY c.name, c.id`
+    );
+
+    return {
+      success: true,
+      data: {
+        certifiers: result.rows
+      }
+    };
+  });
+});
+
 // Route: Propose/Draft Budget
 server.post('/api/v1/budgets', {
   preValidation: [server.authenticate, server.authorize(PRODUCER_OPERATION_SPECS)]
@@ -182,12 +206,11 @@ server.post('/api/v1/budgets', {
     source_unit_type,
     approved_quantity,
     yield_assumptions,
-    signature_bundle,
     effective_start_date,
     effective_end_date
   } = request.body as any;
 
-  if (!certifier_id || !source_unit_type || !approved_quantity || !yield_assumptions || !signature_bundle || !effective_start_date || !effective_end_date) {
+  if (!certifier_id || !source_unit_type || !approved_quantity || !yield_assumptions || !effective_start_date || !effective_end_date) {
     return reply.status(400).send({
       success: false,
       error: {
@@ -312,7 +335,7 @@ server.post('/api/v1/budgets', {
       producer_id, certifier_id, source_unit_type, approved_quantity,
       yield_assumptions, signature_bundle, effective_start_date, effective_end_date, status
     )
-    SELECT producer.id, certifier.id, $3, $4, $5, $6, $7, $8, 'DRAFT'
+    SELECT producer.id, certifier.id, $3, $4, $5, NULL, $6, $7, 'DRAFT'
     FROM producers AS producer
     JOIN organizations AS producer_organization
       ON producer_organization.id = producer.organization_id
@@ -321,7 +344,7 @@ server.post('/api/v1/budgets', {
     JOIN organizations AS certifier_organization
       ON certifier_organization.id = certifier.organization_id
     WHERE producer.id = $1
-      AND producer.organization_id = $9
+      AND producer.organization_id = $8
       AND producer_organization.type = 'PRODUCER'
       AND producer_organization.status = 'ACTIVATED'
       AND certifier.key_status = 'ACTIVE'
@@ -336,7 +359,6 @@ server.post('/api/v1/budgets', {
     source_unit_type,
     quantity,
     JSON.stringify(yield_assumptions),
-    signature_bundle,
     effective_start_date,
     effective_end_date,
     user.orgId
@@ -503,6 +525,18 @@ server.post('/api/v1/budgets/:id/drawdown', {
 
     const budget = budgetRes.rows[0];
 
+    // A draft has not received certifier authority and must fail before crypto.
+    if (budget.status !== 'ACTIVE') {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          statusCode: 400,
+          code: 'INACTIVE_BUDGET',
+          message: `Cannot draw down capacity. Budget status is ${budget.status}.`
+        }
+      });
+    }
+
     // 2.5 Verify the certifier's Ed25519 signature over the budget authorization. Fail closed:
     // a missing certifier, an unverifiable signature, or the placeholder 'sig_default'/'sig_failed'
     // values must all block the drawdown (no bypass).
@@ -523,10 +557,12 @@ server.post('/api/v1/budgets/:id/drawdown', {
     const message = `budget_id:${id};approved_quantity:${budget.approved_quantity}`;
 
     let isVerified = false;
-    try {
-      isVerified = crypto.verify(null, Buffer.from(message), pubKeyPem, Buffer.from(budget.signature_bundle, 'hex'));
-    } catch (err) {
-      request.log.error(err as any, 'Ed25519 budget signature verification error');
+    if (typeof budget.signature_bundle === 'string' && budget.signature_bundle.trim() !== '') {
+      try {
+        isVerified = crypto.verify(null, Buffer.from(message), pubKeyPem, Buffer.from(budget.signature_bundle, 'hex'));
+      } catch (err) {
+        request.log.error(err as any, 'Ed25519 budget signature verification error');
+      }
     }
 
     if (!isVerified) {
@@ -537,18 +573,6 @@ server.post('/api/v1/budgets/:id/drawdown', {
           statusCode: 400,
           code: 'INVALID_SIGNATURE',
           message: 'Cryptographic budget signature validation failed. Supply authority unverified.'
-        }
-      });
-    }
-
-    // 3. Verify Budget Status
-    if (budget.status !== 'ACTIVE') {
-      return reply.status(400).send({
-        success: false,
-        error: {
-          statusCode: 400,
-          code: 'INACTIVE_BUDGET',
-          message: `Cannot draw down capacity. Budget status is ${budget.status}.`
         }
       });
     }

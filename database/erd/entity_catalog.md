@@ -114,7 +114,7 @@ The database is divided into nine core tables, mapped to their single-writer mic
 | `consumed_quantity` | `NUMERIC(12, 2)` | `NOT NULL` | Default `0.00`, Check: `>= 0.00` | Capacity consumed by minting. |
 | `remaining_quantity`| `NUMERIC(12, 2)` | `NOT NULL` | `GENERATED ALWAYS` AS (`approved_quantity` - `consumed_quantity`) | Remaining capacity quota. |
 | `yield_assumptions` | `JSONB` | `NOT NULL` | None | Math assumptions (area x yield rate). |
-| `signature_bundle` | `VARCHAR(256)` | `NOT NULL` | None | Ed25519 cryptographic signature. |
+| `signature_bundle` | `TEXT` | Nullable | None | Ed25519 certifier signature; `NULL` until certifier activation. |
 | `effective_start_date`| `TIMESTAMPTZ` | `NOT NULL` | None | Quota active start timestamp. |
 | `effective_end_date` | `TIMESTAMPTZ` | `NOT NULL` | None | Quota expiration timestamp. |
 | `status` | `VARCHAR(32)` | `NOT NULL` | Check: `DRAFT`, `PENDING`, `ACTIVE`, `EXHAUSTED`, `REVOKED` | Quota status lifecycle. |

@@ -47,7 +47,7 @@ const server = http.createServer((req, res) => {
   // Proxy API requests to backend microservices
   if (urlPath.startsWith('/api/v1/auth')) {
     return proxyApi(8081, req, res);
-  } else if (urlPath.startsWith('/api/v1/budgets')) {
+  } else if (urlPath.startsWith('/api/v1/budgets') || urlPath.startsWith('/api/v1/certifiers')) {
     return proxyApi(8082, req, res);
   } else if (urlPath.startsWith('/api/v1/qr') || urlPath.startsWith('/api/v1/mint') || urlPath.startsWith('/api/v1/gs1')) {
     return proxyApi(8083, req, res);
