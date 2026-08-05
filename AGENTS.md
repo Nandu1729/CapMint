@@ -47,8 +47,21 @@ Run before claiming any task done. Full detail in memory `capmint-self-eval-loop
 4. **HONESTY** — state what I verified vs. did NOT ("serves 200" ≠ "flow works" ≠ "looks right").
 5. **PERSIST** — new durable fact/decision → write/update a memory + one line in `MEMORY.md`.
 
+**The actor question — ask it before sizing ANY finding:**
+> **Who can actually do this, and who is authorized to assert it?**
+
+Code-level reasoning tells you what the system *does*; it never tells you whether it *matters*. This
+question is what made the PR #12 finding correct — the API let a **producer** supply a **certifier's**
+signature. Skipping it is what mis-sized HO-028 twice in opposite directions. Answering it requires
+`docs/THREAT_MODEL.md` and `docs/SCOPE_BOUNDARY.md`, not the diff in front of you.
+
+**ALIGN applies to explanations and findings, not only to code changes.** Assigning a severity, a
+priority, or a worked example is a claim about the product and needs the same grounding. A vivid wrong
+example is worse than an abstract correct one — it is more convincing and travels further.
+
 **Drift alarms (stop):** claiming success from memory not observation · "should work" with no test ·
-editing working code I don't understand · reopening a settled decision · reporting done without evidence.
+editing working code I don't understand · reopening a settled decision · reporting done without
+evidence · **explaining *why* something matters without checking who it affects**.
 
 ## 6. Working conventions (non-negotiable)
 - **NO AI attribution — anywhere.** No "Generated with…", no "Co-Authored-By: Claude", no 🤖, in any
@@ -103,7 +116,11 @@ tests → Certifier CERTIFIES lot → MINT QR codes → export gate → Consumer
   — index in `MEMORY.md`. Keep it current; **prune/consolidate stale entries** *(idea from nexo's
   memory-consolidation)*; delete memories that turn out wrong.
 - **In-repo governance:** `docs/architecture/{ARCHITECTURE_STATUS,DECISIONS,PROMOTION_READINESS}.md`,
-  `ARCHITECT_REVIEW_HISTORY.md`, `docs/{SCOPE_BOUNDARY,ORGANIC_PIPELINE,REAL_WORLD_READINESS}.md`.
+  `ARCHITECT_REVIEW_HISTORY.md`,
+  `docs/{SCOPE_BOUNDARY,ORGANIC_PIPELINE,REAL_WORLD_READINESS,THREAT_MODEL}.md`.
+- **`docs/THREAT_MODEL.md` is the reference for sizing any security finding** — which attacks are
+  prevented, which are only detected, and who the actor is in each. Read it before calling something
+  critical or dismissing it as minor.
 
 ## 12. Preflight (before you act)  *(idea from nexo's preflight/doctor)*
 1. Read this file + `MEMORY.md`. 2. Confirm the task doesn't reopen a settled decision. 3. If touching
