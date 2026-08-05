@@ -1981,7 +1981,9 @@
 
     async function loadLedgerLogs() {
       try {
-        const response = await fetch(`${API_BASE_URL}/log/api/v1/log/entries`);
+        const response = await fetch(`${API_BASE_URL}/log/api/v1/log/entries`, {
+          headers: { 'Authorization': 'Bearer ' + AUTH_TOKEN }
+        });
         const res = await response.json();
         if (res.success && res.data && res.data.logs) {
           DB.logs = res.data.logs;

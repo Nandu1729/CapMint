@@ -264,6 +264,46 @@ certified, unrevoked, unexpired, non-clone serials remain `VERIFIED`.
 
 ---
 
+## AD-008: Keep ledger integrity public and contents private
+
+| Field | Value |
+|---|---|
+| **Decision ID** | AD-008 |
+| **Title** | Public proof, tenant-scoped contents |
+| **Date** | 2026-08-05 |
+| **Status** | **APPROVED** |
+
+**Context.** The transparency ledger's public entries endpoint exposed authentication telemetry,
+lot lifecycle events, and investigation identifiers without credentials. Making the entire ledger
+private would remove independent hash-chain verification, which is the purpose of the existing
+RFC 3161 anchoring workflow.
+
+**Decision.** Hash-chain integrity remains publicly verifiable through an aggregate-only endpoint
+that returns the existing integrity result without ledger rows. Enumerating entries requires
+authentication and resolves each USER, ORGANIZATION, BUDGET, LOT, PRODUCT, or INVESTIGATION entity
+to its participating organizations under RLS. SYSTEM entries have no tenant and are visible only
+to existing system administrators. Successful login telemetry is emitted to internal structured
+logs and is no longer appended to supply-chain provenance; existing immutable history is not
+rewritten.
+
+**Alternatives Considered.** A denormalized `organization_id` was rejected because budget, lot,
+product, and investigation events can legitimately involve producer, certifier, and assigned lab
+organizations. Public SYSTEM entries were rejected because public integrity already proves the
+chain and SYSTEM payload hashes are operational content. An unrestricted AUDITOR identity was
+deferred: the current identity model has only organization-scoped ADMIN/MEMBER users, so a genuine
+regulator role needs a separately authorized JWT and RLS context rather than a partial role string.
+
+**Consequences.** Migration `0023` replaces the global SELECT policy with entity-derived tenant
+scope and adds bounded security-definer functions for the global tail hash and aggregate integrity
+check. Regular organizations retain entries for provenance entities in which they participate;
+system administrators retain unrestricted read. A separate follow-up must design and test the
+AUDITOR authentication and authorization model.
+
+**Related Commits.** _implementation pending_
+**Related Documents.** [LEDGER_ANCHORING_PROPOSAL.md](LEDGER_ANCHORING_PROPOSAL.md)
+
+---
+
 <!--
 ## AD-NNN: <Title> (template)
 

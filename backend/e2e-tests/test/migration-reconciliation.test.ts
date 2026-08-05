@@ -23,6 +23,7 @@ const supportingRlsMigrationPath = path.join(ROOT, 'database/migrations/0018_ena
 const finalRlsMigrationPath = path.join(ROOT, 'database/migrations/0019_enable_users_and_ledger_rls.sql');
 const organizationReadMigrationPath = path.join(ROOT, 'database/migrations/0020_tighten_organizations_public_read.sql');
 const nullableBudgetSignatureMigrationPath = path.join(ROOT, 'database/migrations/0022_make_budget_signature_nullable.sql');
+const ledgerContentScopeMigrationPath = path.join(ROOT, 'database/migrations/0023_scope_ledger_contents.sql');
 const allLegacyFiles = [
   '0001_add_certification_status_and_updated_at.sql',
   '0002_add_investigations_table.sql',
@@ -319,7 +320,7 @@ suite('C1 migration reconciliation', () => {
     if (adminPool) await adminPool.end();
   }, 60_000);
 
-  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0022, and becomes a no-op', async () => {
+  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0023, and becomes a no-op', async () => {
     const name = databaseName('bootstrap');
     await createDatabase(name);
     try {
@@ -338,7 +339,7 @@ suite('C1 migration reconciliation', () => {
          FROM migrations_log
          ORDER BY id`
       ).then(result => result.rows));
-      expect(rows).toHaveLength(14);
+      expect(rows).toHaveLength(15);
       expect(rows[0]).toMatchObject({
         filename: 'capmint-baseline-20260725.sql',
         application_mode: 'BASELINE',
@@ -399,6 +400,10 @@ suite('C1 migration reconciliation', () => {
         filename: '0022_make_budget_signature_nullable.sql',
         application_mode: 'EXECUTED'
       });
+      expect(rows[14]).toMatchObject({
+        filename: '0023_scope_ledger_contents.sql',
+        application_mode: 'EXECUTED'
+      });
       const baselineState = await withPool(name, pool => pool.query(
         `SELECT
            EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'uuid-ossp') AS has_uuid_ossp,
@@ -428,12 +433,13 @@ suite('C1 migration reconciliation', () => {
         default_expr: null
       }]);
       await applySqlFile(name, nullableBudgetSignatureMigrationPath);
+      await applySqlFile(name, ledgerContentScopeMigrationPath);
 
       const bootstrapNoOpApply = runRunner(name, ['--apply']);
       expect(bootstrapNoOpApply.status, bootstrapNoOpApply.stderr).toBe(0);
       expect(runRunner(name, ['--check']).status).toBe(0);
       const count = await withPool(name, pool => pool.query('SELECT count(*)::int AS count FROM migrations_log').then(result => result.rows[0].count));
-      expect(count).toBe(14);
+      expect(count).toBe(15);
     } finally {
       await dropDatabase(name);
     }

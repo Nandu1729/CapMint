@@ -40,7 +40,7 @@ if (!JWT_SECRET) {
 }
 server.register(jwt, { secret: JWT_SECRET, verify: { algorithms: ['HS256'] } });
 
-// Authentication guard for ledger-mutating routes (append). Reads stay public (transparency).
+// Authentication guard for ledger contents and mutating routes. Integrity proof stays public.
 server.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
   try {
     await request.jwtVerify();
@@ -94,18 +94,14 @@ server.post('/api/v1/log', { preValidation: [server.authenticate] }, async (requ
 
   return withTenantTx(pgPool, tenantContextFromUser(request.user as any), async (client) => {
 
-    // 1. Serialize appends and read the chain tail. log_entries is immutable (no UPDATE
-    // policy), so SELECT ... FOR UPDATE returns zero rows under RLS for the non-owner app
-    // role. Take the same SHARE ROW EXCLUSIVE table lock the registration definer uses to
-    // serialize all appends, then read the tail with a plain SELECT (permitted by the
-    // log_entries SELECT policy).
+    // 1. Serialize appends and read only the global chain tail through the bounded helper.
     await client.query('LOCK TABLE log_entries IN SHARE ROW EXCLUSIVE MODE');
     const latestRes = await client.query(
-      'SELECT current_hash FROM log_entries ORDER BY created_at DESC, id DESC LIMIT 1'
+      'SELECT capmint_ledger_tail_hash() AS current_hash'
     );
     
     let previousHash = '0000000000000000000000000000000000000000000000000000000000000000';
-    if (latestRes.rowCount && latestRes.rowCount > 0) {
+    if (latestRes.rows[0]?.current_hash) {
       previousHash = latestRes.rows[0].current_hash;
     }
 
@@ -140,55 +136,19 @@ server.post('/api/v1/log', { preValidation: [server.authenticate] }, async (requ
 
 // Helper to implement route handler logic for verify integrity
 async function handleVerifyLog(request: any, reply: any, client: pg.PoolClient) {
-  try {
-    // Read all logs ordered by creation to verify sequential links
-    const logsRes = await client.query('SELECT * FROM log_entries ORDER BY created_at ASC, id ASC');
-    const logs = logsRes.rows;
-
-    let unbroken = true;
-    const errors: string[] = [];
-    let expectedPrevious = '00000000-0000-0000-0000-000000000000';
-
-    for (let i = 0; i < logs.length; i++) {
-      const entry = logs[i];
-
-      // Genesis anchor has a static hash and no parent link, skip verification
-      if (entry.event_type === 'GENESIS_BLOCK_ANCHOR') {
-        expectedPrevious = entry.current_hash;
-        continue;
-      }
-
-      // Verify that previous_hash matches expected previous current_hash
-      if (entry.previous_hash !== expectedPrevious) {
-        unbroken = false;
-        errors.push(`Chain link broken at entry index ${i} (ID: ${entry.id}). Expected previous hash ${expectedPrevious}, got ${entry.previous_hash}.`);
-      }
-
-      // Recompute payload_hash and current_hash to confirm no tampering
-      const calculatedCurrent = hashSHA256(
-        entry.entity_type + entry.entity_id + entry.event_type + entry.payload_hash + entry.previous_hash
-      );
-
-      if (entry.current_hash !== calculatedCurrent) {
-        unbroken = false;
-        errors.push(`Hash mismatch at entry index ${i} (ID: ${entry.id}). Calculated current hash ${calculatedCurrent}, database has ${entry.current_hash}.`);
-      }
-
-      expectedPrevious = entry.current_hash;
+  const result = await client.query(
+    'SELECT unbroken, log_count, error, errors FROM capmint_verify_ledger_integrity()'
+  );
+  const verification = result.rows[0];
+  return {
+    success: true,
+    data: {
+      unbroken: verification.unbroken,
+      logCount: Number(verification.log_count),
+      error: verification.error,
+      errors: verification.errors
     }
-
-    return {
-      success: true,
-      data: {
-        unbroken,
-        logCount: logs.length,
-        error: errors.length > 0 ? errors.join('; ') : null,
-        errors: errors
-      }
-    };
-  } catch (err) {
-    throw err;
-  }
+  };
 }
 
 // Route: Verify Integrity of Hash Chain
@@ -199,7 +159,20 @@ server.get('/log/api/v1/log/verify', verifyLogPublicly);
 
 // Helper to implement log entries fetching
 async function handleGetEntries(request: any, reply: any, client: pg.PoolClient) {
-  const result = await client.query('SELECT * FROM log_entries ORDER BY created_at ASC, id ASC');
+  const result = await client.query(`
+    SELECT *
+    FROM log_entries
+    WHERE current_setting('app.actor_is_system_admin', true) = 'on'
+       OR (
+         NULLIF(current_setting('app.current_organization_id', true), '') IS NOT NULL
+         AND capmint_rls_log_entry_actor(
+           entity_type,
+           entity_id,
+           NULLIF(current_setting('app.current_organization_id', true), '')::uuid
+         )
+       )
+    ORDER BY created_at ASC, id ASC
+  `);
   return {
     success: true,
     data: {
@@ -216,10 +189,14 @@ async function handleGetEntries(request: any, reply: any, client: pg.PoolClient)
   };
 }
 
-const getEntriesPublicly = (request: any, reply: any) =>
-  withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, (client) => handleGetEntries(request, reply, client));
-server.get('/api/v1/log/entries', getEntriesPublicly);
-server.get('/log/api/v1/log/entries', getEntriesPublicly);
+const getEntriesForTenant = (request: any, reply: any) =>
+  withTenantTx(
+    pgPool,
+    tenantContextFromUser(request.user as any),
+    (client) => handleGetEntries(request, reply, client)
+  );
+server.get('/api/v1/log/entries', { preValidation: [server.authenticate] }, getEntriesForTenant);
+server.get('/log/api/v1/log/entries', { preValidation: [server.authenticate] }, getEntriesForTenant);
 
 // Helper to handle appending to log
 async function handleAppendLog(request: any, reply: any, client: pg.PoolClient) {
@@ -232,18 +209,14 @@ async function handleAppendLog(request: any, reply: any, client: pg.PoolClient) 
     });
   }
 
-    // 1. Serialize appends and read the chain tail. log_entries is immutable (no UPDATE
-    // policy), so SELECT ... FOR UPDATE returns zero rows under RLS for the non-owner app
-    // role. Take the same SHARE ROW EXCLUSIVE table lock the registration definer uses to
-    // serialize all appends, then read the tail with a plain SELECT (permitted by the
-    // log_entries SELECT policy).
+    // 1. Serialize appends and read only the global chain tail through the bounded helper.
     await client.query('LOCK TABLE log_entries IN SHARE ROW EXCLUSIVE MODE');
     const latestRes = await client.query(
-      'SELECT current_hash FROM log_entries ORDER BY created_at DESC, id DESC LIMIT 1'
+      'SELECT capmint_ledger_tail_hash() AS current_hash'
     );
     
     let previousHash = '0000000000000000000000000000000000000000000000000000000000000000';
-    if (latestRes.rowCount && latestRes.rowCount > 0) {
+    if (latestRes.rows[0]?.current_hash) {
       previousHash = latestRes.rows[0].current_hash;
     }
 
@@ -292,8 +265,11 @@ const start = async () => {
     // Seed genesis block if table is empty
     try {
       await withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, async (client) => {
-        const checkRes = await client.query('SELECT COUNT(*) FROM log_entries');
-        if (parseInt(checkRes.rows[0].count, 10) === 0) {
+        await client.query('LOCK TABLE log_entries IN SHARE ROW EXCLUSIVE MODE');
+        const checkRes = await client.query(
+          'SELECT capmint_ledger_tail_hash() AS current_hash'
+        );
+        if (!checkRes.rows[0]?.current_hash) {
           await client.query(`
             INSERT INTO log_entries (entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
             VALUES ('SYSTEM', '00000000-0000-0000-0000-000000000000', 'GENESIS_BLOCK_ANCHOR', 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', '00000000-0000-0000-0000-000000000000', 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')

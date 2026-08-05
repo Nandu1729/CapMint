@@ -508,6 +508,21 @@ suite('C0 tenant authorization containment', () => {
       `INSERT INTO migrations_log (filename)
        VALUES ('0020_tighten_organizations_public_read.sql')`
     );
+    for (const filename of [
+      '0021_add_not_certified_scan_verdict.sql',
+      '0022_make_budget_signature_nullable.sql',
+      '0023_scope_ledger_contents.sql'
+    ]) {
+      const migration = await fs.readFile(
+        path.join(ROOT, 'database/migrations', filename),
+        'utf8'
+      );
+      await testPool.query(migration);
+      await testPool.query(
+        'INSERT INTO migrations_log (filename) VALUES ($1)',
+        [filename]
+      );
+    }
     const roleState = await adminPool.query(
       `SELECT rolcanlogin FROM pg_roles WHERE rolname = 'capmint_app'`
     );
@@ -1231,8 +1246,8 @@ suite('C0 tenant authorization containment', () => {
     );
     await testPool.query(
       `INSERT INTO log_entries (id, entity_type, entity_id, event_type, payload_hash, previous_hash, current_hash)
-       VALUES ($1, 'TEST', $1, 'D3C_TEST', repeat('a',64), repeat('0',64), repeat('b',64))`,
-      [ledgerId]
+       VALUES ($1, 'USER', $2, 'D3C_TEST', repeat('a',64), repeat('0',64), repeat('b',64))`,
+      [ledgerId, userA]
     );
     const appPool = new pg.Pool({ connectionString: appDatabaseUrl, max: 1 });
     // Idle clients emit 'error' when teardown drops the database WITH (FORCE); an
@@ -1242,6 +1257,7 @@ suite('C0 tenant authorization containment', () => {
     try {
       await withTenantTx(appPool, context, async client => {
         expect((await client.query('SELECT id FROM users WHERE id = $1', [userB])).rowCount).toBe(0);
+        expect((await client.query('SELECT id FROM log_entries WHERE id = $1', [ledgerId])).rowCount).toBe(1);
         expect((await client.query('UPDATE users SET status = status WHERE id = $1 RETURNING id', [userB])).rowCount).toBe(0);
         expect((await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [userB])).rowCount).toBe(0);
         expect((await client.query('UPDATE log_entries SET event_type = event_type WHERE id = $1 RETURNING id', [ledgerId])).rowCount).toBe(0);
@@ -1253,7 +1269,7 @@ suite('C0 tenant authorization containment', () => {
       ))).rejects.toMatchObject({ code: '42501' });
       await withTenantTx(appPool, PUBLIC_TENANT_CONTEXT, async client => {
         expect((await client.query('SELECT id FROM users WHERE id = $1', [userA])).rowCount).toBe(1);
-        expect((await client.query('SELECT id FROM log_entries WHERE id = $1', [ledgerId])).rowCount).toBe(1);
+        expect((await client.query('SELECT id FROM log_entries WHERE id = $1', [ledgerId])).rowCount).toBe(0);
       });
       const ownerUpdate = await testPool.query('UPDATE log_entries SET event_type = event_type WHERE id = $1 RETURNING id', [ledgerId]);
       expect(ownerUpdate.rowCount).toBe(1);
@@ -1788,8 +1804,81 @@ suite('C0 tenant authorization containment', () => {
     expect((await requestJson(BASE.resolver, `/01/${values.gtinA}/21/${values.serialA}`, {
       accept: 'application/json'
     })).status).toBe(200);
-    expect((await requestJson(BASE.transparency, '/api/v1/log/entries')).status).toBe(200);
+    expect((await requestJson(
+      BASE.transparency,
+      '/api/v1/log/entries',
+      { token: tokens.producerA }
+    )).status).toBe(200);
     expect((await requestJson(BASE.transparency, '/api/v1/log/verify')).status).toBe(200);
+  });
+
+  it('keeps integrity public while scoping both ledger entry routes to tenant actors', async () => {
+    const eventA = `C0_LEDGER_A_${crypto.randomUUID()}`;
+    const eventB = `C0_LEDGER_B_${crypto.randomUUID()}`;
+    expect((await requestJson(BASE.transparency, '/api/v1/log', {
+      method: 'POST',
+      token: tokens.producerA,
+      body: {
+        entity_type: 'LOT',
+        entity_id: ids.lotA,
+        event_type: eventA,
+        payload: { source: 'c0-ledger-scope-a' }
+      }
+    })).status).toBe(201);
+    expect((await requestJson(BASE.transparency, '/log/api/v1/log', {
+      method: 'POST',
+      token: tokens.producerB,
+      body: {
+        entity_type: 'LOT',
+        entity_id: ids.lotB,
+        event_type: eventB,
+        payload: { source: 'c0-ledger-scope-b' }
+      }
+    })).status).toBe(201);
+
+    expect((await requestJson(
+      BASE.transparency,
+      '/api/v1/log/entries'
+    )).status).toBe(401);
+    expect((await requestJson(
+      BASE.transparency,
+      '/log/api/v1/log/entries'
+    )).status).toBe(401);
+
+    const producerAEntries = await requestJson(
+      BASE.transparency,
+      '/api/v1/log/entries',
+      { token: tokens.producerA }
+    );
+    expect(producerAEntries.status).toBe(200);
+    expect(JSON.stringify(producerAEntries.data)).toContain(eventA);
+    expect(JSON.stringify(producerAEntries.data)).not.toContain(eventB);
+    expect(JSON.stringify(producerAEntries.data)).not.toContain('GENESIS_BLOCK_ANCHOR');
+
+    const producerBEntries = await requestJson(
+      BASE.transparency,
+      '/log/api/v1/log/entries',
+      { token: tokens.producerB }
+    );
+    expect(producerBEntries.status).toBe(200);
+    expect(JSON.stringify(producerBEntries.data)).toContain(eventB);
+    expect(JSON.stringify(producerBEntries.data)).not.toContain(eventA);
+
+    const adminEntries = await requestJson(
+      BASE.transparency,
+      '/api/v1/log/entries',
+      { token: tokens.systemAdmin }
+    );
+    expect(adminEntries.status).toBe(200);
+    expect(JSON.stringify(adminEntries.data)).toContain(eventA);
+    expect(JSON.stringify(adminEntries.data)).toContain(eventB);
+    expect(JSON.stringify(adminEntries.data)).toContain('GENESIS_BLOCK_ANCHOR');
+
+    for (const route of ['/api/v1/log/verify', '/log/api/v1/log/verify']) {
+      const verification = await requestJson(BASE.transparency, route);
+      expect(verification.status).toBe(200);
+      expect((verification.data as any).data.unbroken).toBe(true);
+    }
   });
 
   it('persists unit_code_id when public verification automation creates an investigation', async () => {

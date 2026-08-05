@@ -420,9 +420,11 @@ paths:
           $ref: ./components/responses/ValidationErrorResponse.yaml
   /log/api/v1/log/entries:
     get:
-      summary: Retrieve the full transparency log chain
+      summary: Retrieve tenant-scoped transparency log entries
       tags:
       - Transparency Log
+      security:
+      - BearerAuth: []
       responses:
         '200':
           $ref: ./components/responses/TransparencyLedgerChainResponse.yaml
@@ -432,6 +434,8 @@ paths:
           $ref: ./components/responses/NotFoundError.yaml
         '500':
           $ref: ./components/responses/InternalServerError.yaml
+        '401':
+          $ref: ./components/responses/UnauthorizedError.yaml
         '422':
           $ref: ./components/responses/ValidationErrorResponse.yaml
   /log/api/v1/log/verify:
@@ -450,6 +454,10 @@ paths:
           $ref: ./components/responses/InternalServerError.yaml
         '422':
           $ref: ./components/responses/ValidationErrorResponse.yaml
+  /api/v1/log/entries:
+    $ref: '#/paths/~1log~1api~1v1~1log~1entries'
+  /api/v1/log/verify:
+    $ref: '#/paths/~1log~1api~1v1~1log~1verify'
   /api/v1/verify/{gtin}/{serial}:
     post:
       summary: Verify product authenticity & scan coordinates

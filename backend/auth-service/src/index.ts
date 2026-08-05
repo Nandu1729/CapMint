@@ -35,13 +35,11 @@ async function appendAuditLog(
   payload: any
 ): Promise<void> {
   let previousHash = '0000000000000000000000000000000000000000000000000000000000000000';
-  // Serialize ledger appends on the same SHARE ROW EXCLUSIVE table lock the transparency
-  // service and the registration definer use, so every writer chains onto the same tail
-  // (no FOR UPDATE: log_entries is immutable and would return zero rows under RLS).
+  // Serialize appends and read only the global chain tail through the bounded helper.
   await client.query('LOCK TABLE log_entries IN SHARE ROW EXCLUSIVE MODE');
-  const queryLatest = 'SELECT current_hash FROM log_entries ORDER BY created_at DESC, id DESC LIMIT 1';
+  const queryLatest = 'SELECT capmint_ledger_tail_hash() AS current_hash';
   const latestRes = await client.query(queryLatest);
-  if (latestRes.rowCount && latestRes.rowCount > 0) {
+  if (latestRes.rows[0]?.current_hash) {
     previousHash = latestRes.rows[0].current_hash;
   }
 
@@ -380,8 +378,13 @@ server.post('/api/v1/auth/login', async (request, reply) => {
       });
     }
 
-    // Write immutable audit log for Login
-    await appendAuditLog(client, 'USER', user.id, 'USER_LOGIN', { user_id: user.id });
+    request.log.info({
+      audit: {
+        action: 'USER_LOGIN',
+        userId: user.id,
+        organizationId: user.organization_id
+      }
+    }, 'User authenticated');
 
     // Sign JWT carrying Organization ID, Type, and Role
     const token = server.jwt.sign({

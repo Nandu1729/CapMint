@@ -1339,9 +1339,11 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   /log/api/v1/log/entries:
     get:
-      summary: Retrieve the full transparency log chain
+      summary: Retrieve tenant-scoped transparency log entries
       tags:
         - Transparency Log
+      security:
+        - BearerAuth: []
       responses:
         '200':
           description: Entire block history returned
@@ -1416,6 +1418,8 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/400'
         '404':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
+        '401':
+          $ref: '#/paths/~1api~1v1~1auth~1users/get/responses/401'
         '422':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
         '500':
@@ -1457,6 +1461,10 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
         '500':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/log/entries:
+    $ref: '#/paths/~1log~1api~1v1~1log~1entries'
+  /api/v1/log/verify:
+    $ref: '#/paths/~1log~1api~1v1~1log~1verify'
   '/api/v1/verify/{gtin}/{serial}':
     post:
       summary: Verify product authenticity & scan coordinates
