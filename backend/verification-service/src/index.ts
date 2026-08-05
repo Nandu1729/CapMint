@@ -656,11 +656,14 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
             unit_code_id = EXCLUDED.unit_code_id,
             updated_at = CURRENT_TIMESTAMP
       `, [
-        (codeRecord.product_metadata as any)?.name || 'Organic White Honey',
+        // An investigation is an evidence record. Naming a product or manufacturer that the
+        // data does not support risks implicating an innocent party, so unknown stays UNKNOWN.
+        // (Both columns are NOT NULL, hence a sentinel rather than null.)
+        (codeRecord.product_metadata as any)?.name || 'UNKNOWN',
         public_identifier,
         finalRisk,
         'Clone suspect flag tripped due to anomalous scanning frequency',
-        (codeRecord.product_metadata as any)?.manufacturer || 'Premium Farms',
+        (codeRecord.product_metadata as any)?.manufacturer || 'UNKNOWN',
         finalStatus,
         JSON.stringify(evidence),
         codeRecord.id
@@ -793,7 +796,7 @@ server.post('/api/v1/verify/register', {
         INSERT INTO lots (id, producer_id, budget_id, product_metadata, batch_size, processing_dates)
         VALUES (uuid_generate_v4(), $1, $2, $3, 1, '{}')
         RETURNING id
-      `, [capacity.budget.producer_id, capacity.budget.id, JSON.stringify(product_metadata || { name: 'Organic White Honey', manufacturer: 'Premium Farms' })]);
+      `, [capacity.budget.producer_id, capacity.budget.id, JSON.stringify(product_metadata || {})]);
       lotUuid = lotInsert.rows[0].id;
     }
 
@@ -992,7 +995,7 @@ server.get('/api/v1/lots/:id/export/pdf', {
     success: true,
     data: {
       lot_id: id,
-      product_name: scopedRows.rows[0].product_metadata?.name || 'Organic White Honey',
+      product_name: scopedRows.rows[0].product_metadata?.name ?? null,
       sheet_format: 'A4 Grid (3x8 stickers)',
       total_codes: unitCodes.length,
       print_ready_codes: unitCodes.map(row => ({
@@ -1210,7 +1213,9 @@ server.post('/api/v1/verify/revoke', {
     }
 
     const lotIds = lotRes.rows.map(row => row.id);
-    const revocationReason = reason || 'Organic certification withdrawn';
+    // Never invent a justification for a compliance action. If the caller did not state a
+    // reason, the record says so rather than attributing one to the revoking authority.
+    const revocationReason = reason ?? null;
     await client.query(
       `UPDATE lots
        SET revocation_status = 'REVOKED',
@@ -1485,7 +1490,7 @@ server.get('/api/v1/verify/lots', {
       lots: result.rows.map(row => ({
         id: row.id,
         budgetId: row.budget_id,
-        crop: row.product_metadata?.name || 'Organic White Honey',
+        crop: row.product_metadata?.name ?? null,
         weight: parseFloat(row.batch_size),
         status: row.revocation_status === 'REVOKED' ? 'REVOKED' : 'ACTIVE',
         product_metadata: row.product_metadata,

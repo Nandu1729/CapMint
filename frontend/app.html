@@ -268,6 +268,10 @@
                   <select id="lotBudget" class="input"></select>
                 </div>
                 <div class="field" style="margin:0">
+                  <label>Product name</label>
+                  <input id="lotProduct" class="input" type="text" placeholder="as it appears on the label">
+                </div>
+                <div class="field" style="margin:0">
                   <label>Batch size</label>
                   <input id="lotSize" class="input" type="number" min="1" value="500">
                 </div>
@@ -364,7 +368,7 @@
   }
   function listOf(d){if(Array.isArray(d))return d;if(!d)return [];return d.budgets||d.lots||d.logs||d.entries||d.items||d.results||d.unitCodes||d.codes||[]}
   // normalize a budget to a consistent shape regardless of API naming
-  function nb(b){var alloc=Number(b.allocated!=null?b.allocated:(b.approved_quantity||0));var cons=Number(b.consumed!=null?b.consumed:(b.consumed_quantity||0));return {id:b.id,status:b.status,crop:b.crop||b.source_unit_type||"Capacity",producer:b.producer||"",allocated:alloc,consumed:cons,remaining:Math.max(0,alloc-cons),start:b.start,end:b.end}}
+  function nb(b){var alloc=Number(b.allocated!=null?b.allocated:(b.approved_quantity||0));var cons=Number(b.consumed!=null?b.consumed:(b.consumed_quantity||0));return {id:b.id,status:b.status,crop:b.crop||b.source_unit_type||"—",producer:b.producer||"",allocated:alloc,consumed:cons,remaining:Math.max(0,alloc-cons),start:b.start,end:b.end}}
 
   /* ---------- login ---------- */
   function renderCreds(){
@@ -472,11 +476,13 @@
 
   window.createLot=async function(){
     var budget_id=$("lotBudget").value, batch_size=parseInt($("lotSize").value,10);
+    var product=$("lotProduct").value.trim();
     var msg=$("lotMsg");msg.textContent="";
     if(!budget_id){msg.innerHTML='<span style="color:var(--bad)">Select an active budget first (a certifier must approve one).</span>';return}
     if(!batch_size||batch_size<1){msg.innerHTML='<span style="color:var(--bad)">Enter a positive batch size.</span>';return}
+    if(!product){msg.innerHTML='<span style="color:var(--bad)">Enter the product name as it appears on the label.</span>';return}
     msg.innerHTML='<span class="spin" style="border-color:#ccc;border-top-color:var(--accent)"></span> Creating…';
-    var r=await api("POST","/api/v1/lots",{budget_id:budget_id,batch_size:batch_size,product_metadata:{name:"Organic White Honey",manufacturer:state.user&&state.user.username||"Producer",farm_name:"Registered apiaries"}});
+    var r=await api("POST","/api/v1/lots",{budget_id:budget_id,batch_size:batch_size,product_metadata:{name:product}});
     if(!r.ok){msg.innerHTML='<span style="color:var(--bad)">'+esc(r.error)+'</span>';return}
     msg.innerHTML='<span style="color:var(--good)">Lot created.</span>';
     toast("Packaging lot created");
@@ -545,9 +551,14 @@
       box.innerHTML=verdictCard(bad?"MISMATCH":"ERROR","v-bad",bad?"No record found for this code. It may be invalid or never issued.":esc(r.error));
       return;
     }
-    var d=r.data||{},verdict=(d.verdict||d.status||"VERIFIED").toUpperCase();
-    var cls="v-good",desc="This unit is genuine and traceable to source.";
-    if(verdict==="REVOKED"){cls="v-bad";desc="This batch was invalidated after issuance — do not trust it."}
+    var d=r.data||{},verdict=String(d.verdict||d.status||"").toUpperCase();
+    // Never assume a verdict. An absent or unrecognised status is reported as unknown,
+    // never as VERIFIED — the service is the only authority on whether a unit is genuine.
+    var cls="v-warn",desc=d.statusMessage||"The status of this code could not be determined.";
+    if(!verdict){verdict="UNKNOWN"}
+    else if(verdict==="VERIFIED"){cls="v-good";desc=d.statusMessage||"This unit is genuine and certified organic."}
+    else if(verdict==="NOT_CERTIFIED"){cls="v-warn";desc=d.statusMessage||"Authentic serial — certification in progress. Not yet certified organic."}
+    else if(verdict==="REVOKED"){cls="v-bad";desc="This batch was invalidated after issuance — do not trust it."}
     else if(verdict.indexOf("CLONE")>=0){cls="v-warn";desc="Scanned in an impossible pattern — a copy may be circulating."}
     else if(verdict==="EXPIRED"){cls="v-warn";desc="This code is past its validity window."}
     else if(verdict==="MISMATCH"){cls="v-bad";desc="This code does not resolve to a valid issued unit."}

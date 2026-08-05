@@ -650,11 +650,11 @@ server.get('/api/v1/budgets', {
     data: {
       budgets: result.rows.map(row => ({
         id: row.id,
-        producer: row.producer || 'Premium Farms',
+        producer: row.producer ?? null,
         allocated: parseFloat(row.approved_quantity),
         consumed: parseFloat(row.consumed_quantity),
         status: row.status,
-        crop: row.yield_assumptions?.crop || 'Organic White Honey',
+        crop: row.yield_assumptions?.crop ?? null,
         start: row.effective_start_date,
         end: row.effective_end_date
       }))
@@ -698,7 +698,8 @@ server.post('/api/v1/budgets/:id/review', {
     }
 
     await client.query(`UPDATE budgets SET status = 'REVIEWING', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [id]);
-    await logBudgetStatus(client, id, budgetFetch.rows[0].status, 'REVIEWING', user.username, notes || 'Certifier started administrative review');
+    // The audit log records what the certifier actually wrote, not a note authored on their behalf.
+    await logBudgetStatus(client, id, budgetFetch.rows[0].status, 'REVIEWING', user.username, notes ?? null);
     return { success: true, data: { status: 'REVIEWING' } };
   });
 });
