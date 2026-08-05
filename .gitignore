@@ -9,3 +9,7 @@ docker_nginx_backup.tar.gz
 *.log
 .DS_Store
 git_branches/
+
+# Codex's private working memory/scratchpad — same category as this repo's own
+# BRAIN/ (committed, shared) but per-agent and local-only. Never commit it.
+.codex/
