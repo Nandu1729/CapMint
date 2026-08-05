@@ -329,6 +329,51 @@ export function isWellFormedUuid(value: unknown): value is string {
   return typeof value === 'string' && WELL_FORMED_UUID_PATTERN.test(value);
 }
 
+export type VerificationVerdict =
+  | 'VERIFIED'
+  | 'REVOKED'
+  | 'NOT_CERTIFIED'
+  | 'EXPIRED'
+  | 'CLONE-SUSPECT';
+
+type VerificationState = {
+  current_state: string;
+  revocation_status: string;
+  lab_status: string;
+  certification_status: string;
+  effective_end_date: string | Date;
+};
+
+const VERIFICATION_STATUS_MESSAGES: Record<VerificationVerdict, string> = {
+  VERIFIED: 'Authentic serial - certified organic.',
+  REVOKED: 'This serial has been revoked and should not be trusted.',
+  NOT_CERTIFIED: 'Authentic serial — certification in progress. Not yet certified organic.',
+  EXPIRED: 'Authentic serial, but its certification period has expired.',
+  'CLONE-SUSPECT': 'Duplicate-use warning: this serial may have been copied.'
+};
+
+export function deriveVerificationVerdict(
+  state: VerificationState,
+  cloneSuspect = false,
+  now = new Date()
+): VerificationVerdict {
+  if (
+    state.current_state === 'REVOKED'
+    || state.revocation_status === 'REVOKED'
+    || state.lab_status === 'FAILED'
+  ) {
+    return 'REVOKED';
+  }
+  if (state.certification_status !== 'CERTIFIED') return 'NOT_CERTIFIED';
+  if (new Date(state.effective_end_date) < now) return 'EXPIRED';
+  if (cloneSuspect) return 'CLONE-SUSPECT';
+  return 'VERIFIED';
+}
+
+function verificationStatusMessage(verdict: VerificationVerdict): string {
+  return VERIFICATION_STATUS_MESSAGES[verdict];
+}
+
 // Standard health check route
 server.get('/health', async () => {
   return { status: 'healthy', service: 'verification-service' };
@@ -355,11 +400,14 @@ server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
   return withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, async (client) => {
   // 1. Query unit code & lot context
   const query = `
-    SELECT u.id, u.serial, u.gtin, u.current_state, u.clone_flag,
+    SELECT u.id, u.serial, u.gtin, u.current_state, u.clone_flag, u.minted_at,
            l.id as lot_id, l.revocation_status, l.lab_status,
+           l.certification_status, l.product_metadata,
+           b.effective_end_date,
            r.result_summary, r.report_reference
     FROM unit_codes u
     JOIN lots l ON u.lot_id = l.id
+    JOIN budgets b ON l.budget_id = b.id
     LEFT JOIN lab_results r ON r.lot_id = l.id
     WHERE u.gtin = $1 AND u.serial = $2
   `;
@@ -377,14 +425,10 @@ server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
   }
 
   const codeRecord = result.rows[0];
-  let finalVerdict = 'VERIFIED';
   let isCloneSuspect = codeRecord.clone_flag;
 
-  // 2. Evaluate revocation status (M-011)
-  if (codeRecord.revocation_status === 'REVOKED' || codeRecord.current_state === 'REVOKED') {
-    finalVerdict = 'REVOKED';
-  } else {
-    // 3. Clone detection checks (M-010 geovelocity calculations)
+  // 2. Clone detection checks (M-010 geovelocity calculations)
+  if (deriveVerificationVerdict(codeRecord) !== 'REVOKED') {
     if (lat !== undefined && lon !== undefined) {
       // Find the previous scan event for this unit code
       const prevScanRes = await client.query(
@@ -411,7 +455,6 @@ server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
             const velocity = distanceKm / timeDiffHours;
             if (velocity > 800) {
               isCloneSuspect = true;
-              finalVerdict = 'CLONE-SUSPECT';
               
               // Flag record in DB
               await client.query('UPDATE unit_codes SET clone_flag = TRUE WHERE id = $1', [codeRecord.id]);
@@ -421,6 +464,8 @@ server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
       }
     }
   }
+
+  const finalVerdict = deriveVerificationVerdict(codeRecord, isCloneSuspect);
 
   // 4. Save this scan event
   await client.query(
@@ -438,10 +483,14 @@ server.post('/api/v1/verify/:gtin/:serial', async (request, reply) => {
     success: true,
     data: {
       verdict: finalVerdict,
+      statusMessage: verificationStatusMessage(finalVerdict),
       gtin: codeRecord.gtin,
       serial: codeRecord.serial,
       cloneSuspect: isCloneSuspect,
       productMetadata: codeRecord.product_metadata,
+      labStatus: codeRecord.lab_status,
+      certificationStatus: codeRecord.certification_status,
+      mintedAt: codeRecord.minted_at,
       labResult: codeRecord.result_summary ? {
         status: codeRecord.result_summary,
         reportUrl: codeRecord.report_reference
@@ -477,8 +526,9 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
   const response = await withTenantTx(pgPool, PUBLIC_TENANT_CONTEXT, async (client) => {
   // 1. Query unit code & lot & budget context using public_identifier
   const query = `
-    SELECT u.id, u.serial, u.gtin, u.current_state, u.clone_flag,
-           l.id as lot_id, l.revocation_status, l.lab_status, l.product_metadata,
+    SELECT u.id, u.serial, u.gtin, u.current_state, u.clone_flag, u.minted_at,
+           l.id as lot_id, l.revocation_status, l.lab_status,
+           l.certification_status, l.product_metadata,
            b.effective_end_date,
            r.result_summary, r.report_reference,
            (SELECT COUNT(*) FROM scan_events WHERE unit_code_id = u.id) as real_scan_count
@@ -502,19 +552,9 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
   }
 
   const codeRecord = result.rows[0];
-  let finalStatus = 'VERIFIED';
   let isCloneSuspect = codeRecord.clone_flag;
 
-  // 2. Evaluate validity states: VERIFIED, REVOKED, EXPIRED, UNKNOWN
-  const isExpired = new Date(codeRecord.effective_end_date) < new Date();
-  
-  if (codeRecord.revocation_status === 'REVOKED' || codeRecord.current_state === 'REVOKED') {
-    finalStatus = 'REVOKED';
-  } else if (isExpired) {
-    finalStatus = 'EXPIRED';
-  }
-
-  // 1.5 Dynamic geovelocity clone detection
+  // 2. Dynamic geovelocity clone detection
   const lastScanQuery = `
     SELECT timestamp, location
     FROM scan_events
@@ -546,6 +586,8 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
       }
     }
   }
+
+  const finalStatus = deriveVerificationVerdict(codeRecord, isCloneSuspect);
 
   // Define default risk level based on clone_flag (LOW or CRITICAL)
   const finalRisk: string = isCloneSuspect ? 'CRITICAL' : 'LOW';
@@ -648,10 +690,14 @@ server.post('/api/v1/verify/v/:public_identifier', async (request, reply) => {
     success: true,
     data: {
       status: finalStatus,
+      statusMessage: verificationStatusMessage(finalStatus),
       risk: finalRisk,
       gtin: codeRecord.gtin,
       serial: codeRecord.serial,
       productMetadata: productMetadata,
+      labStatus: codeRecord.lab_status,
+      certificationStatus: codeRecord.certification_status,
+      mintedAt: codeRecord.minted_at,
       labResult: codeRecord.result_summary ? {
         status: codeRecord.result_summary,
         reportUrl: codeRecord.report_reference
@@ -744,19 +790,12 @@ server.post('/api/v1/verify/register', {
       const capacity = await reserveBudgetCapacity(client, budgetRes.rows[0].id, user.orgId, 1);
       if (!capacity.ok) return sendCapacityFailure(reply, capacity);
       const lotInsert = await client.query(`
-        INSERT INTO lots (id, producer_id, budget_id, product_metadata, batch_size, processing_dates, lab_status)
-        VALUES (uuid_generate_v4(), $1, $2, $3, 1, '{}', 'PASSED')
+        INSERT INTO lots (id, producer_id, budget_id, product_metadata, batch_size, processing_dates)
+        VALUES (uuid_generate_v4(), $1, $2, $3, 1, '{}')
         RETURNING id
       `, [capacity.budget.producer_id, capacity.budget.id, JSON.stringify(product_metadata || { name: 'Organic White Honey', manufacturer: 'Premium Farms' })]);
       lotUuid = lotInsert.rows[0].id;
     }
-
-    // Insert Lab Result for the Lot if not exists
-    await client.query(`
-      INSERT INTO lab_results (lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
-      VALUES ($1, 'Intertek India Labs', 'Purity Certification Test', 'PASS', 'hash_lab_default', 'NABL-INTK-2026-10492')
-      ON CONFLICT (lot_id) DO NOTHING
-    `, [lotUuid]);
 
     // 4. Insert Unit Code
     const digital_link_uri = `https://id.capmint.io/01/${gtin}/21/${serial}`;

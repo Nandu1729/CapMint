@@ -1678,12 +1678,16 @@ suite('C0 tenant authorization containment', () => {
       method: 'POST', token: tokens.producerA, body: {}
     })).status).toBe(200);
 
-    expect((await requestJson(BASE.verification, `/api/v1/verify/${values.gtinA}/${values.serialA}`, {
+    const verifiedByGtin = await requestJson(BASE.verification, `/api/v1/verify/${values.gtinA}/${values.serialA}`, {
       method: 'POST', body: { device_metadata: { test: true } }
-    })).status).toBe(200);
-    expect((await requestJson(BASE.verification, `/api/v1/verify/v/${ids.codeA}`, {
+    });
+    expect(verifiedByGtin.status).toBe(200);
+    expect((verifiedByGtin.data as any).data.verdict).toBe('VERIFIED');
+    const verifiedByPublicId = await requestJson(BASE.verification, `/api/v1/verify/v/${ids.codeA}`, {
       method: 'POST', body: { device_metadata: { test: true } }
-    })).status).toBe(200);
+    });
+    expect(verifiedByPublicId.status).toBe(200);
+    expect((verifiedByPublicId.data as any).data.status).toBe('VERIFIED');
     expect((await requestJson(BASE.resolver, `/01/${values.gtinA}/21/${values.serialA}`, {
       accept: 'application/json'
     })).status).toBe(200);

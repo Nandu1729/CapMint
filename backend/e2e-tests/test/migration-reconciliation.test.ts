@@ -133,8 +133,15 @@ async function applySqlFile(name: string, filename: string): Promise<void> {
 
 async function applyPre0014SchemaSnapshot(name: string): Promise<void> {
   await applySqlFile(name, schemaPath);
-  await withPool(name, pool =>
-    pool.query('ALTER TABLE certifiers ALTER COLUMN organization_id DROP NOT NULL').then(() => undefined));
+  await withPool(name, async pool => {
+    await pool.query('ALTER TABLE certifiers ALTER COLUMN organization_id DROP NOT NULL');
+    await pool.query('ALTER TABLE scan_events DROP CONSTRAINT chk_scan_events_verdict');
+    await pool.query(`
+      ALTER TABLE scan_events
+      ADD CONSTRAINT chk_scan_events_verdict
+      CHECK (verdict IN ('VERIFIED', 'REVOKED', 'EXHAUSTED', 'CLONE-SUSPECT', 'MISMATCH', 'EXPIRED'))
+    `);
+  });
 }
 
 async function preparePre0013Snapshot(name: string): Promise<void> {
@@ -311,7 +318,7 @@ suite('C1 migration reconciliation', () => {
     if (adminPool) await adminPool.end();
   }, 60_000);
 
-  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0020, and becomes a no-op', async () => {
+  it('bootstraps empty PostgreSQL, records one baseline, applies 0010 through 0021, and becomes a no-op', async () => {
     const name = databaseName('bootstrap');
     await createDatabase(name);
     try {
@@ -330,7 +337,7 @@ suite('C1 migration reconciliation', () => {
          FROM migrations_log
          ORDER BY id`
       ).then(result => result.rows));
-      expect(rows).toHaveLength(12);
+      expect(rows).toHaveLength(13);
       expect(rows[0]).toMatchObject({
         filename: 'capmint-baseline-20260725.sql',
         application_mode: 'BASELINE',
@@ -383,6 +390,10 @@ suite('C1 migration reconciliation', () => {
         filename: '0020_tighten_organizations_public_read.sql',
         application_mode: 'EXECUTED'
       });
+      expect(rows[12]).toMatchObject({
+        filename: '0021_add_not_certified_scan_verdict.sql',
+        application_mode: 'EXECUTED'
+      });
       const baselineState = await withPool(name, pool => pool.query(
         `SELECT
            EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'uuid-ossp') AS has_uuid_ossp,
@@ -399,7 +410,7 @@ suite('C1 migration reconciliation', () => {
       expect(bootstrapNoOpApply.status, bootstrapNoOpApply.stderr).toBe(0);
       expect(runRunner(name, ['--check']).status).toBe(0);
       const count = await withPool(name, pool => pool.query('SELECT count(*)::int AS count FROM migrations_log').then(result => result.rows[0].count));
-      expect(count).toBe(12);
+      expect(count).toBe(13);
     } finally {
       await dropDatabase(name);
     }

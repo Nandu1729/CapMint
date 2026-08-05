@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
+  deriveVerificationVerdict,
   getHaversineDistance,
   isWellFormedUuid
 } from '../src/index.js';
@@ -51,5 +52,34 @@ describe('Verification Service Logic Tests', () => {
     expect(isWellFormedUuid('CM-000001')).toBe(false);
     expect(isWellFormedUuid('invalid-uuid')).toBe(false);
     expect(isWellFormedUuid(null)).toBe(false);
+  });
+
+  it('derives verification verdicts from real lot state in strict priority order', () => {
+    const state = {
+      current_state: 'MINTED',
+      revocation_status: 'ACTIVE',
+      lab_status: 'PASSED',
+      certification_status: 'CERTIFIED',
+      effective_end_date: '2099-01-01T00:00:00.000Z'
+    };
+
+    expect(deriveVerificationVerdict(state)).toBe('VERIFIED');
+    expect(deriveVerificationVerdict({ ...state, certification_status: 'PENDING' }))
+      .toBe('NOT_CERTIFIED');
+    expect(deriveVerificationVerdict({ ...state, lab_status: 'FAILED' }))
+      .toBe('REVOKED');
+    expect(deriveVerificationVerdict({ ...state, current_state: 'REVOKED' }))
+      .toBe('REVOKED');
+    expect(deriveVerificationVerdict(
+      { ...state, effective_end_date: '2020-01-01T00:00:00.000Z' },
+      true,
+      new Date('2026-01-01T00:00:00.000Z')
+    )).toBe('EXPIRED');
+    expect(deriveVerificationVerdict(state, true)).toBe('CLONE-SUSPECT');
+    expect(deriveVerificationVerdict({
+      ...state,
+      certification_status: 'PENDING',
+      effective_end_date: '2020-01-01T00:00:00.000Z'
+    }, true)).toBe('NOT_CERTIFIED');
   });
 });

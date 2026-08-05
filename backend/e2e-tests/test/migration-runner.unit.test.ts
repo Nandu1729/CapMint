@@ -29,15 +29,15 @@ describe('migration runner metadata and planning primitives', () => {
     expect(() => runner.parseArgs(['--adopt'])).toThrow(/requires one or more/);
   });
 
-  it('loads a monotonic migration set ending in organization read tightening 0020', () => {
+  it('loads a monotonic migration set ending in honest scan verdict migration 0021', () => {
     const result = runner.loadMigrations();
     expect(result.errors).toEqual([]);
     expect(result.migrations.at(-1)?.filename)
-      .toBe('0020_tighten_organizations_public_read.sql');
+      .toBe('0021_add_not_certified_scan_verdict.sql');
     expect(result.migrations.map((migration: { version: number }) => migration.version))
       .toEqual([
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-        11, 12, 13, 14, 15, 16, 17, 18, 19, 20
+        11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
       ]);
     for (const migration of result.migrations) {
       expect(migration.checksum).toMatch(/^[a-f0-9]{64}$/);
@@ -70,8 +70,8 @@ describe('migration runner metadata and planning primitives', () => {
   });
 
   it('normalizes constraint status values and evidence deterministically', () => {
-    const definition = "CHECK (status::text = ANY (ARRAY['OPEN'::character varying, 'CLOSED'::character varying]::text[]))";
-    expect(runner.extractStatusValues(definition)).toEqual(['CLOSED', 'OPEN']);
+    const definition = "CHECK (status::text = ANY (ARRAY['OPEN'::character varying, 'CLONE-SUSPECT'::character varying]::text[]))";
+    expect(runner.extractStatusValues(definition)).toEqual(['CLONE-SUSPECT', 'OPEN']);
     expect(runner.stableJson({ b: 1, a: ['x'] })).toBe('{"a":["x"],"b":1}');
     expect(runner.evidenceFingerprint({ b: 1, a: ['x'] }))
       .toBe(runner.evidenceFingerprint({ a: ['x'], b: 1 }));
@@ -249,5 +249,18 @@ describe('migration runner metadata and planning primitives', () => {
       .toMatch(/^[a-f0-9]{64}$/);
     expect(runner.ORGANIZATION_PUBLIC_READ_STATE.indexes).toHaveLength(2);
     expect(runner.verify0020).toBeTypeOf('function');
+  });
+
+  it('defines the exact HO-026 scan verdict state', () => {
+    expect(runner.EXPECTED_SCAN_EVENT_VERDICTS).toEqual([
+      'CLONE-SUSPECT',
+      'EXHAUSTED',
+      'EXPIRED',
+      'MISMATCH',
+      'NOT_CERTIFIED',
+      'REVOKED',
+      'VERIFIED'
+    ]);
+    expect(runner.verify0021).toBeTypeOf('function');
   });
 });
