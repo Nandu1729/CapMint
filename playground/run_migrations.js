@@ -305,6 +305,18 @@ const ORGANIZATION_PUBLIC_READ_STATE = {
     }
   ]
 };
+const OLD_SCAN_EVENT_VERDICTS = [
+  'CLONE-SUSPECT',
+  'EXHAUSTED',
+  'EXPIRED',
+  'MISMATCH',
+  'REVOKED',
+  'VERIFIED'
+];
+const EXPECTED_SCAN_EVENT_VERDICTS = [
+  ...OLD_SCAN_EVENT_VERDICTS,
+  'NOT_CERTIFIED'
+].sort();
 const CORE_TABLES = [
   'organizations',
   'users',
@@ -566,8 +578,116 @@ async function verify0007(client) {
 
 function extractStatusValues(definition) {
   const values = [];
-  for (const match of definition.matchAll(/'([A-Z_]+)'/g)) values.push(match[1]);
+  for (const match of definition.matchAll(/'([A-Z_-]+)'/g)) values.push(match[1]);
   return [...new Set(values)].sort();
+}
+
+async function verify0021(client) {
+  if (!(await tableExists(client, 'scan_events'))) {
+    const evidence = { table: false };
+    return {
+      status: 'incompatible',
+      summary: 'scan_events is absent.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  const columnResult = await client.query(
+    `SELECT a.attnum AS position,
+            format_type(a.atttypid, a.atttypmod) AS type,
+            a.attnotnull AS not_null
+     FROM pg_attribute a
+     WHERE a.attrelid = 'scan_events'::regclass
+       AND a.attname = 'verdict'
+       AND NOT a.attisdropped`
+  );
+  if (
+    columnResult.rowCount !== 1
+    || columnResult.rows[0].type !== 'character varying(32)'
+    || !columnResult.rows[0].not_null
+  ) {
+    const evidence = { verdict_column: columnResult.rows };
+    return {
+      status: 'incompatible',
+      summary: 'scan_events.verdict is missing or incompatible.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  const constraints = (await client.query(
+    `SELECT c.conname AS name,
+            c.convalidated AS validated,
+            pg_get_constraintdef(c.oid, true) AS definition
+     FROM pg_constraint c
+     WHERE c.conrelid = 'scan_events'::regclass
+       AND c.contype = 'c'
+       AND c.conkey @> ARRAY[$1::smallint]
+     ORDER BY c.conname`,
+    [columnResult.rows[0].position]
+  )).rows.map(row => ({ ...row, values: extractStatusValues(row.definition) }));
+  const violatingRows = Number((await client.query(
+    `SELECT count(*)::int AS count
+     FROM scan_events
+     WHERE verdict <> ALL($1::text[])`,
+    [EXPECTED_SCAN_EVENT_VERDICTS]
+  )).rows[0].count);
+  const evidence = {
+    verdict_column: columnResult.rows[0],
+    constraints,
+    violating_rows: violatingRows
+  };
+
+  if (constraints.length > 1 || violatingRows > 0) {
+    return {
+      status: 'incompatible',
+      summary: 'The scan verdict constraint or stored verdicts are incompatible.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+  if (constraints.length === 0) {
+    return {
+      status: 'repairable',
+      summary: 'The scan verdict constraint is missing.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  const constraint = constraints[0];
+  const valuesExact = stableJson(constraint.values)
+    === stableJson(EXPECTED_SCAN_EVENT_VERDICTS);
+  if (
+    valuesExact
+    && constraint.name === 'chk_scan_events_verdict'
+    && constraint.validated
+  ) {
+    return {
+      status: 'exact',
+      summary: 'The validated scan verdict constraint includes the exact honest verdict set.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  const oldValues = stableJson(constraint.values)
+    === stableJson(OLD_SCAN_EVENT_VERDICTS);
+  if (oldValues || valuesExact) {
+    return {
+      status: 'repairable',
+      summary: 'The scan verdict constraint is a supported predecessor or unvalidated state.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+  return {
+    status: 'incompatible',
+    summary: `Unexpected scan verdict set: ${constraint.values.join(', ')}.`,
+    evidence,
+    fingerprint: evidenceFingerprint(evidence)
+  };
 }
 
 async function verify0009(client) {
@@ -2310,7 +2430,8 @@ const STATE_VERIFIERS = new Map([
   ['0017_enable_provenance_chain_rls.sql', verify0017],
   ['0018_enable_supporting_table_rls.sql', verify0018],
   ['0019_enable_users_and_ledger_rls.sql', verify0019],
-  ['0020_tighten_organizations_public_read.sql', verify0020]
+  ['0020_tighten_organizations_public_read.sql', verify0020],
+  ['0021_add_not_certified_scan_verdict.sql', verify0021]
 ]);
 
 async function readMetadata(client) {
@@ -2762,6 +2883,7 @@ module.exports = {
   SUPPORTING_RLS_STATE,
   FINAL_RLS_STATE,
   ORGANIZATION_PUBLIC_READ_STATE,
+  EXPECTED_SCAN_EVENT_VERDICTS,
   PROFILE_ORGANIZATION_STATE,
   TENANCY_TIGHTENING_STATE,
   TOOL_VERSION,
@@ -2786,5 +2908,6 @@ module.exports = {
   verify0017,
   verify0018,
   verify0019,
-  verify0020
+  verify0020,
+  verify0021
 };

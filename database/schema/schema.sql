@@ -167,7 +167,7 @@ CREATE TABLE scan_events (
     device_metadata JSONB NOT NULL,
     verdict VARCHAR(32) NOT NULL,
     anomaly_flags JSONB,
-    CONSTRAINT chk_scan_events_verdict CHECK (verdict IN ('VERIFIED', 'REVOKED', 'EXHAUSTED', 'CLONE-SUSPECT', 'MISMATCH', 'EXPIRED'))
+    CONSTRAINT chk_scan_events_verdict CHECK (verdict IN ('VERIFIED', 'REVOKED', 'EXHAUSTED', 'CLONE-SUSPECT', 'MISMATCH', 'EXPIRED', 'NOT_CERTIFIED'))
 );
 
 -- 9. Table: log_entries

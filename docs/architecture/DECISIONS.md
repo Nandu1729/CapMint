@@ -226,6 +226,44 @@ annotated tag `v1.1.0`
 
 ---
 
+## AD-007: Represent pre-certification scans honestly
+
+| Field | Value |
+|---|---|
+| **Decision ID** | AD-007 |
+| **Title** | Add `NOT_CERTIFIED` to the public verification verdict vocabulary |
+| **Date** | 2026-08-05 |
+| **Status** | **APPROVED** |
+
+**Context.** Digital serials are minted before laboratory testing, while physical labels are
+attached only after certification. Public verification previously defaulted every minted,
+unrevoked serial to `VERIFIED`, and `scan_events.verdict` could not persist an honest
+pre-certification result. The consumer UI compounded this by substituting invented passing
+statuses and regulatory references when data was absent.
+
+**Decision.** Add exactly one verdict, `NOT_CERTIFIED`, to `chk_scan_events_verdict`. Both public
+verification endpoints derive their result from lot revocation, laboratory, certification,
+budget-expiry, and clone-suspect state in that priority order. `NOT_CERTIFIED` identifies an
+authentic CapMint serial whose lot has not yet been certified; it is a normal workflow state, not
+fraud. Lab failure remains `REVOKED` because the existing laboratory workflow cascade-revokes the
+lot and unit codes.
+
+**Alternatives Considered.** Persisting `VERIFIED` while returning `NOT_CERTIFIED` was rejected
+because the audit record would contradict the consumer response. Skipping scan persistence was
+rejected because pre-certification scans are still relevant trust events. Adding a new unit-code
+state was rejected for this change because `lots.certification_status` already represents the
+required fact without changing mint timing.
+
+**Consequences.** Migration `0021` extends the fixed verdict vocabulary and remains forward-only,
+idempotent, and state-aware. Consumers receive a calm certification-in-progress result, while
+certified, unrevoked, unexpired, non-clone serials remain `VERIFIED`.
+
+**Related Commits.** _implementation pending_
+**Related Documents.** [SCOPE_BOUNDARY.md](../SCOPE_BOUNDARY.md),
+[REAL_WORLD_READINESS.md](../REAL_WORLD_READINESS.md) (RW-01)
+
+---
+
 <!--
 ## AD-NNN: <Title> (template)
 

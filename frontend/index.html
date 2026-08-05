@@ -1787,9 +1787,9 @@
                 <div id="row-spec-weight" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Net Weight</span><span id="verify-prod-weight" style="color: var(--text-main);"></span></div>
                 <div id="row-spec-cert-auth" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Certifying Authority</span><strong id="verify-cert-auth" style="color: var(--text-main);"></strong></div>
                 <div id="row-spec-cert-num" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Certificate Number</span><span id="verify-cert-num" style="font-family: monospace; color: var(--text-main);"></span></div>
-                <div id="row-spec-lab-name" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Testing Laboratory</span><strong id="verify-lab-name" style="color: var(--text-main);">NABL Accredited Labs India</strong></div>
+                <div id="row-spec-lab-name" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Testing Laboratory</span><strong id="verify-lab-name" style="color: var(--text-main);"></strong></div>
                 <div id="row-spec-lab-hash" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Lab Report Hash</span><span id="verify-lab-hash" style="font-family: monospace; color: var(--text-main); font-size: 0.75rem;"></span></div>
-                <div id="row-spec-cert-pk" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Certifier Signature PK</span><span id="verify-cert-pk" style="font-family: monospace; color: var(--text-main); font-size: 0.75rem;">ed25519_pk_9a123f81e</span></div>
+                <div id="row-spec-cert-pk" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Certifier Signature PK</span><span id="verify-cert-pk" style="font-family: monospace; color: var(--text-main); font-size: 0.75rem;"></span></div>
               </div>
             </div>
 
@@ -1829,7 +1829,6 @@
                   <div style="display: flex; justify-content: space-between;"><span>Batch Number</span><span id="verify-adv-batch" style="font-family: monospace; color: var(--text-main);"></span></div>
                   <div style="display: flex; justify-content: space-between;"><span>Certificate Number</span><span id="verify-adv-cert" style="font-family: monospace; color: var(--text-main);"></span></div>
                   <div style="display: flex; justify-content: space-between;"><span>Laboratory Report Number</span><span id="verify-adv-report" style="font-family: monospace; color: var(--text-main);"></span></div>
-                  <div style="display: flex; justify-content: space-between;"><span>Verification Timeline</span><span id="verify-adv-timeline" style="color: var(--text-main);">Cryptographic Chain Intact</span></div>
                   <div style="display: flex; justify-content: space-between;"><span>Investigation Status</span><span id="verify-adv-investigation" style="color: var(--color-primary);">NORMAL</span></div>
                 </div>
               </div>
@@ -2644,8 +2643,6 @@
           packaging_date: new Date().toISOString().split('T')[0],
           expiry_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
           net_weight: `${lot.batch_size} KG`,
-          organic_certificate_number: 'NPOP-OTC-2026-8802',
-          certifying_authority: 'Organic Trade Council India',
           scan_count: '0',
           mint_date: new Date().toISOString().split('T')[0]
         };
@@ -2725,8 +2722,6 @@
             packaging_date: new Date().toISOString().split('T')[0],
             expiry_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
             net_weight: `${weight} KG`,
-            organic_certificate_number: 'NPOP-OTC-2026-8802',
-            certifying_authority: 'Organic Trade Council India',
             scan_count: '0',
             mint_date: new Date().toISOString().split('T')[0]
           };
@@ -3188,9 +3183,13 @@
       if (value && value !== 'N/A') {
         badge.textContent = value;
         if (type === 'cert') {
-          badge.className = value === 'ACTIVE' ? 'status-badge badge-active' : 'status-badge badge-revoked';
+          badge.className = value === 'CERTIFIED'
+            ? 'status-badge badge-active'
+            : (value === 'REVOKED' ? 'status-badge badge-revoked' : 'status-badge status-pending');
         } else if (type === 'lab') {
-          badge.className = (value === 'PASS' || value === 'PASSED') ? 'status-badge badge-active' : 'status-badge badge-revoked';
+          badge.className = (value === 'PASS' || value === 'PASSED')
+            ? 'status-badge badge-active'
+            : ((value === 'FAIL' || value === 'FAILED') ? 'status-badge badge-revoked' : 'status-badge status-pending');
         }
         row.style.display = 'flex';
       } else {
@@ -3200,10 +3199,12 @@
 
     function buildTimelineEvents(data) {
       const metadata = data.productMetadata || {};
-      const mintDate = metadata.mint_date || new Date().toISOString().split('T')[0];
+      const mintDate = data.mintedAt ? data.mintedAt.split('T')[0] : 'Recorded';
       const scanCount = parseInt(metadata.scan_count || '0');
       const prevScanTime = metadata.previous_scan_timestamp || 'N/A';
       const prevScanCountry = metadata.previous_scan_country || 'N/A';
+      const labVerified = data.labStatus === 'PASSED';
+      const certificateApproved = data.certificationStatus === 'CERTIFIED';
 
       const events = [];
 
@@ -3211,48 +3212,30 @@
       events.push({
         name: 'Product Minted',
         date: mintDate,
-        time: '08:00 AM',
+        time: '--:--',
         status: '✓ Completed',
         color: '#10b981'
       });
 
-      // 2. Organic Certificate Approved
-      events.push({
-        name: 'Organic Certificate Approved',
-        date: mintDate,
-        time: '10:30 AM',
-        status: '✓ Completed',
-        color: '#10b981'
-      });
-
-      // 3. Laboratory Verified
+      // 2. Laboratory status
       events.push({
         name: 'Laboratory Verified',
-        date: mintDate,
-        time: '01:15 PM',
-        status: '✓ Completed',
-        color: '#10b981'
+        date: labVerified ? 'Recorded' : '—',
+        time: '--:--',
+        status: labVerified ? '✓ Completed' : '⏳ Pending',
+        color: labVerified ? '#10b981' : '#9ca3af'
       });
 
-      // 4. Packaged
+      // 3. Certification status
       events.push({
-        name: 'Packaged',
-        date: mintDate,
-        time: '03:45 PM',
-        status: '✓ Completed',
-        color: '#10b981'
+        name: 'Organic Certificate Approved',
+        date: certificateApproved ? 'Recorded' : '—',
+        time: '--:--',
+        status: certificateApproved ? '✓ Completed' : '⏳ Pending',
+        color: certificateApproved ? '#10b981' : '#9ca3af'
       });
 
-      // 5. Distribution Started
-      events.push({
-        name: 'Distribution Started',
-        date: mintDate,
-        time: '07:30 PM',
-        status: '✓ Completed',
-        color: '#10b981'
-      });
-
-      // 6. Verification events
+      // 4. Verification events
       if (scanCount > 0 && prevScanTime !== 'N/A') {
         const parts = prevScanTime.split(' ');
         const sDate = parts[0] || mintDate;
@@ -3284,7 +3267,7 @@
         }
       }
 
-      // 7. Investigation & Revocation statuses
+      // 5. Investigation & Revocation statuses
       if (data.status === 'REVOKED') {
         events.push({
           name: 'Investigation Started',
@@ -3446,12 +3429,16 @@
           // Populate internal timeline matching requested format exactly
           const revTimeline = document.getElementById('rev-card-timeline');
           if (revTimeline) {
+            const certificationStage = data.certificationStatus === 'CERTIFIED'
+              ? '<div style="color: #10b981; margin-bottom: 0.25rem;">✓ Certified</div>'
+              : '<div style="color: #9ca3af; margin-bottom: 0.25rem;">⏳ Certification pending</div>';
+            const laboratoryStage = data.labStatus === 'PASSED'
+              ? '<div style="color: #10b981; margin-bottom: 0.25rem;">✓ Laboratory Verified</div>'
+              : '<div style="color: #9ca3af; margin-bottom: 0.25rem;">⏳ Laboratory verification pending</div>';
             revTimeline.innerHTML = `
               <div style="color: #10b981; margin-bottom: 0.25rem;">✓ Minted</div>
-              <div style="color: #10b981; margin-bottom: 0.25rem;">✓ Certified</div>
-              <div style="color: #10b981; margin-bottom: 0.25rem;">✓ Laboratory Verified</div>
-              <div style="color: #10b981; margin-bottom: 0.25rem;">✓ Packaged</div>
-              <div style="color: #10b981; margin-bottom: 0.25rem;">✓ Distributed</div>
+              ${laboratoryStage}
+              ${certificationStage}
               <div style="color: #f59e0b; margin-bottom: 0.25rem;">⚠ Investigation Started</div>
               <div style="color: #ef4444; margin-bottom: 0.25rem;">✖ Revoked</div>
             `;
@@ -3486,26 +3473,34 @@
               largeBadge.style.border = '1px solid rgba(16, 185, 129, 0.3)';
               riskVal.style.color = '#10b981';
               
+              const laboratorySummary = data.labStatus === 'PASSED'
+                ? '<div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Laboratory Verified</div>'
+                : '<div style="color: #9ca3af; display: flex; align-items: center; gap: 0.5rem;"><span>⏳</span> Laboratory verification pending</div>';
               trustSummary.innerHTML = `
                 <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Genuine Product</div>
                 <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Organic Certified</div>
-                <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Laboratory Verified</div>
-                <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Supply Chain Traceable</div>
+                ${laboratorySummary}
               `;
-            } else {
+            } else if (status === 'NOT_CERTIFIED') {
               statusCard.style.background = 'rgba(245, 158, 11, 0.05)';
               statusCard.style.borderColor = 'rgba(245, 158, 11, 0.3)';
-              largeBadge.textContent = 'CLONE SUSPECT';
+              largeBadge.textContent = 'CERTIFICATION IN PROGRESS';
               largeBadge.style.background = 'rgba(245, 158, 11, 0.1)';
               largeBadge.style.color = '#f59e0b';
               largeBadge.style.border = '1px solid rgba(245, 158, 11, 0.3)';
               riskVal.style.color = '#f59e0b';
-
-              trustSummary.innerHTML = `
-                <div style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span>⚠️</span> Duplicate Scan Warning</div>
-                <div style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span>⚠️</span> Geographically Inconsistent</div>
-                <div style="color: #f59e0b; display: flex; align-items: center; gap: 0.5rem;"><span>⚠️</span> Counterfeit Risk</div>
-              `;
+              trustSummary.textContent = data.statusMessage || 'Certification in progress.';
+              trustSummary.style.color = '#f59e0b';
+            } else {
+              statusCard.style.background = 'rgba(245, 158, 11, 0.05)';
+              statusCard.style.borderColor = 'rgba(245, 158, 11, 0.3)';
+              largeBadge.textContent = status.replaceAll('-', ' ');
+              largeBadge.style.background = 'rgba(245, 158, 11, 0.1)';
+              largeBadge.style.color = '#f59e0b';
+              largeBadge.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+              riskVal.style.color = '#f59e0b';
+              trustSummary.textContent = data.statusMessage || 'Verification requires attention.';
+              trustSummary.style.color = '#f59e0b';
             }
           }
 
@@ -3514,8 +3509,18 @@
           updateFieldRow('row-prod-manufacturer', 'verify-prod-manufacturer', metadata.manufacturer);
           updateFieldRow('row-prod-farm', 'verify-prod-farm', metadata.farm_name || 'Premium Harvest, Uttarakhand');
           updateFieldRow('row-prod-country', 'verify-prod-country', metadata.country_of_origin);
-          updateBadgeRow('row-prod-organic', 'verify-cert-status-badge', metadata.organic_certificate_status || 'ACTIVE', 'cert');
-          updateBadgeRow('row-prod-lab', 'verify-lab-status-badge', labResult.status || 'PASSED', 'lab');
+          updateBadgeRow(
+            'row-prod-organic',
+            'verify-cert-status-badge',
+            data.certificationStatus === 'CERTIFIED' ? 'CERTIFIED' : 'Not yet certified',
+            'cert'
+          );
+          updateBadgeRow(
+            'row-prod-lab',
+            'verify-lab-status-badge',
+            data.labStatus === 'PASSED' ? 'PASSED' : (data.labStatus === 'FAILED' ? 'FAILED' : 'Pending'),
+            'lab'
+          );
 
           // LEVEL 2: Specifications details (hide if empty)
           updateFieldRow('row-spec-gtin', 'verify-prod-gtin', data.gtin);
@@ -3526,9 +3531,9 @@
           updateFieldRow('row-spec-weight', 'verify-prod-weight', metadata.net_weight);
           updateFieldRow('row-spec-cert-auth', 'verify-cert-auth', metadata.certifying_authority);
           updateFieldRow('row-spec-cert-num', 'verify-cert-num', metadata.organic_certificate_number);
-          updateFieldRow('row-spec-lab-name', 'verify-lab-name', labResult.labName || 'NABL Accredited Labs India');
-          updateFieldRow('row-spec-lab-hash', 'verify-lab-hash', labResult.reportHash || 'hash_lab_default');
-          updateFieldRow('row-spec-cert-pk', 'verify-cert-pk', metadata.certifier_public_key || 'ed25519_pk_9a123f81e');
+          updateFieldRow('row-spec-lab-name', 'verify-lab-name', labResult.labName);
+          updateFieldRow('row-spec-lab-hash', 'verify-lab-hash', labResult.reportHash);
+          updateFieldRow('row-spec-cert-pk', 'verify-cert-pk', metadata.certifier_public_key);
         }
 
         // LEVEL 3: Transparency Summary & Journey Timeline (always visible, user-friendly)
@@ -3569,12 +3574,11 @@
 
         // Advanced Transparency details
         setSafeText('verify-adv-batch', metadata.batch_id || 'B-LOT-901');
-        setSafeText('verify-adv-cert', metadata.organic_certificate_number || 'NPOP-OTC-2026-8802');
-        setSafeText('verify-adv-report', labResult.reportUrl || 'NABL-INTK-2026-10492');
-        setSafeText('verify-adv-timeline', 'Cryptographic Chain Intact');
+        setSafeText('verify-adv-cert', metadata.organic_certificate_number || '—');
+        setSafeText('verify-adv-report', labResult.reportUrl || '—');
         setSafeText('verify-adv-investigation', data.status === 'REVOKED' ? 'SUSPENDED' : (data.risk === 'HIGH' ? 'UNDER INVESTIGATION' : 'NORMAL'));
 
-        setSafeText('verify-lab-report', labResult.reportUrl || 'NABL-INTK-2026-10492');
+        setSafeText('verify-lab-report', labResult.reportUrl || '—');
 
       } catch (err) {
         document.getElementById('verify-loading').style.display = 'none';

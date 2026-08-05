@@ -1112,6 +1112,19 @@ async function runTests() {
     });
     report('CERT-02', certifyFailed.status === 400, '400 Bad Request', certifyFailed.status);
 
+    const failedLotScan = await fetch(`${BASE_URL}/api/v1/verify/v/${certPublicId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_metadata: { test: 'failed-lot-verdict' } })
+    });
+    const failedLotScanData = await failedLotScan.json();
+    report(
+      'VER-FAILED-01',
+      failedLotScan.status === 200 && failedLotScanData.data?.status === 'REVOKED',
+      'lab FAILED returns REVOKED',
+      `${failedLotScan.status} ${failedLotScanData.data?.status}`
+    );
+
     // Create a successful certified lot path
     const certGtinPass = '07612345678900';
     const certSerialPass = `SN_CERT_PASS_${uniqueId}`;
@@ -1162,13 +1175,9 @@ async function runTests() {
 
     // D-011: retain certification coverage while lab writes remain feature-gated.
     await pgPool.query(
-      `UPDATE lab_results
-       SET lab_name = 'Compliance Fixture Laboratory',
-           test_type = 'Purity Check',
-           result_summary = 'PASS',
-           report_hash = $2,
-           report_reference = 'F1-CERT-PASS'
-       WHERE lot_id = $1`,
+      `INSERT INTO lab_results
+         (lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
+       VALUES ($1, 'Compliance Fixture Laboratory', 'Purity Check', 'PASS', $2, 'F1-CERT-PASS')`,
       [lotIdCertPass, pdfHash]
     );
     await pgPool.query("UPDATE lots SET lab_status = 'PASSED' WHERE id = $1", [lotIdCertPass]);
@@ -1255,6 +1264,65 @@ async function runTests() {
         product_metadata: { name: 'Organic Honey', manufacturer: `Producer_${uniqueId}`, batch_id: `BATCH-SEQ-${uniqueId}` }
       })
     });
+
+    const pendingGtinScan = await fetch(
+      `${BASE_URL}/api/v1/verify/${scanGtinSeq}/${scanSerialSeq}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_metadata: { test: 'pending-gtin' } })
+      }
+    );
+    const pendingGtinData = await pendingGtinScan.json();
+    report(
+      'VER-09',
+      pendingGtinScan.status === 200
+        && pendingGtinData.data?.verdict === 'NOT_CERTIFIED'
+        && pendingGtinData.data?.statusMessage
+          === 'Authentic serial — certification in progress. Not yet certified organic.',
+      'GTIN scan returns NOT_CERTIFIED with calm copy',
+      `${pendingGtinScan.status} ${pendingGtinData.data?.verdict}`
+    );
+
+    const pendingPublicScan = await fetch(`${BASE_URL}/api/v1/verify/v/${scanPublicIdSeq}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_metadata: { test: 'pending-public-id' } })
+    });
+    const pendingPublicData = await pendingPublicScan.json();
+    const pendingPersistence = await pgPool.query(
+      `SELECT count(*)::int AS count
+       FROM scan_events
+       WHERE unit_code_id = (
+         SELECT id
+         FROM unit_codes
+         WHERE public_identifier = $1
+       )
+         AND verdict = 'NOT_CERTIFIED'`,
+      [scanPublicIdSeq]
+    );
+    report(
+      'VER-10',
+      pendingPublicScan.status === 200
+        && pendingPublicData.data?.status === 'NOT_CERTIFIED'
+        && pendingPublicData.data?.labStatus === 'PENDING'
+        && pendingPublicData.data?.labResult === null
+        && pendingPersistence.rows[0].count === 2,
+      'public-id scan returns and persists NOT_CERTIFIED twice without constraint errors',
+      `${pendingPublicScan.status} ${pendingPublicData.data?.status} / ${pendingPersistence.rows[0].count} rows`
+    );
+
+    await pgPool.query(
+      `UPDATE lots
+       SET lab_status = 'PASSED',
+           certification_status = 'CERTIFIED'
+       WHERE id = (
+         SELECT lot_id
+         FROM unit_codes
+         WHERE public_identifier = $1
+       )`,
+      [scanPublicIdSeq]
+    );
 
     let sequentialPassCount = 0;
     for (let i = 0; i < 50; i++) { // sequential scans
@@ -1725,13 +1793,9 @@ async function runTests() {
 
     // 4. D-011: seed the downstream state while lab writes remain feature-gated.
     await pgPool.query(
-      `UPDATE lab_results
-       SET lab_name = 'Compliance Fixture Laboratory',
-           test_type = 'Purity Check',
-           result_summary = 'PASS',
-           report_hash = $2,
-           report_reference = 'F1-E2E-PASS'
-       WHERE lot_id = $1`,
+      `INSERT INTO lab_results
+         (lot_id, lab_name, test_type, result_summary, report_hash, report_reference)
+       VALUES ($1, 'Compliance Fixture Laboratory', 'Purity Check', 'PASS', $2, 'F1-E2E-PASS')`,
       [happyLotId, pdfHash]
     );
     await pgPool.query("UPDATE lots SET lab_status = 'PASSED' WHERE id = $1", [happyLotId]);
