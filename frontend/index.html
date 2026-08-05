@@ -543,28 +543,18 @@
           <div id="header-user-dropdown" style="display: none; position: absolute; right: 0; top: calc(100% + 8px); width: 260px; background: #121723; border: 1px solid var(--border-muted); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 999; padding: 0.75rem; flex-direction: column; gap: 0.5rem;">
             <div style="padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border-muted); margin-bottom: 0.5rem; text-align: left;">
               <p style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; margin: 0 0 0.25rem 0;">Signed in as</p>
-              <strong id="dropdown-fullname" style="display: block; font-size: 0.9rem; color: var(--text-main);">John Doe</strong>
-              <span id="dropdown-username" style="font-size: 0.8rem; color: var(--text-muted); word-break: break-all;">john@harvest.com</span>
+              <strong id="dropdown-fullname" style="display: block; font-size: 0.9rem; color: var(--text-main);">—</strong>
+              <span id="dropdown-username" style="font-size: 0.8rem; color: var(--text-muted); word-break: break-all;">—</span>
             </div>
             
             <div style="display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.85rem;">
               <div style="padding: 0.4rem 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
                 <span>Organization</span>
-                <strong id="dropdown-org" style="color: var(--text-main); font-weight: 600;">Premium Farms</strong>
+                <strong id="dropdown-org" style="color: var(--text-main); font-weight: 600;">—</strong>
               </div>
               <div style="padding: 0.4rem 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center;">
                 <span>Role</span>
-                <span id="dropdown-role" class="status-badge status-success" style="font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.4rem; text-transform: uppercase;">ADMIN</span>
-              </div>
-              <div style="padding: 0.4rem 0.75rem; color: var(--text-muted); display: flex; flex-direction: column; gap: 0.25rem; align-items: stretch;">
-                <span style="font-size: 0.75rem; text-transform: uppercase; font-weight: 600; color: var(--text-muted);">Workspace Role</span>
-                <select id="dropdown-workspace-select" onchange="switchWorkspaceRole(this.value)" style="background: #070B12; border: 1px solid var(--border-muted); color: var(--color-primary); font-weight: 600; padding: 0.35rem 0.5rem; border-radius: 6px; font-size: 0.85rem; width: 100%; cursor: pointer; outline: none; margin-top: 0.15rem;">
-                  <option value="PRODUCER">Producer Workspace</option>
-                  <option value="NABL_LABORATORY">Laboratory Workspace</option>
-                  <option value="CERTIFICATION_BODY">Certification Body Workspace</option>
-                  <option value="EXPORTER">Exporter Workspace</option>
-                  <option value="SYSTEM_ADMINISTRATOR">System Admin Console</option>
-                </select>
+                <span id="dropdown-role" class="status-badge status-success" style="font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.4rem; text-transform: uppercase;">—</span>
               </div>
             </div>
             
@@ -1013,19 +1003,19 @@
                 <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-muted); border-radius: 12px; padding: 1.25rem; text-align: left; font-size: 0.85rem; margin-bottom: 2rem; display: flex; flex-direction: column; gap: 0.75rem;">
                   <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-muted); padding-bottom: 0.5rem; margin-bottom: 0.25rem;">
                     <span style="color: var(--text-muted); font-weight: 600;">REFERENCE NUMBER</span>
-                    <strong style="font-family: monospace; color: var(--color-primary); font-size: 0.95rem;" id="success-ref-id">REF-4819E8</strong>
+                    <strong style="font-family: monospace; color: var(--color-primary); font-size: 0.95rem;" id="success-ref-id">—</strong>
                   </div>
                   <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="color: var(--text-muted);">Organization Name</span>
-                    <strong style="color: var(--text-main);" id="success-org-name">Premium Farms Ltd</strong>
+                    <strong style="color: var(--text-main);" id="success-org-name">—</strong>
                   </div>
                   <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="color: var(--text-muted);">Administrator Email</span>
-                    <strong style="color: var(--text-main);" id="success-admin-email">admin@premiumfarms.com</strong>
+                    <strong style="color: var(--text-main);" id="success-admin-email">—</strong>
                   </div>
                   <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="color: var(--text-muted);">Estimated Review Time</span>
-                    <strong style="color: var(--color-warning);">24 - 48 Hours</strong>
+                    <strong style="color: var(--color-warning);">Not recorded</strong>
                   </div>
                 </div>
 
@@ -1060,19 +1050,19 @@
                 <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid var(--border-muted); border-radius: 12px; padding: 1.5rem; text-align: left; font-size: 0.9rem; margin-bottom: 2.5rem; display: flex; flex-direction: column; gap: 0.85rem;">
                   <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="color: var(--text-muted);">Organization</span>
-                    <strong style="color: var(--text-main);" id="welcome-org-name">Premium Farms Ltd</strong>
+                    <strong style="color: var(--text-main);" id="welcome-org-name">—</strong>
                   </div>
                   <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="color: var(--text-muted);">Workspace Type</span>
-                    <strong style="color: var(--color-primary);" id="welcome-org-type">PRODUCER</strong>
+                    <strong style="color: var(--color-primary);" id="welcome-org-type">—</strong>
                   </div>
                   <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="color: var(--text-muted);">User Role</span>
-                    <strong style="color: var(--text-main);" id="welcome-user-role">ADMIN</strong>
+                    <strong style="color: var(--text-main);" id="welcome-user-role">—</strong>
                   </div>
                   <div style="display: flex; justify-content: space-between; align-items: center;">
                     <span style="color: var(--text-muted);">Registry Status</span>
-                    <strong style="color: var(--color-success);">ACTIVE</strong>
+                    <strong style="color: var(--text-muted);">—</strong>
                   </div>
                 </div>
 
@@ -1100,15 +1090,15 @@
               <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
                 <div>
                   <p style="font-size: 0.8rem; color: var(--text-muted);">CERTIFIER NAME</p>
-                  <p style="font-weight: 600;">Organic Trade Council India</p>
+                  <p style="font-weight: 600;">—</p>
                 </div>
                 <div>
                   <p style="font-size: 0.8rem; color: var(--text-muted);">PUBLIC KEY STATUS</p>
-                  <span class="status-badge badge-active">ACTIVE</span>
+                  <span class="status-badge status-pending">—</span>
                 </div>
                 <div>
                   <p style="font-size: 0.8rem; color: var(--text-muted);">ED25519 KEY</p>
-                  <p style="font-family: monospace; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ed25519_pk_9a123f81e...</p>
+                  <p style="font-family: monospace; font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">—</p>
                 </div>
               </div>
             </div>
@@ -1362,19 +1352,19 @@
               <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 0.9rem; border-top: 1px solid var(--border-muted); padding-top: 1rem; margin-bottom: 1.5rem;">
                 <div>
                   <span style="color: var(--text-muted); display: block;">Manufacturer</span>
-                  <strong id="exporter-result-manufacturer">Premium Farms</strong>
+                  <strong id="exporter-result-manufacturer">—</strong>
                 </div>
                 <div>
                   <span style="color: var(--text-muted); display: block;">GTIN-14</span>
-                  <strong id="exporter-result-gtin">N/A</strong>
+                  <strong id="exporter-result-gtin">—</strong>
                 </div>
                 <div>
                   <span style="color: var(--text-muted); display: block;">Serial Number</span>
-                  <strong id="exporter-result-serial">N/A</strong>
+                  <strong id="exporter-result-serial">—</strong>
                 </div>
                 <div>
                   <span style="color: var(--text-muted); display: block;">Verification Date</span>
-                  <strong id="exporter-result-date">N/A</strong>
+                  <strong id="exporter-result-date">—</strong>
                 </div>
               </div>
             </div>
@@ -1426,24 +1416,24 @@
               <div style="margin-bottom: 1.5rem;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                   <span style="font-size: 0.9rem; color: var(--text-muted);">Allocated Capacity Limit</span>
-                  <span id="allocated-cap-text" style="font-weight: 600;">10,000 KG</span>
+                  <span id="allocated-cap-text" style="font-weight: 600;">—</span>
                 </div>
                 <div class="progress-bar-container">
                   <div id="quota-progress-bar" class="progress-bar-fill"></div>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.85rem;">
-                  <span id="consumed-cap-text">Consumed: 0 KG</span>
-                  <span id="remaining-cap-text" style="color: var(--color-primary);">Remaining: 10,000 KG</span>
+                  <span id="consumed-cap-text">Consumed: —</span>
+                  <span id="remaining-cap-text" style="color: var(--color-primary);">Remaining: —</span>
                 </div>
               </div>
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; border-top: 1px solid var(--border-muted); padding-top: 1rem;">
                 <div>
                   <p style="font-size: 0.8rem; color: var(--text-muted);">SOURCE UNIT</p>
-                  <p style="font-weight: 500;">WEIGHT_KG</p>
+                  <p id="active-budget-source" style="font-weight: 500;">—</p>
                 </div>
                 <div>
                   <p style="font-size: 0.8rem; color: var(--text-muted);">CROP TYPE</p>
-                  <p style="font-weight: 500;">Organic White Honey</p>
+                  <p id="active-budget-crop" style="font-weight: 500;">—</p>
                 </div>
               </div>
             </div>
@@ -1602,8 +1592,8 @@
 
                 <div class="glass-card" style="margin-bottom: 0; padding: 1rem; font-size: 0.85rem;">
                   <p style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 0.25rem;">Quality & Origin</p>
-                  <p>Certified Organic (NPOP)</p>
-                  <p style="color: var(--color-primary); font-size: 0.8rem; margin-top: 0.25rem;">✓ NABL Lab Report Passed</p>
+                  <p id="result-certification-status">—</p>
+                  <p id="result-lab-status" style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">—</p>
                 </div>
 
                 <button class="btn btn-outline" style="width: 100%; font-size: 0.85rem; padding: 0.5rem;" onclick="resetPWAScanner()">SCAN AGAIN</button>
@@ -1713,7 +1703,7 @@
               <!-- Reason Section -->
               <div>
                 <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.25rem;">Reason</span>
-                <strong id="rev-prod-reason" style="color: #ef4444; font-size: 1rem; font-weight: 700;">Organic Certification Withdrawn</strong>
+                <strong id="rev-prod-reason" style="color: #ef4444; font-size: 1rem; font-weight: 700;">—</strong>
               </div>
 
               <!-- Divider -->
@@ -1723,23 +1713,23 @@
               <div style="display: flex; flex-direction: column; gap: 0.85rem;">
                 <div>
                   <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.15rem;">Product Identity</span>
-                  <strong id="rev-prod-name" style="color: var(--text-main); font-size: 1rem; font-weight: 600;">Organic White Honey</strong>
+                  <strong id="rev-prod-name" style="color: var(--text-main); font-size: 1rem; font-weight: 600;">—</strong>
                 </div>
                 <div>
                   <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.15rem;">Manufacturer</span>
-                  <span id="rev-prod-manufacturer" style="color: var(--text-main); font-size: 0.95rem; font-weight: 500;">Premium Farms</span>
+                  <span id="rev-prod-manufacturer" style="color: var(--text-main); font-size: 0.95rem; font-weight: 500;">—</span>
                 </div>
                 <div>
                   <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.15rem;">Batch</span>
-                  <span id="rev-prod-batch" style="color: var(--text-main); font-size: 0.95rem; font-weight: 500; font-family: monospace;">Lot-288</span>
+                  <span id="rev-prod-batch" style="color: var(--text-main); font-size: 0.95rem; font-weight: 500; font-family: monospace;">—</span>
                 </div>
                 <div>
                   <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.15rem;">GTIN</span>
-                  <span id="rev-prod-gtin" style="color: var(--text-main); font-size: 0.95rem; font-weight: 500; font-family: monospace;">07612345678900</span>
+                  <span id="rev-prod-gtin" style="color: var(--text-main); font-size: 0.95rem; font-weight: 500; font-family: monospace;">—</span>
                 </div>
                 <div>
                   <span style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; display: block; margin-bottom: 0.15rem;">Revoked</span>
-                  <span id="rev-prod-revdate" style="color: var(--text-main); font-size: 0.95rem; font-weight: 500;">15 Jul 2026</span>
+                  <span id="rev-prod-revdate" style="color: var(--text-main); font-size: 0.95rem; font-weight: 500;">—</span>
                 </div>
               </div>
 
@@ -1764,7 +1754,7 @@
               <div style="display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.85rem;">
                 <div id="row-prod-name" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Name</span><strong id="verify-prod-name" style="color: var(--text-main);"></strong></div>
                 <div id="row-prod-manufacturer" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Manufacturer</span><strong id="verify-prod-manufacturer" style="color: var(--text-main);"></strong></div>
-                <div id="row-prod-farm" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Source Farm</span><strong id="verify-prod-farm" style="color: var(--text-main);">Premium Harvest, Uttarakhand</strong></div>
+                <div id="row-prod-farm" style="display: none; justify-content: space-between;"><span style="color: var(--text-muted);">Source Farm</span><strong id="verify-prod-farm" style="color: var(--text-main);"></strong></div>
                 <div id="row-prod-country" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Origin</span><span id="verify-prod-country" style="color: var(--text-main);"></span></div>
                 <div id="row-prod-organic" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Organic Certification</span><span id="verify-cert-status-badge" class="status-badge" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;"></span></div>
                 <div id="row-prod-lab" style="display: flex; justify-content: space-between;"><span style="color: var(--text-muted);">Lab Purity Status</span><span id="verify-lab-status-badge" class="status-badge" style="font-size: 0.7rem; padding: 0.1rem 0.4rem;"></span></div>
@@ -1825,11 +1815,10 @@
                   <span id="arrow-acc-advanced-info" style="transition: transform 0.2s ease;">▼</span>
                 </button>
                 <div id="acc-advanced-info" style="display: none; flex-direction: column; gap: 0.65rem; margin-top: 0.75rem; font-size: 0.8rem; color: var(--text-muted);">
-                  <div style="display: flex; justify-content: space-between;"><span>Ledger Reference</span><strong style="color: var(--color-primary); font-family: monospace;">Block #04 Anchor</strong></div>
                   <div style="display: flex; justify-content: space-between;"><span>Batch Number</span><span id="verify-adv-batch" style="font-family: monospace; color: var(--text-main);"></span></div>
                   <div style="display: flex; justify-content: space-between;"><span>Certificate Number</span><span id="verify-adv-cert" style="font-family: monospace; color: var(--text-main);"></span></div>
                   <div style="display: flex; justify-content: space-between;"><span>Laboratory Report Number</span><span id="verify-adv-report" style="font-family: monospace; color: var(--text-main);"></span></div>
-                  <div style="display: flex; justify-content: space-between;"><span>Investigation Status</span><span id="verify-adv-investigation" style="color: var(--color-primary);">NORMAL</span></div>
+                  <div style="display: flex; justify-content: space-between;"><span>Investigation Status</span><span id="verify-adv-investigation" style="color: var(--color-primary);">—</span></div>
                 </div>
               </div>
             </div>
@@ -1854,22 +1843,11 @@
       logs: []
     };
 
-    // Helper: Compute simple hash (fallback)
-    function simulateSHA256(text) {
-      let hash = 0;
-      for (let i = 0; i < text.length; i++) {
-        const char = text.charCodeAt(i);
-        hash = (hash << 5) - hash + char;
-        hash = hash & hash;
-      }
-      return 'hash_' + Math.abs(hash).toString(16).padStart(16, '0') + '_sha256_mock';
-    }
-
     // Helper: Append a node to the real transparency ledger in the database
     function appendToLedger(entity, id, event, payload) {
-      let formattedId = id;
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
-        formattedId = '00000000-0000-0000-0000-000000000003'; // Default budget UUID fallback
+        console.error('Ledger append skipped because the API did not provide a valid entity ID.');
+        return;
       }
 
       fetch(`${API_BASE_URL}/log/api/v1/log`, {
@@ -1880,7 +1858,7 @@
         },
         body: JSON.stringify({
           entity_type: entity,
-          entity_id: formattedId,
+          entity_id: id,
           event_type: event,
           payload: payload
         })
@@ -2194,7 +2172,7 @@
               test_type: testType,
               result_summary: resultSummary,
               report_hash: reportHash,
-              report_reference: file.name || 'report_' + lotId.substring(0,8) + '.pdf',
+              report_reference: file.name,
               pdf_content: base64Content
             })
           });
@@ -2319,7 +2297,7 @@
           if (select) {
             const opt = document.createElement('option');
             opt.value = l.id;
-            opt.textContent = `Lot #${l.id.substring(0,8)} (${l.batch_size || l.weight} KG)`;
+            opt.textContent = `Lot #${l.id.substring(0,8)} (${displayValue(l.batch_size ?? l.weight)} KG)`;
             select.appendChild(opt);
           }
 
@@ -2327,7 +2305,7 @@
           if (labSelect) {
             const labOpt = document.createElement('option');
             labOpt.value = l.id;
-            labOpt.textContent = `Lot #${l.id.substring(0,8)} (${l.batch_size || l.weight} KG)`;
+            labOpt.textContent = `Lot #${l.id.substring(0,8)} (${displayValue(l.batch_size ?? l.weight)} KG)`;
             labSelect.appendChild(labOpt);
           }
 
@@ -2335,7 +2313,7 @@
           if (mintLotSelect) {
             const mintOpt = document.createElement('option');
             mintOpt.value = l.id;
-            mintOpt.textContent = `Lot #${l.id.substring(0,8)} (${l.batch_size || l.weight} KG)`;
+            mintOpt.textContent = `Lot #${l.id.substring(0,8)} (${displayValue(l.batch_size ?? l.weight)} KG)`;
             mintLotSelect.appendChild(mintOpt);
           }
 
@@ -2356,7 +2334,7 @@
               <div>
                 <strong>Lot #${l.id.substring(0,8)}</strong>
                 <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">
-                  Size: ${l.batch_size || l.weight} KG | Lab: <span class="status-badge ${l.lab_status === 'PASSED' ? 'status-success' : (l.lab_status === 'FAILED' ? 'status-danger' : 'status-pending')}" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;">${l.lab_status}</span> | Cert: <span class="status-badge ${l.certification_status === 'CERTIFIED' ? 'status-success' : 'status-pending'}" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;">${l.certification_status}</span>
+                  Size: ${displayValue(l.batch_size ?? l.weight)} KG | Lab: <span class="status-badge ${l.lab_status === 'PASSED' ? 'status-success' : (l.lab_status === 'FAILED' ? 'status-danger' : 'status-pending')}" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;">${displayValue(l.lab_status)}</span> | Cert: <span class="status-badge ${l.certification_status === 'CERTIFIED' ? 'status-success' : 'status-pending'}" style="padding: 0.1rem 0.35rem; font-size: 0.7rem;">${displayValue(l.certification_status)}</span>
                 </div>
               </div>
               <div style="display: flex; gap: 0.5rem;">
@@ -2380,9 +2358,11 @@
     function renderManufacturerStats() {
       const active = DB.budgets.find(b => b.status === 'ACTIVE');
       if (!active) {
-        document.getElementById('allocated-cap-text').textContent = '0 KG';
-        document.getElementById('consumed-cap-text').textContent = 'Consumed: 0 KG';
-        document.getElementById('remaining-cap-text').textContent = 'Remaining: 0 KG';
+        document.getElementById('allocated-cap-text').textContent = '—';
+        document.getElementById('consumed-cap-text').textContent = 'Consumed: —';
+        document.getElementById('remaining-cap-text').textContent = 'Remaining: —';
+        document.getElementById('active-budget-source').textContent = '—';
+        document.getElementById('active-budget-crop').textContent = '—';
         document.getElementById('quota-progress-bar').style.width = '0%';
         return;
       }
@@ -2391,6 +2371,8 @@
       document.getElementById('allocated-cap-text').textContent = `${active.allocated.toLocaleString()} KG`;
       document.getElementById('consumed-cap-text').textContent = `Consumed: ${active.consumed.toLocaleString()} KG`;
       document.getElementById('remaining-cap-text').textContent = `Remaining: ${(active.allocated - active.consumed).toLocaleString()} KG`;
+      document.getElementById('active-budget-source').textContent = displayValue(active.sourceUnit);
+      document.getElementById('active-budget-crop').textContent = displayValue(active.crop);
       document.getElementById('quota-progress-bar').style.width = `${percent}%`;
     }
 
@@ -2508,7 +2490,7 @@
       .then(res => {
         if (res.offline) return;
         if (res.success) {
-          appendToLedger('BUDGET', id, 'BUDGET_APPROVED_AND_ACTIVATED', { id, allocated: res.data.budget.approved_quantity || 10000 });
+          appendToLedger('BUDGET', id, 'BUDGET_APPROVED_AND_ACTIVATED', { id });
           alert(`Budget approved and activated! Capacity is now mintable.`);
           loadBudgets();
         } else {
@@ -2539,7 +2521,7 @@
             'Content-Type': 'application/json',
             'Authorization': 'Bearer ' + AUTH_TOKEN
           },
-          body: JSON.stringify({ budget_id, batch_size, product_metadata: { name: 'Organic White Honey', manufacturer: 'Premium Farms', farm_name: 'Premium Harvest, Uttarakhand' } })
+          body: JSON.stringify({ budget_id, batch_size, product_metadata: {} })
         });
         const res = await response.json();
         if (res.success) {
@@ -2634,19 +2616,6 @@
         const qrCodeDataUri = qrObj.toDataURL();
         const serial = customSerial || ('SN' + Math.floor(100000 + Math.random() * 900000));
 
-        const productMetadata = {
-          name: lot.product_metadata?.name || 'Organic White Honey',
-          manufacturer: lot.product_metadata?.manufacturer || 'Premium Farms',
-          farm_name: lot.product_metadata?.farm_name || 'Premium Harvest, Uttarakhand',
-          country_of_origin: 'India',
-          batch_id: lot.id,
-          packaging_date: new Date().toISOString().split('T')[0],
-          expiry_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
-          net_weight: `${lot.batch_size} KG`,
-          scan_count: '0',
-          mint_date: new Date().toISOString().split('T')[0]
-        };
-
         fetch(`${API_BASE_URL}/api/v1/verify/register`, {
           method: 'POST',
           headers: {
@@ -2659,7 +2628,6 @@
             serial: serial,
             verification_url: verificationUrl,
             qr_code_data_uri: qrCodeDataUri,
-            product_metadata: productMetadata,
             lot_id: selectedLotId
           })
         })
@@ -2684,7 +2652,7 @@
           return;
         }
 
-        const weight = parseFloat(document.getElementById('mint-weight')?.value || '150');
+        const weight = parseFloat(document.getElementById('mint-weight')?.value);
         if (isNaN(weight) || weight <= 0) {
           alert('Error: Please input a positive package weight.');
           return;
@@ -2698,7 +2666,6 @@
 
         // Capacity is drawn down atomically server-side by /verify/register (1 unit per code),
         // so no separate /drawdown call is made here (that would double-count consumption).
-        const lotId = 'lot-' + Math.floor(100 + Math.random() * 900);
           const publicIdentifier = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
             const r = Math.random() * 16 | 0;
             const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -2713,18 +2680,8 @@
           const qrCodeDataUri = qrObj.toDataURL();
           const serial = customSerial || ('SN' + Math.floor(100000 + Math.random() * 900000));
 
-          const productMetadata = {
-            name: activeBudget.crop,
-            manufacturer: 'Premium Farms',
-            farm_name: 'Premium Harvest, Uttarakhand',
-            country_of_origin: 'India',
-            batch_id: lotId,
-            packaging_date: new Date().toISOString().split('T')[0],
-            expiry_date: new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
-            net_weight: `${weight} KG`,
-            scan_count: '0',
-            mint_date: new Date().toISOString().split('T')[0]
-          };
+          const productMetadata = { net_weight: `${weight} KG` };
+          if (activeBudget.crop) productMetadata.name = activeBudget.crop;
 
           fetch(`${API_BASE_URL}/api/v1/verify/register`, {
             method: 'POST',
@@ -2744,8 +2701,7 @@
           .then(r => r.json())
           .then(res => {
             if (res.success) {
-              appendToLedger('LOT', lotId, 'LOT_MINTED_AND_SERIALIZED', { lotId, gtin, weight, serial, verificationUrl });
-              alert(`Mint complete! Code serial ${serial} generated under Batch Lot #${lotId}.`);
+              alert(`Mint complete! Code serial ${serial} generated.`);
               loadAllData();
             } else {
               console.error('Database persistence failed:', res.error);
@@ -2850,7 +2806,11 @@
         return;
       }
 
-      const reasonVal = reasonSelect ? reasonSelect.value : 'Organic certification withdrawn';
+      const reasonVal = reasonSelect ? reasonSelect.value : '';
+      if (!reasonVal) {
+        alert('Please select a revocation reason.');
+        return;
+      }
       
       executePost('Cascade Revocation', `${API_BASE_URL}/api/v1/lots/${lotId}/revoke`, { reason: reasonVal }, true)
       .then(res => {
@@ -2879,7 +2839,7 @@
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + AUTH_TOKEN
         },
-        body: JSON.stringify({ certifier_notes: 'NABL laboratory compliance verified' })
+        body: JSON.stringify({})
       })
       .then(r => r.json())
       .then(res => {
@@ -2965,8 +2925,18 @@
           badge.className = 'status-badge badge-clone';
         }
 
-        document.getElementById('result-product-name').textContent = scanData.productMetadata?.name || 'Organic White Honey';
-        document.getElementById('result-gtin-serial').textContent = `GTIN: ${scanData.gtin} | S/N: ${scanData.serial}`;
+        document.getElementById('result-product-name').textContent = displayValue(scanData.productMetadata?.name);
+        document.getElementById('result-gtin-serial').textContent = `GTIN: ${displayValue(scanData.gtin)} | S/N: ${displayValue(scanData.serial)}`;
+        document.getElementById('result-certification-status').textContent =
+          scanData.certificationStatus === 'CERTIFIED'
+            ? 'Certified organic'
+            : (scanData.certificationStatus === 'PENDING' ? 'Not yet certified' : displayValue(scanData.certificationStatus));
+        document.getElementById('result-lab-status').textContent =
+          scanData.labStatus === 'PASSED'
+            ? 'Laboratory verified'
+            : (scanData.labStatus === 'FAILED'
+              ? 'Laboratory failed'
+              : (scanData.labStatus === 'PENDING' ? 'Laboratory verification pending' : displayValue(scanData.labStatus)));
 
         // Reload data to reflect state changes and new investigations instantly
         loadAllData();
@@ -3140,28 +3110,28 @@
     }
 
     function formatCustomDate(dateStr) {
-      if (!dateStr || dateStr === 'N/A') return '15 Jul 2026';
+      if (!dateStr || dateStr === 'N/A') return '—';
       try {
         const d = new Date(dateStr);
+        if (Number.isNaN(d.getTime())) return '—';
         const day = d.getDate();
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const month = months[d.getMonth()];
         const year = d.getFullYear();
         return `${day} ${month} ${year}`;
       } catch (e) {
-        return dateStr;
+        return '—';
       }
+    }
+
+    function displayValue(value) {
+      return value === undefined || value === null || value === '' ? '—' : String(value);
     }
 
     // Safe Helper Functions to avoid Null reference errors in UI
     function setSafeText(id, text) {
       const el = document.getElementById(id);
-      if (el) el.textContent = text || '';
-    }
-
-    function setSafeHTML(id, html) {
-      const el = document.getElementById(id);
-      if (el) el.innerHTML = html || '';
+      if (el) el.textContent = displayValue(text);
     }
 
     function updateFieldRow(rowId, valueId, value) {
@@ -3200,9 +3170,9 @@
     function buildTimelineEvents(data) {
       const metadata = data.productMetadata || {};
       const mintDate = data.mintedAt ? data.mintedAt.split('T')[0] : 'Recorded';
-      const scanCount = parseInt(metadata.scan_count || '0');
-      const prevScanTime = metadata.previous_scan_timestamp || 'N/A';
-      const prevScanCountry = metadata.previous_scan_country || 'N/A';
+      const scanCount = Number.parseInt(metadata.scan_count, 10);
+      const prevScanTime = metadata.previous_scan_timestamp;
+      const prevScanCountry = metadata.previous_scan_country;
       const labVerified = data.labStatus === 'PASSED';
       const certificateApproved = data.certificationStatus === 'CERTIFIED';
 
@@ -3236,58 +3206,34 @@
       });
 
       // 4. Verification events
-      if (scanCount > 0 && prevScanTime !== 'N/A') {
+      if (Number.isFinite(scanCount) && scanCount > 0 && prevScanTime) {
         const parts = prevScanTime.split(' ');
-        const sDate = parts[0] || mintDate;
-        const sTime = parts[1] ? parts.slice(1).join(' ') : '02:00 PM';
-
-        if (scanCount === 1) {
-          events.push({
-            name: 'First Consumer Verification',
-            date: sDate,
-            time: sTime,
-            status: `✓ Completed (${prevScanCountry})`,
-            color: '#10b981'
-          });
-        } else {
-          events.push({
-            name: 'First Consumer Verification',
-            date: mintDate,
-            time: '09:00 AM',
-            status: `✓ Completed (India)`,
-            color: '#10b981'
-          });
-          events.push({
-            name: 'Latest Verification',
-            date: sDate,
-            time: sTime,
-            status: `✓ Completed (${prevScanCountry})`,
-            color: '#10b981'
-          });
-        }
+        const sDate = parts[0];
+        const sTime = parts[1] ? parts.slice(1).join(' ') : '--:--';
+        const location = prevScanCountry ? ` (${prevScanCountry})` : '';
+        events.push({
+          name: scanCount === 1 ? 'First Consumer Verification' : 'Latest Verification',
+          date: sDate,
+          time: sTime,
+          status: `✓ Completed${location}`,
+          color: '#10b981'
+        });
       }
 
       // 5. Investigation & Revocation statuses
       if (data.status === 'REVOKED') {
         events.push({
-          name: 'Investigation Started',
-          date: metadata.revocation_date ? metadata.revocation_date.split('T')[0] : new Date().toISOString().split('T')[0],
-          time: '09:00 AM',
-          status: '⚠ Investigation Opened',
-          color: '#f59e0b'
-        });
-        events.push({
           name: 'Lot Deactivated & Revoked',
-          date: metadata.revocation_date ? metadata.revocation_date.split('T')[0] : new Date().toISOString().split('T')[0],
-          time: '11:00 AM',
+          date: metadata.revocation_date ? metadata.revocation_date.split('T')[0] : '—',
+          time: '--:--',
           status: '✖ Product Revoked',
           color: '#ef4444'
         });
       } else if (data.risk === 'HIGH' || data.risk === 'CRITICAL') {
         events.push({
           name: 'Geovelocity Alarm Tripped',
-          date: new Date().toISOString().split('T')[0],
-          time: '04:00 PM',
+          date: 'Recorded',
+          time: '--:--',
           status: '⚠ Investigation Opened',
           color: '#f59e0b'
         });
@@ -3375,8 +3321,6 @@
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            lat: 12.9716, // Default coordinate simulation (Bangalore, India)
-            lon: 77.5946,
             device_metadata: {
               browser: navigator.userAgent,
               platform: navigator.platform
@@ -3415,31 +3359,30 @@
           document.getElementById('panel-identity').style.display = 'none';
           document.getElementById('panel-transparency').style.display = 'none';
 
-          setSafeText('rev-prod-name', metadata.name || 'Organic White Honey');
-          setSafeText('rev-prod-manufacturer', metadata.manufacturer || 'Premium Farms');
-          setSafeText('rev-prod-batch', metadata.batch_id || 'Lot-288');
-          setSafeText('rev-prod-gtin', data.gtin || '07612345678900');
-          
-          const rawDate = metadata.revocation_date || new Date().toISOString();
-          setSafeText('rev-prod-revdate', formatCustomDate(rawDate));
-          
-          const revReason = metadata.revocation_reason || 'Organic Certification Withdrawn';
-          setSafeText('rev-prod-reason', revReason);
+          setSafeText('rev-prod-name', metadata.name);
+          setSafeText('rev-prod-manufacturer', metadata.manufacturer);
+          setSafeText('rev-prod-batch', metadata.batch_id);
+          setSafeText('rev-prod-gtin', data.gtin);
+          setSafeText('rev-prod-revdate', formatCustomDate(metadata.revocation_date));
+          setSafeText('rev-prod-reason', metadata.revocation_reason);
 
           // Populate internal timeline matching requested format exactly
           const revTimeline = document.getElementById('rev-card-timeline');
           if (revTimeline) {
             const certificationStage = data.certificationStatus === 'CERTIFIED'
               ? '<div style="color: #10b981; margin-bottom: 0.25rem;">✓ Certified</div>'
-              : '<div style="color: #9ca3af; margin-bottom: 0.25rem;">⏳ Certification pending</div>';
+              : (data.certificationStatus === 'PENDING'
+                ? '<div style="color: #9ca3af; margin-bottom: 0.25rem;">⏳ Certification pending</div>'
+                : '<div style="color: #9ca3af; margin-bottom: 0.25rem;">Certification status not recorded</div>');
             const laboratoryStage = data.labStatus === 'PASSED'
               ? '<div style="color: #10b981; margin-bottom: 0.25rem;">✓ Laboratory Verified</div>'
-              : '<div style="color: #9ca3af; margin-bottom: 0.25rem;">⏳ Laboratory verification pending</div>';
+              : (data.labStatus === 'PENDING'
+                ? '<div style="color: #9ca3af; margin-bottom: 0.25rem;">⏳ Laboratory verification pending</div>'
+                : '<div style="color: #9ca3af; margin-bottom: 0.25rem;">Laboratory status not recorded</div>');
             revTimeline.innerHTML = `
               <div style="color: #10b981; margin-bottom: 0.25rem;">✓ Minted</div>
               ${laboratoryStage}
               ${certificationStage}
-              <div style="color: #f59e0b; margin-bottom: 0.25rem;">⚠ Investigation Started</div>
               <div style="color: #ef4444; margin-bottom: 0.25rem;">✖ Revoked</div>
             `;
           }
@@ -3458,8 +3401,8 @@
           const trustSummary = document.getElementById('verify-trust-summary');
 
           if (statusCard && largeBadge && riskVal && cardTitle && trustSummary) {
-            const risk = data.risk || 'LOW';
-            const name = metadata.name || 'Organic White Honey';
+            const risk = displayValue(data.risk);
+            const name = displayValue(metadata.name);
 
             cardTitle.textContent = name;
             riskVal.textContent = risk;
@@ -3475,7 +3418,9 @@
               
               const laboratorySummary = data.labStatus === 'PASSED'
                 ? '<div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Laboratory Verified</div>'
-                : '<div style="color: #9ca3af; display: flex; align-items: center; gap: 0.5rem;"><span>⏳</span> Laboratory verification pending</div>';
+                : (data.labStatus === 'PENDING'
+                  ? '<div style="color: #9ca3af; display: flex; align-items: center; gap: 0.5rem;"><span>⏳</span> Laboratory verification pending</div>'
+                  : '<div style="color: #9ca3af; display: flex; align-items: center; gap: 0.5rem;">Laboratory status not recorded</div>');
               trustSummary.innerHTML = `
                 <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Genuine Product</div>
                 <div style="color: #10b981; display: flex; align-items: center; gap: 0.5rem;"><span>✓</span> Organic Certified</div>
@@ -3507,18 +3452,28 @@
           // LEVEL 1: Core Product Identity details (hide if empty)
           updateFieldRow('row-prod-name', 'verify-prod-name', metadata.name);
           updateFieldRow('row-prod-manufacturer', 'verify-prod-manufacturer', metadata.manufacturer);
-          updateFieldRow('row-prod-farm', 'verify-prod-farm', metadata.farm_name || 'Premium Harvest, Uttarakhand');
+          updateFieldRow('row-prod-farm', 'verify-prod-farm', metadata.farm_name);
           updateFieldRow('row-prod-country', 'verify-prod-country', metadata.country_of_origin);
+          const certificationLabel = data.certificationStatus === 'CERTIFIED'
+            ? 'CERTIFIED'
+            : (data.certificationStatus === 'REVOKED'
+              ? 'REVOKED'
+              : (data.certificationStatus === 'PENDING' ? 'Not yet certified' : undefined));
           updateBadgeRow(
             'row-prod-organic',
             'verify-cert-status-badge',
-            data.certificationStatus === 'CERTIFIED' ? 'CERTIFIED' : 'Not yet certified',
+            certificationLabel,
             'cert'
           );
+          const laboratoryLabel = data.labStatus === 'PASSED'
+            ? 'PASSED'
+            : (data.labStatus === 'FAILED'
+              ? 'FAILED'
+              : (data.labStatus === 'PENDING' ? 'Pending' : undefined));
           updateBadgeRow(
             'row-prod-lab',
             'verify-lab-status-badge',
-            data.labStatus === 'PASSED' ? 'PASSED' : (data.labStatus === 'FAILED' ? 'FAILED' : 'Pending'),
+            laboratoryLabel,
             'lab'
           );
 
@@ -3553,32 +3508,37 @@
         }
 
         if (summaryRisk) {
-          const risk = data.risk || 'LOW';
+          const risk = displayValue(data.risk);
           summaryRisk.textContent = risk;
           if (risk === 'LOW') {
             summaryRisk.style.color = '#10b981';
           } else if (risk === 'MEDIUM') {
             summaryRisk.style.color = '#f59e0b';
-          } else {
+          } else if (risk === 'HIGH' || risk === 'CRITICAL') {
             summaryRisk.style.color = '#ef4444';
+          } else {
+            summaryRisk.style.color = 'var(--text-muted)';
           }
         }
 
-        setSafeText('trans-summary-count', metadata.scan_count || '0');
-        setSafeText('trans-summary-lastdate', metadata.previous_scan_timestamp || 'N/A');
-        setSafeText('trans-summary-lastcountry', metadata.previous_scan_country || 'N/A');
+        setSafeText('trans-summary-count', metadata.scan_count);
+        setSafeText('trans-summary-lastdate', metadata.previous_scan_timestamp);
+        setSafeText('trans-summary-lastcountry', metadata.previous_scan_country);
 
         // Render Chronological Timeline
         const timelineEvents = buildTimelineEvents(data);
         renderTimeline(timelineEvents);
 
         // Advanced Transparency details
-        setSafeText('verify-adv-batch', metadata.batch_id || 'B-LOT-901');
-        setSafeText('verify-adv-cert', metadata.organic_certificate_number || '—');
-        setSafeText('verify-adv-report', labResult.reportUrl || '—');
-        setSafeText('verify-adv-investigation', data.status === 'REVOKED' ? 'SUSPENDED' : (data.risk === 'HIGH' ? 'UNDER INVESTIGATION' : 'NORMAL'));
+        setSafeText('verify-adv-batch', metadata.batch_id);
+        setSafeText('verify-adv-cert', metadata.organic_certificate_number);
+        setSafeText('verify-adv-report', labResult.reportUrl);
+        const investigationStatus = data.status === 'REVOKED'
+          ? 'SUSPENDED'
+          : ((data.risk === 'HIGH' || data.risk === 'CRITICAL') ? 'UNDER INVESTIGATION' : undefined);
+        setSafeText('verify-adv-investigation', investigationStatus);
 
-        setSafeText('verify-lab-report', labResult.reportUrl || '—');
+        setSafeText('verify-lab-report', labResult.reportUrl);
 
       } catch (err) {
         document.getElementById('verify-loading').style.display = 'none';
@@ -3666,9 +3626,9 @@
       const welcomeCard = document.getElementById('first-login-card');
       welcomeCard.style.display = 'flex';
       
-      document.getElementById('welcome-org-name').textContent = user.orgName || 'Your Organization';
-      document.getElementById('welcome-org-type').textContent = user.orgType;
-      document.getElementById('welcome-user-role').textContent = user.role;
+      document.getElementById('welcome-org-name').textContent = displayValue(user.orgName);
+      document.getElementById('welcome-org-type').textContent = displayValue(user.orgType);
+      document.getElementById('welcome-user-role').textContent = displayValue(user.role);
       
       lucide.createIcons();
     }
@@ -3689,14 +3649,11 @@
 
       // Show global header and populate profile fields
       document.getElementById('global-header-bar').style.display = 'flex';
-      document.getElementById('header-user-name').textContent = user.username;
-      document.getElementById('dropdown-fullname').textContent = user.username;
-      document.getElementById('dropdown-username').textContent = user.username + '@capmint.com';
-      document.getElementById('dropdown-org').textContent = user.orgName || 'Workspace';
-      document.getElementById('dropdown-role').textContent = user.role || 'ADMIN';
-      
-      const sel = document.getElementById('dropdown-workspace-select');
-      if (sel) sel.value = user.orgType;
+      document.getElementById('header-user-name').textContent = displayValue(user.username);
+      document.getElementById('dropdown-fullname').textContent = displayValue(user.username);
+      document.getElementById('dropdown-username').textContent = displayValue(user.username);
+      document.getElementById('dropdown-org').textContent = displayValue(user.orgName);
+      document.getElementById('dropdown-role').textContent = displayValue(user.role);
 
       // Render user-specific navigation links
       renderSidebar(user);
@@ -3995,8 +3952,7 @@
         const successCard = document.getElementById('register-success-card');
         successCard.style.display = 'flex';
         
-        const refId = 'REF-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-        document.getElementById('success-ref-id').textContent = refId;
+        document.getElementById('success-ref-id').textContent = displayValue(res.data?.organization?.id);
         document.getElementById('success-org-name').textContent = name;
         document.getElementById('success-admin-email').textContent = email;
 
@@ -4124,13 +4080,9 @@
 
       try {
         const payload = {
-          certifier_id: '00000000-0000-0000-0000-000000000001',
           source_unit_type: unit,
           approved_quantity: qty,
-          yield_assumptions: { crop: crop, land_area_hectares: 5 },
-          signature_bundle: 'sig_draft',
-          effective_start_date: new Date().toISOString(),
-          effective_end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+          yield_assumptions: { crop: crop }
         };
 
         const res = await executePost('Propose Crop Allocation Budget', `${API_BASE_URL}/api/v1/budgets`, payload, true);
@@ -4174,9 +4126,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            lat: 13.0827, // Chennai Port location simulation
-            lon: 80.2707,
-            device_metadata: { browser: 'Exporter Verification Portal', platform: 'Cargo Clearance Panel' }
+            device_metadata: { browser: navigator.userAgent, platform: navigator.platform }
           })
         });
 
@@ -4190,15 +4140,15 @@
         const data = res.data || {};
         const metadata = data.productMetadata || {};
 
-        document.getElementById('exporter-result-title').textContent = metadata.name || 'Organic White Honey';
+        document.getElementById('exporter-result-title').textContent = displayValue(metadata.name);
         
         const badge = document.getElementById('exporter-result-badge');
-        badge.textContent = data.status || 'VERIFIED';
-        badge.className = 'status-badge ' + (data.status === 'REVOKED' ? 'status-danger' : 'status-success');
+        badge.textContent = displayValue(data.status);
+        badge.className = 'status-badge ' + (data.status === 'REVOKED' ? 'status-danger' : (data.status === 'VERIFIED' ? 'status-success' : 'status-pending'));
 
-        document.getElementById('exporter-result-manufacturer').textContent = metadata.manufacturer || 'Premium Farms';
-        document.getElementById('exporter-result-gtin').textContent = data.gtin || 'N/A';
-        document.getElementById('exporter-result-serial').textContent = data.serial || 'N/A';
+        document.getElementById('exporter-result-manufacturer').textContent = displayValue(metadata.manufacturer);
+        document.getElementById('exporter-result-gtin').textContent = displayValue(data.gtin);
+        document.getElementById('exporter-result-serial').textContent = displayValue(data.serial);
         document.getElementById('exporter-result-date').textContent = formatCustomDate(new Date().toISOString());
 
         card.style.display = 'block';
@@ -4291,60 +4241,22 @@
         const tbody = document.getElementById('lab-reports-list-body');
         if (tbody) {
           tbody.innerHTML = DB.lots.map(lot => {
+            const statusClass = lot.lab_status === 'PASSED'
+              ? 'status-success'
+              : (lot.lab_status === 'FAILED' ? 'status-danger' : 'status-pending');
             return `
               <tr style="border-bottom: 1px solid var(--border-muted);">
                 <td style="padding: 0.75rem 0.5rem; font-family: monospace; font-size: 0.8rem;">${lot.id.substring(0,8)}...</td>
-                <td style="padding: 0.75rem 0.5rem; color: var(--text-muted);">Intertek Labs</td>
-                <td style="padding: 0.75rem 0.5rem; color: var(--text-muted);">Honey Purity Panel</td>
-                <td style="padding: 0.75rem 0.5rem;"><span class="status-badge status-success">${lot.status}</span></td>
-                <td style="padding: 0.75rem 0.5rem; font-family: monospace; font-size: 0.8rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 150px;">hash_lab_default</td>
+                <td style="padding: 0.75rem 0.5rem; color: var(--text-muted);">—</td>
+                <td style="padding: 0.75rem 0.5rem; color: var(--text-muted);">—</td>
+                <td style="padding: 0.75rem 0.5rem;"><span class="status-badge ${statusClass}">${displayValue(lot.lab_status)}</span></td>
+                <td style="padding: 0.75rem 0.5rem; font-family: monospace; font-size: 0.8rem; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 150px;">—</td>
               </tr>
             `;
           }).join('');
         }
       }
     };
-
-    function bypassLoginDev() {
-      const mockUser = {
-        id: '00000000-0000-0000-0000-000000000001',
-        username: 'Producer Admin',
-        orgName: 'Premium Harvest Ltd',
-        orgType: 'PRODUCER',
-        role: 'ADMIN'
-      };
-      AUTH_TOKEN = 'mock_bypass_token';
-      CURRENT_USER = mockUser;
-      localStorage.setItem('capmint_token', AUTH_TOKEN);
-      localStorage.setItem('capmint_user', JSON.stringify(CURRENT_USER));
-      
-      enterWorkspace(CURRENT_USER);
-    }
-
-    function switchWorkspaceRole(newRole) {
-      if (!CURRENT_USER) {
-        CURRENT_USER = {
-          id: '00000000-0000-0000-0000-000000000001',
-          role: 'ADMIN'
-        };
-      }
-      CURRENT_USER.orgType = newRole;
-      CURRENT_USER.username = `${newRole.replace(/_/g, ' ')} Admin`.toLowerCase().replace(/(^\w|\s\w)/g, m => m.toUpperCase());
-      CURRENT_USER.orgName = `${newRole.replace(/_/g, ' ')} Inc`.toLowerCase().replace(/(^\w|\s\w)/g, m => m.toUpperCase());
-      
-      localStorage.setItem('capmint_user', JSON.stringify(CURRENT_USER));
-      
-      // Re-enter workspace view
-      enterWorkspace(CURRENT_USER);
-      
-      // Sync dropdown select option
-      const sel = document.getElementById('dropdown-workspace-select');
-      if (sel) sel.value = newRole;
-      
-      // Close header user dropdown
-      const dropdown = document.getElementById('header-user-dropdown');
-      if (dropdown) dropdown.style.display = 'none';
-    }
 
     // -------------------------------------------------------------------------
     // Init loads & SPA Route Listener
@@ -4362,7 +4274,10 @@
         const savedToken = localStorage.getItem('capmint_token');
         const savedUserStr = localStorage.getItem('capmint_user');
         
-        if (savedToken && savedUserStr) {
+        const hasRestorableSession = savedToken
+          && savedToken.split('.').length === 3
+          && savedUserStr;
+        if (hasRestorableSession) {
           try {
             AUTH_TOKEN = savedToken;
             CURRENT_USER = JSON.parse(savedUserStr);
@@ -4373,9 +4288,10 @@
             console.error('Restoring session failed:', restErr);
           }
         }
-        
-        // No session or failed restore: Bypass login completely by default
-        bypassLoginDev();
+
+        localStorage.removeItem('capmint_token');
+        localStorage.removeItem('capmint_user');
+        showLoginForm();
       }
       lucide.createIcons();
     });
