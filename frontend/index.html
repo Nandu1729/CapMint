@@ -1513,6 +1513,20 @@
                   <label>Quantity</label>
                   <input type="number" id="req-budget-qty" class="form-control" placeholder="e.g. 10000">
                 </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label>Certification Body</label>
+                  <select id="req-budget-certifier" class="form-control">
+                    <option value="">Select certification body</option>
+                  </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label>Season Start Date</label>
+                  <input type="date" id="req-budget-start" class="form-control">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label>Season End Date</label>
+                  <input type="date" id="req-budget-end" class="form-control">
+                </div>
               </div>
               <button class="btn btn-primary" style="width: 100%; margin-top: 1.25rem;" onclick="submitBudgetRequest()">PROPOSE CAPACITY BUDGET</button>
             </div>
@@ -1837,6 +1851,7 @@
 
     const DB = {
       budgets: [],
+      certifiers: [],
       lots: [],
       unitCodes: [],
       scans: [],
@@ -1892,6 +1907,34 @@
       }
     }
 
+    async function loadCertifiers() {
+      const select = document.getElementById('req-budget-certifier');
+      if (!select) return;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/v1/certifiers`, {
+          headers: { 'Authorization': 'Bearer ' + AUTH_TOKEN }
+        });
+        const res = await response.json();
+        if (!res.success || !res.data || !Array.isArray(res.data.certifiers)) return;
+
+        DB.certifiers = res.data.certifiers;
+        select.replaceChildren();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Select certification body';
+        select.appendChild(placeholder);
+        for (const certifier of DB.certifiers) {
+          const option = document.createElement('option');
+          option.value = certifier.id;
+          option.textContent = certifier.name;
+          select.appendChild(option);
+        }
+      } catch (err) {
+        console.error('Failed to load certification bodies from backend:', err);
+      }
+    }
+
     async function loadUnitCodes() {
       try {
         const [ucRes, lotRes] = await Promise.all([
@@ -1931,6 +1974,7 @@
     async function loadAllData() {
       await Promise.all([
         loadBudgets(),
+        loadCertifiers(),
         loadUnitCodes(),
         loadLedgerLogs(),
         loadInvestigations()
@@ -4065,6 +4109,9 @@
       const crop = document.getElementById('req-budget-crop').value.trim();
       const unit = document.getElementById('req-budget-unit').value;
       const qty = parseFloat(document.getElementById('req-budget-qty').value);
+      const certifierId = document.getElementById('req-budget-certifier').value;
+      const effectiveStartDate = document.getElementById('req-budget-start').value;
+      const effectiveEndDate = document.getElementById('req-budget-end').value;
 
       const errAlert = document.getElementById('budget-request-error');
       const succAlert = document.getElementById('budget-request-success');
@@ -4072,17 +4119,26 @@
       errAlert.style.display = 'none';
       succAlert.style.display = 'none';
 
-      if (!crop || isNaN(qty) || qty <= 0) {
-        errAlert.textContent = 'Please enter a valid crop name and positive quantity.';
+      if (!crop || isNaN(qty) || qty <= 0 || !certifierId || !effectiveStartDate || !effectiveEndDate) {
+        errAlert.textContent = 'Enter a crop, positive quantity, certification body, and season dates.';
+        errAlert.style.display = 'block';
+        return;
+      }
+
+      if (effectiveEndDate < effectiveStartDate) {
+        errAlert.textContent = 'Season end date must be on or after the start date.';
         errAlert.style.display = 'block';
         return;
       }
 
       try {
         const payload = {
+          certifier_id: certifierId,
           source_unit_type: unit,
           approved_quantity: qty,
-          yield_assumptions: { crop: crop }
+          yield_assumptions: { crop: crop },
+          effective_start_date: effectiveStartDate,
+          effective_end_date: effectiveEndDate
         };
 
         const res = await executePost('Propose Crop Allocation Budget', `${API_BASE_URL}/api/v1/budgets`, payload, true);
@@ -4097,6 +4153,8 @@
           succAlert.style.display = 'block';
           document.getElementById('req-budget-crop').value = '';
           document.getElementById('req-budget-qty').value = '';
+          document.getElementById('req-budget-start').value = '';
+          document.getElementById('req-budget-end').value = '';
           await loadAllData();
         } else {
           errAlert.textContent = res.error?.message || 'Proposing budget failed.';

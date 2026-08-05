@@ -1,0 +1,32 @@
+title: CertifierListResponse
+type: object
+required:
+- success
+- data
+properties:
+  success:
+    type: boolean
+    example: true
+  data:
+    type: object
+    required:
+    - certifiers
+    properties:
+      certifiers:
+        type: array
+        items:
+          type: object
+          required:
+          - id
+          - name
+          - accreditation
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            accreditation:
+              type: object
+              additionalProperties: true
+description: Authenticated directory of active certification bodies without key material.

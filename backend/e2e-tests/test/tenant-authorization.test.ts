@@ -286,7 +286,7 @@ async function insertFixtures(): Promise<void> {
           CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 year', 'ACTIVE', '[]'),
          ($5, $6, $7, 'UNIT_COUNT', 100, 10, '{"crop":"C0 B"}', $8,
           CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 year', 'ACTIVE', '[]'),
-         ($9, $2, $3, 'UNIT_COUNT', 100, 0, '{"crop":"C0 Activate"}', 'pending',
+         ($9, $2, $3, 'UNIT_COUNT', 100, 0, '{"crop":"C0 Activate"}', NULL,
           CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 year', 'PENDING_APPROVAL', '[]'),
          ($10, $2, $3, 'UNIT_COUNT', 1, 1, '{"crop":"Capacity race"}', $11,
           CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL '1 year', 'EXHAUSTED', '[]'),
@@ -1297,6 +1297,105 @@ suite('C0 tenant authorization containment', () => {
     }
   });
 
+  it('keeps draft budget requests separate from certifier authorization', async () => {
+    expect((await requestJson(BASE.cpq, '/api/v1/certifiers')).status).toBe(401);
+
+    const directory = await requestJson(BASE.cpq, '/api/v1/certifiers', {
+      token: tokens.producerA
+    });
+    expect(directory.status).toBe(200);
+    const certifiers = (directory.data as any).data.certifiers;
+    expect(certifiers.map((certifier: any) => certifier.id)).toEqual([
+      ids.certifierA,
+      ids.certifierB
+    ]);
+    expect(certifiers).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: ids.revokedCertifierB })
+    ]));
+    expect(Object.keys(certifiers[0]).sort()).toEqual(['accreditation', 'id', 'name']);
+
+    const effectiveStartDate = new Date().toISOString();
+    const effectiveEndDate = new Date(Date.now() + 86_400_000).toISOString();
+    const draft = await requestJson(BASE.cpq, '/api/v1/budgets', {
+      method: 'POST',
+      token: tokens.producerA,
+      body: {
+        certifier_id: ids.certifierA,
+        source_unit_type: 'UNIT_COUNT',
+        approved_quantity: 3,
+        yield_assumptions: { crop: `unsigned-draft-${crypto.randomUUID()}` },
+        effective_start_date: effectiveStartDate,
+        effective_end_date: effectiveEndDate
+      }
+    });
+    expect(draft.status).toBe(201);
+    const budgetId = (draft.data as any).data.budget.id;
+    const storedDraft = await testPool.query(
+      'SELECT status, signature_bundle, approved_quantity FROM budgets WHERE id = $1',
+      [budgetId]
+    );
+    expect(storedDraft.rows[0]).toMatchObject({
+      status: 'DRAFT',
+      signature_bundle: null,
+      approved_quantity: '3.00'
+    });
+
+    const draftLotId = crypto.randomUUID();
+    await testPool.query(
+      `INSERT INTO lots
+         (id, producer_id, budget_id, product_metadata, batch_size, processing_dates)
+       VALUES ($1, $2, $3, '{}'::jsonb, 1, '{}'::jsonb)`,
+      [draftLotId, ids.producerA, budgetId]
+    );
+    const blockedMint = await requestJson(BASE.mint, '/api/v1/mint', {
+      method: 'POST',
+      token: tokens.producerA,
+      body: { lot_id: draftLotId, gtin: values.gtinA, quantity: 1 }
+    });
+    expect(blockedMint.status).toBe(400);
+    expect((blockedMint.data as any).error.code).toBe('INACTIVE_BUDGET');
+
+    const activated = await requestJson(BASE.cpq, `/api/v1/budgets/${budgetId}/activate`, {
+      method: 'POST', token: tokens.certifierA, body: {}
+    });
+    expect(activated.status).toBe(200);
+    const storedActive = await testPool.query(
+      'SELECT status, signature_bundle, approved_quantity FROM budgets WHERE id = $1',
+      [budgetId]
+    );
+    expect(storedActive.rows[0].status).toBe('ACTIVE');
+    expect(typeof storedActive.rows[0].signature_bundle).toBe('string');
+    expect(crypto.verify(
+      null,
+      Buffer.from(`budget_id:${budgetId};approved_quantity:${storedActive.rows[0].approved_quantity}`),
+      certifierPublicKey,
+      Buffer.from(storedActive.rows[0].signature_bundle, 'hex')
+    )).toBe(true);
+
+    const minted = await requestJson(BASE.mint, '/api/v1/mint', {
+      method: 'POST',
+      token: tokens.producerA,
+      body: { lot_id: draftLotId, gtin: values.gtinA, quantity: 1 }
+    });
+    expect(minted.status).toBe(201);
+
+    for (const certifierId of [crypto.randomUUID(), ids.revokedCertifierB]) {
+      const rejected = await requestJson(BASE.cpq, '/api/v1/budgets', {
+        method: 'POST',
+        token: tokens.producerA,
+        body: {
+          certifier_id: certifierId,
+          source_unit_type: 'UNIT_COUNT',
+          approved_quantity: 1,
+          yield_assumptions: { crop: `rejected-certifier-${crypto.randomUUID()}` },
+          effective_start_date: effectiveStartDate,
+          effective_end_date: effectiveEndDate
+        }
+      });
+      expect(rejected.status).toBe(404);
+    }
+  });
+
   it('prevents producer B from mutating producer A resources', async () => {
     const before = await mutationSnapshot();
     const attempts = [
@@ -1333,7 +1432,6 @@ suite('C0 tenant authorization containment', () => {
           source_unit_type: 'UNIT_COUNT',
           approved_quantity: 5,
           yield_assumptions: { crop: `forged-${crypto.randomUUID()}` },
-          signature_bundle: 'pending',
           effective_start_date: new Date().toISOString(),
           effective_end_date: new Date(Date.now() + 86_400_000).toISOString()
         }
@@ -1636,7 +1734,6 @@ suite('C0 tenant authorization containment', () => {
         source_unit_type: 'UNIT_COUNT',
         approved_quantity: 5,
         yield_assumptions: { crop: `same-tenant-${crypto.randomUUID()}` },
-        signature_bundle: 'pending',
         effective_start_date: new Date().toISOString(),
         effective_end_date: new Date(Date.now() + 86_400_000).toISOString()
       }

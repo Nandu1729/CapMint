@@ -690,6 +690,61 @@ async function verify0021(client) {
   };
 }
 
+async function verify0022(client) {
+  if (!(await tableExists(client, 'budgets'))) {
+    const evidence = { table: false };
+    return {
+      status: 'incompatible',
+      summary: 'budgets is absent.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  const columns = (await client.query(
+    `SELECT format_type(a.atttypid, a.atttypmod) AS type,
+            a.attnotnull AS not_null,
+            pg_get_expr(d.adbin, d.adrelid) AS default_expr
+     FROM pg_attribute a
+     LEFT JOIN pg_attrdef d
+       ON d.adrelid = a.attrelid
+      AND d.adnum = a.attnum
+     WHERE a.attrelid = 'budgets'::regclass
+       AND a.attname = 'signature_bundle'
+       AND NOT a.attisdropped`
+  )).rows;
+  const evidence = { signature_column: columns };
+
+  if (
+    columns.length !== 1
+    || columns[0].type !== 'text'
+    || columns[0].default_expr !== null
+  ) {
+    return {
+      status: 'incompatible',
+      summary: 'budgets.signature_bundle is missing or has an incompatible type/default.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  if (columns[0].not_null) {
+    return {
+      status: 'repairable',
+      summary: 'budgets.signature_bundle still requires a creation-time value.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  return {
+    status: 'exact',
+    summary: 'budgets.signature_bundle is nullable until certifier activation.',
+    evidence,
+    fingerprint: evidenceFingerprint(evidence)
+  };
+}
+
 async function verify0009(client) {
   if (!(await tableExists(client, 'investigations'))) {
     const evidence = { table: false };
@@ -2431,7 +2486,8 @@ const STATE_VERIFIERS = new Map([
   ['0018_enable_supporting_table_rls.sql', verify0018],
   ['0019_enable_users_and_ledger_rls.sql', verify0019],
   ['0020_tighten_organizations_public_read.sql', verify0020],
-  ['0021_add_not_certified_scan_verdict.sql', verify0021]
+  ['0021_add_not_certified_scan_verdict.sql', verify0021],
+  ['0022_make_budget_signature_nullable.sql', verify0022]
 ]);
 
 async function readMetadata(client) {
@@ -2909,5 +2965,6 @@ module.exports = {
   verify0018,
   verify0019,
   verify0020,
-  verify0021
+  verify0021,
+  verify0022
 };

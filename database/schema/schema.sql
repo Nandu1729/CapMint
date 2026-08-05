@@ -91,7 +91,7 @@ CREATE TABLE budgets (
     consumed_quantity NUMERIC(12, 2) NOT NULL DEFAULT 0.00 CONSTRAINT chk_budgets_consumed CHECK (consumed_quantity >= 0.00),
     remaining_quantity NUMERIC(12, 2) GENERATED ALWAYS AS (approved_quantity - consumed_quantity) STORED,
     yield_assumptions JSONB NOT NULL,
-    signature_bundle TEXT NOT NULL,
+    signature_bundle TEXT,
     effective_start_date TIMESTAMPTZ NOT NULL,
     effective_end_date TIMESTAMPTZ NOT NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'DRAFT',

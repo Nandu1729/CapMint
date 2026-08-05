@@ -52,6 +52,30 @@ describe('consumer verification honesty', () => {
     expect(source).not.toContain('lat: 13.0827');
     expect(source).not.toContain("mock_bypass_token");
     expect(source).not.toContain('function bypassLoginDev()');
+    expect(source).toContain('certifier_id: certifierId');
+    expect(source).toContain('effective_start_date: effectiveStartDate');
+    expect(source).toContain('effective_end_date: effectiveEndDate');
+    expect(source).toContain("fetch(`${API_BASE_URL}/api/v1/certifiers`");
+  });
+
+  it('keeps certifier authority out of the producer budget contract', async () => {
+    const requestSchema = await fs.readFile(
+      path.join(ROOT, 'api/schemas/requests/ProposeBudgetRequest.yaml'),
+      'utf8'
+    );
+    const cpqSource = await fs.readFile(
+      path.join(ROOT, 'backend/cpq-service/src/index.ts'),
+      'utf8'
+    );
+    const gatewaySource = await fs.readFile(
+      path.join(ROOT, 'scripts/frontend-server.js'),
+      'utf8'
+    );
+
+    expect(requestSchema).not.toContain('signature_bundle');
+    expect(cpqSource).toContain("NULL, $6, $7, 'DRAFT'");
+    expect(cpqSource).toContain("server.get('/api/v1/certifiers'");
+    expect(gatewaySource).toContain("urlPath.startsWith('/api/v1/certifiers')");
   });
 
   it('does not invent frontend display values when API data is absent', async () => {

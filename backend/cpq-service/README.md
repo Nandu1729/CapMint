@@ -25,7 +25,6 @@ It exposes REST endpoints under `/api/v1/budgets` to draft, activate, and draw d
         "crop": "Premium Organic Honey",
         "plot_id": "uuid"
       },
-      "signature_bundle": "base64-signed-hash",
       "effective_start_date": "2026-07-11T00:00:00Z",
       "effective_end_date": "2027-07-11T00:00:00Z"
     }
@@ -44,7 +43,15 @@ It exposes REST endpoints under `/api/v1/budgets` to draft, activate, and draw d
     }
     ```
 
-### 2.2 Activate Budget
+Drafts store no signature. The certification body writes the Ed25519 signature only when it activates the budget, after the generated budget ID is known.
+
+### 2.2 List Eligible Certifiers
+*   **Method**: `GET`
+*   **Path**: `/api/v1/certifiers`
+*   **Headers**: `Authorization: Bearer <JWT>`
+*   **Response (200 OK)**: active certifier `id`, `name`, and `accreditation` records. Key material is never returned.
+
+### 2.3 Activate Budget
 *   **Method**: `POST`
 *   **Path**: `/api/v1/budgets/:id/activate`
 *   **Headers**: `Authorization: Bearer <JWT>`
@@ -62,7 +69,7 @@ It exposes REST endpoints under `/api/v1/budgets` to draft, activate, and draw d
     }
     ```
 
-### 2.3 Drawdown Budget
+### 2.4 Drawdown Budget
 *   **Method**: `POST`
 *   **Path**: `/api/v1/budgets/:id/drawdown`
 *   **Headers**: `Authorization: Bearer <JWT>`

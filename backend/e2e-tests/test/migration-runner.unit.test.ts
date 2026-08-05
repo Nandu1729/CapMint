@@ -29,15 +29,15 @@ describe('migration runner metadata and planning primitives', () => {
     expect(() => runner.parseArgs(['--adopt'])).toThrow(/requires one or more/);
   });
 
-  it('loads a monotonic migration set ending in honest scan verdict migration 0021', () => {
+  it('loads a monotonic migration set ending in nullable draft signatures migration 0022', () => {
     const result = runner.loadMigrations();
     expect(result.errors).toEqual([]);
     expect(result.migrations.at(-1)?.filename)
-      .toBe('0021_add_not_certified_scan_verdict.sql');
+      .toBe('0022_make_budget_signature_nullable.sql');
     expect(result.migrations.map((migration: { version: number }) => migration.version))
       .toEqual([
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-        11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
+        11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22
       ]);
     for (const migration of result.migrations) {
       expect(migration.checksum).toMatch(/^[a-f0-9]{64}$/);
@@ -262,5 +262,9 @@ describe('migration runner metadata and planning primitives', () => {
       'VERIFIED'
     ]);
     expect(runner.verify0021).toBeTypeOf('function');
+  });
+
+  it('defines the HO-029 nullable draft signature verifier', () => {
+    expect(runner.verify0022).toBeTypeOf('function');
   });
 });

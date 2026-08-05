@@ -387,6 +387,20 @@ async function runTests() {
 
     console.log('\n--- Phase 3: CPQ / Budget ---');
 
+    const certifierDirectory = await fetch(`${BASE_URL}/api/v1/certifiers`, {
+      headers: { 'Authorization': `Bearer ${tokens.PRODUCER}` }
+    });
+    const certifierDirectoryData = await certifierDirectory.json();
+    const availableCertifiers = certifierDirectoryData.data?.certifiers || [];
+    report(
+      'CPQ-15',
+      certifierDirectory.status === 200
+        && availableCertifiers.some(certifier => certifier.id === orgIds.CERTIFICATION_BODY)
+        && availableCertifiers.every(certifier => certifier.public_key === undefined && certifier.key_status === undefined),
+      'authenticated active-certifier directory without key material',
+      `${certifierDirectory.status} ${availableCertifiers.length} certifier(s)`
+    );
+
     // Create initial budget
     const propBud1 = await fetch(`${BASE_URL}/api/v1/budgets`, {
       method: 'POST',
@@ -397,7 +411,6 @@ async function runTests() {
         source_unit_type: 'WEIGHT_KG',
         approved_quantity: 1000.0,
         yield_assumptions: { crop: 'Organic Honey', land_area_hectares: 5.0 },
-        signature_bundle: 'sig_bundle_abc123',
         effective_start_date: new Date().toISOString(),
         effective_end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
       })
@@ -405,12 +418,70 @@ async function runTests() {
     const propBud1Data = await propBud1.json();
     const budgetId = propBud1Data.data.budget.id;
 
+    const draftBudgetState = await pgPool.query(
+      'SELECT status, signature_bundle FROM budgets WHERE id = $1',
+      [budgetId]
+    );
+    report(
+      'CPQ-16',
+      propBud1.status === 201
+        && draftBudgetState.rows[0]?.status === 'DRAFT'
+        && draftBudgetState.rows[0]?.signature_bundle === null,
+      'producer request creates DRAFT with NULL signature',
+      `${propBud1.status} ${JSON.stringify(draftBudgetState.rows[0])}`
+    );
+
+    const draftDrawdown = await fetch(`${BASE_URL}/api/v1/budgets/${budgetId}/drawdown`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.PRODUCER}` },
+      body: JSON.stringify({ amount: 1 })
+    });
+    const draftDrawdownData = await draftDrawdown.json();
+    report(
+      'CPQ-17',
+      draftDrawdown.status === 400 && draftDrawdownData.error?.code === 'INACTIVE_BUDGET',
+      'unsigned DRAFT cannot consume capacity',
+      `${draftDrawdown.status} ${draftDrawdownData.error?.code}`
+    );
+
+    const unknownCertifierBudget = await fetch(`${BASE_URL}/api/v1/budgets`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.PRODUCER}` },
+      body: JSON.stringify({
+        certifier_id: generateUUID(),
+        source_unit_type: 'WEIGHT_KG',
+        approved_quantity: 1,
+        yield_assumptions: { crop: `Unknown Certifier ${uniqueId}` },
+        effective_start_date: new Date().toISOString(),
+        effective_end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+      })
+    });
+    report('CPQ-18', unknownCertifierBudget.status === 404, 'unknown certifier rejected', unknownCertifierBudget.status);
+
     // Activate the budget
-    await fetch(`${BASE_URL}/api/v1/budgets/${budgetId}/activate`, {
+    const activateBudget = await fetch(`${BASE_URL}/api/v1/budgets/${budgetId}/activate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tokens.CERTIFICATION_BODY}` },
       body: '{}'
     });
+    const activatedBudgetState = await pgPool.query(
+      'SELECT approved_quantity, status, signature_bundle FROM budgets WHERE id = $1',
+      [budgetId]
+    );
+    const activatedBudget = activatedBudgetState.rows[0];
+    const activationSignatureValid = typeof activatedBudget?.signature_bundle === 'string'
+      && crypto.verify(
+        null,
+        Buffer.from(`budget_id:${budgetId};approved_quantity:${activatedBudget.approved_quantity}`),
+        CERTIFIER_PUBLIC_KEY,
+        Buffer.from(activatedBudget.signature_bundle, 'hex')
+      );
+    report(
+      'CPQ-19',
+      activateBudget.status === 200 && activatedBudget?.status === 'ACTIVE' && activationSignatureValid,
+      'certifier activation stores a valid budget signature',
+      `${activateBudget.status} ${activatedBudget?.status} signature_valid=${activationSignatureValid}`
+    );
 
     // CPQ-09: Create duplicate budget for same season
     const propBudDup = await fetch(`${BASE_URL}/api/v1/budgets`, {
@@ -422,7 +493,6 @@ async function runTests() {
         source_unit_type: 'WEIGHT_KG',
         approved_quantity: 2000.0,
         yield_assumptions: { crop: 'Organic Honey', land_area_hectares: 5.0 },
-        signature_bundle: 'sig_bundle_abc123',
         effective_start_date: new Date().toISOString(),
         effective_end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
       })
@@ -479,7 +549,6 @@ async function runTests() {
         source_unit_type: 'WEIGHT_KG',
         approved_quantity: 500.0,
         yield_assumptions: { crop: 'Organic Apples', land_area_hectares: 5.0 },
-        signature_bundle: 'sig_bundle_abc123',
         effective_start_date: new Date().toISOString(),
         effective_end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
       })
@@ -526,7 +595,6 @@ async function runTests() {
         source_unit_type: 'WEIGHT_KG',
         approved_quantity: 1000.0,
         yield_assumptions: { crop: 'Mint Honey', land_area_hectares: 5.0 },
-        signature_bundle: 'sig_bundle_abc123',
         effective_start_date: new Date().toISOString(),
         effective_end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
       })
@@ -738,7 +806,6 @@ async function runTests() {
         source_unit_type: 'WEIGHT_KG',
         approved_quantity: 1000.0,
         yield_assumptions: { crop: 'Organic Strawberries', land_area_hectares: 5.0 },
-        signature_bundle: 'sig_bundle_abc123',
         effective_start_date: new Date().toISOString(),
         effective_end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
       })
@@ -1052,7 +1119,6 @@ async function runTests() {
         source_unit_type: 'WEIGHT_KG',
         approved_quantity: 1000.0,
         yield_assumptions: { crop: 'Cert Honey', land_area_hectares: 5.0 },
-        signature_bundle: 'sig_bundle_abc123',
         effective_start_date: new Date().toISOString(),
         effective_end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
       })
@@ -1140,7 +1206,6 @@ async function runTests() {
         source_unit_type: 'WEIGHT_KG',
         approved_quantity: 1000.0,
         yield_assumptions: { crop: 'Cert Pass Honey', land_area_hectares: 5.0 },
-        signature_bundle: 'sig_bundle_abc123',
         effective_start_date: new Date().toISOString(),
         effective_end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
       })
@@ -1239,7 +1304,6 @@ async function runTests() {
         source_unit_type: 'WEIGHT_KG',
         approved_quantity: 1000.0,
         yield_assumptions: { crop: 'Seq Honey', land_area_hectares: 5.0 },
-        signature_bundle: 'sig_bundle_abc123',
         effective_start_date: new Date().toISOString(),
         effective_end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
       })
@@ -1750,7 +1814,6 @@ async function runTests() {
         source_unit_type: 'WEIGHT_KG',
         approved_quantity: 1000.0,
         yield_assumptions: { crop: 'E2E Happy Honey', land_area_hectares: 5.0 },
-        signature_bundle: 'sig_bundle_abc123',
         effective_start_date: new Date().toISOString(),
         effective_end_date: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
       })

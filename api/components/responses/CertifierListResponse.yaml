@@ -1,0 +1,5 @@
+description: Active certification bodies available for budget requests
+content:
+  application/json:
+    schema:
+      $ref: ../../schemas/responses/CertifierListResponse.yaml

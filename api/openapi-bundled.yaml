@@ -482,7 +482,7 @@ paths:
   /api/v1/budgets:
     post:
       summary: Propose a crop yield quota budget
-      description: The authenticated producer organization is authoritative. The backend resolves its single producer profile when producer_id is omitted; a legacy producer_id is accepted only when it names a caller-owned profile, and ambiguous ownership fails closed.
+      description: The authenticated producer organization is authoritative. The backend resolves its single producer profile when producer_id is omitted; a legacy producer_id is accepted only when it names a caller-owned profile, and ambiguous ownership fails closed. Draft requests do not carry certifier signatures; activation adds the certifier signature after the budget ID exists.
       tags:
         - Quota & Budgets (CPQ)
       security:
@@ -499,7 +499,6 @@ paths:
                 - source_unit_type
                 - approved_quantity
                 - yield_assumptions
-                - signature_bundle
                 - effective_start_date
                 - effective_end_date
               properties:
@@ -522,7 +521,7 @@ paths:
                   example: WEIGHT_KG
                 approved_quantity:
                   type: number
-                  description: Total certified crop volume allocated.
+                  description: Crop volume the producer is requesting the certifier to authorize.
                   example: 5000
                 yield_assumptions:
                   type: object
@@ -541,10 +540,6 @@ paths:
                   example:
                     crop: Organic White Honey
                     land_area_hectares: 5
-                signature_bundle:
-                  type: string
-                  description: Ed25519 cryptographic signatures payload.
-                  example: sig_bundle_xyz123
                 effective_start_date:
                   type: string
                   format: date-time
@@ -564,7 +559,6 @@ paths:
                 yield_assumptions:
                   crop: Organic White Honey
                   land_area_hectares: 5
-                signature_bundle: sig_bundle_xyz123
                 effective_start_date: '2026-07-17T00:00:00Z'
                 effective_end_date: '2027-07-17T00:00:00Z'
             example:
@@ -574,7 +568,6 @@ paths:
               yield_assumptions:
                 crop: Organic White Honey
                 land_area_hectares: 5
-              signature_bundle: sig_bundle_xyz123
               effective_start_date: '2026-07-17T00:00:00Z'
               effective_end_date: '2027-07-17T00:00:00Z'
       responses:
@@ -736,6 +729,55 @@ paths:
           $ref: '#/paths/~1api~1v1~1mint/post/responses/404'
         '422':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/422'
+        '500':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
+  /api/v1/certifiers:
+    get:
+      summary: List active certification bodies available for budget requests
+      tags:
+        - Quota & Budgets (CPQ)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Active certification bodies available for budget requests
+          content:
+            application/json:
+              schema:
+                title: CertifierListResponse
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    required:
+                      - certifiers
+                    properties:
+                      certifiers:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - id
+                            - name
+                            - accreditation
+                          properties:
+                            id:
+                              type: string
+                              format: uuid
+                            name:
+                              type: string
+                            accreditation:
+                              type: object
+                              additionalProperties: true
+                description: Authenticated directory of active certification bodies without key material.
+        '401':
+          $ref: '#/paths/~1api~1v1~1mint/post/responses/401'
         '500':
           $ref: '#/paths/~1api~1v1~1mint/post/responses/500'
   '/api/v1/budgets/{id}/activate':
