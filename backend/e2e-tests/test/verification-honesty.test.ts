@@ -72,4 +72,36 @@ describe('consumer verification honesty', () => {
     expect(source).toContain("function displayValue(value)");
     expect(source).toContain("? '—' : String(value)");
   });
+
+  it('never assumes a verdict in the operator console', async () => {
+    const console = await fs.readFile(path.join(ROOT, 'frontend/app.html'), 'utf8');
+
+    // The service is the only authority on whether a unit is genuine. An absent or
+    // unrecognised status must never resolve to VERIFIED.
+    expect(console).not.toContain('d.status||"VERIFIED"');
+    expect(console).not.toContain("d.status||'VERIFIED'");
+    expect(console).toContain('String(d.verdict||d.status||"")');
+    expect(console).toContain('verdict==="NOT_CERTIFIED"');
+
+    // The console must not invent product provenance when creating a lot.
+    expect(console).not.toContain('name:"Organic White Honey"');
+    expect(console).not.toContain('farm_name:"Registered apiaries"');
+    expect(console).toContain('product_metadata:{name:product}');
+  });
+
+  it('does not substitute invented values in backend responses', async () => {
+    const services = await Promise.all(
+      ['verification-service', 'cpq-service'].map(name =>
+        fs.readFile(path.join(ROOT, `backend/${name}/src/index.ts`), 'utf8')
+      )
+    );
+
+    for (const service of services) {
+      expect(service).not.toContain("|| 'Organic White Honey'");
+      expect(service).not.toContain("|| 'Premium Farms'");
+      // Compliance actions must not have a justification authored on the actor's behalf.
+      expect(service).not.toContain("|| 'Organic certification withdrawn'");
+      expect(service).not.toContain("|| 'Certifier started administrative review'");
+    }
+  });
 });
