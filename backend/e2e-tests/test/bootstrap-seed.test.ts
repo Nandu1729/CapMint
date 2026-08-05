@@ -612,7 +612,7 @@ suite('F2 secure bootstrap and development seed', () => {
     }
   }, 120_000);
 
-  it('accepts seed sentinel UUIDs through laboratory assignment and submission', async () => {
+  it('authenticates seeded roles and accepts sentinel UUIDs through the lab flow', async () => {
     const name = databaseName('sentinel_uuid_flow');
     await bootstrapDatabase(name);
     const authPort = await freePort();
@@ -661,9 +661,20 @@ suite('F2 secure bootstrap and development seed', () => {
         expect(response.status).toBe(200);
         return (await response.json() as any).data.token;
       };
-      const certifierToken = await login('certifier');
-      const laboratoryToken = await login('lab');
-      const isolationToken = await login('lab-isolation');
+      const seededTokens = new Map<string, string>();
+      for (const username of [
+        'admin',
+        'producer',
+        'certifier',
+        'lab',
+        'exporter',
+        'lab-isolation'
+      ]) {
+        seededTokens.set(username, await login(username));
+      }
+      const certifierToken = seededTokens.get('certifier')!;
+      const laboratoryToken = seededTokens.get('lab')!;
+      const isolationToken = seededTokens.get('lab-isolation')!;
       const lotId = '00000000-0000-0000-0000-000000000050';
       const laboratoryId = '00000000-0000-0000-0000-000000000004';
 

@@ -22,7 +22,7 @@ anyone verify authenticity with a scan. **Core value = the metered mint** (see �
 - **Shared:** `packages/shared/` — `logging`, `readiness`, `errors`, `metrics`, `tenant-db`, `capacity`.
 - **Frontends:** original `frontend/index.html` (served at `/`); newer clean console
   `frontend/app.html` (served at `/app.html`, wired to the real backend, isolated).
-- **Migrations:** `playground/run_migrations.js` (`--bootstrap` / `--apply`), migrations `0001–0020`.
+- **Migrations:** `playground/run_migrations.js` (`--bootstrap` / `--apply`), migrations `0001–0023`.
 
 ## 3. Roles & SOP  *(idea adapted from MetaGPT's `Code = SOP(Team)`)*
 - **Architect (Claude / this agent):** design, review, governance, and **verification**. Owns
@@ -108,7 +108,8 @@ tests → Certifier CERTIFIES lot → MINT QR codes → export gate → Consumer
 - login → `data.token` + `data.user{id,username,role,orgId,orgType}`
 - `GET /api/v1/budgets` → `data.budgets[]`: `allocated, consumed, status, crop, producer, start, end` (remaining = allocated−consumed)
 - `GET /api/v1/verify/lots` → `data.lots[]`: `id, budgetId, crop, weight, status, lab_status, certification_status`
-- `GET /log/api/v1/log/entries` → `data.logs[]`: `index, entity, id, event, payloadHash, prevHash, currentHash`
+- Authenticated `GET /log/api/v1/log/entries` → tenant-scoped `data.logs[]`: `index, entity, id, event, payloadHash, prevHash, currentHash`
+- Public `GET /log/api/v1/log/verify` → aggregate chain integrity only; never enumerates entries.
 - create lot `POST /api/v1/lots {budget_id, batch_size, product_metadata}` · mint `POST /api/v1/mint {lot_id, gtin, quantity}` · verify `POST /api/v1/verify/:gtin/:serial`
 
 ## 11. Where the brain lives

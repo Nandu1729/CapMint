@@ -3,7 +3,7 @@
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
-const WRITE_AUDIT = 'WRITE — successful login appends a USER_LOGIN audit event';
+const AUTHENTICATE = 'AUTHENTICATE';
 const WRITE_REJECTED =
   'WRITE ATTEMPT — over-capacity mint must return 422 and leave unit codes unchanged';
 const WRITE_SCAN = 'WRITE — public verification appends one scan_events row';
@@ -35,7 +35,7 @@ Required fixture contract:
   - the base URL routes the canonical /api/v1 endpoints to the seven services.
 
 Writes performed and clearly logged:
-  - two successful logins append USER_LOGIN ledger events;
+  - successful logins emit internal authentication telemetry, not provenance entries;
   - one deliberately rejected over-capacity mint attempt (inventory must not change);
   - one public verification appends a scan_events row.
 
@@ -197,7 +197,7 @@ function printStep(kind, message) {
 
 async function login(config, label, credentials) {
   const step = `${label} login`;
-  printStep(WRITE_AUDIT, `authenticate ${label} tenant`);
+  printStep(AUTHENTICATE, `authenticate ${label} tenant`);
   const response = await requestJson(config, step, '/api/v1/auth/login', {
     method: 'POST',
     body: credentials
@@ -474,7 +474,7 @@ async function run(environment = process.env) {
 
   process.stdout.write('\nGREEN — all production smoke invariants passed.\n');
   process.stdout.write(
-    'Persistent writes: 2 login audit events + 1 scan event. ' +
+    'Persistent writes: 1 scan event. ' +
       'The rejected mint changed no unit-code inventory.\n'
   );
 }

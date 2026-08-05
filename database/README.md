@@ -450,15 +450,30 @@ for password-hash exposure and credential lookup.
 
 `log_entries` has SELECT and INSERT policies only. There is deliberately no
 UPDATE or DELETE policy for `capmint_app`, enforcing append-only ledger
-immutability at the database layer. Public reads preserve transparency
-integrity/entry endpoints. Public inserts are limited to genesis, login audit,
-and registration audit shapes required by existing public auth/genesis flows;
-authenticated and system-admin contexts append normally.
+immutability at the database layer. Migration `0019` initially permitted public
+entry enumeration and a public-context login audit shape; migration `0023`
+supersedes both behaviors as described below.
 
 `verify0019` validates the complete 13-table/41-policy RLS surface. Earlier
 D1–D3b verifiers accept it only after the recorded 0019 successor migration.
 No table uses FORCE, so owner-run migrations, bootstrap, and seed still bypass
 RLS.
+
+## Ledger Content Scoping
+
+Migration `0023_scope_ledger_contents.sql` keeps public chain-integrity proof
+while requiring authenticated, entity-derived tenant scope for ledger entries.
+The `capmint_rls_log_entry_actor` helper resolves USER, ORGANIZATION, BUDGET,
+LOT, PRODUCT, and INVESTIGATION ownership through existing relationships;
+SYSTEM entries are system-admin-only. Public context sees no entry rows.
+
+Bounded security-definer helpers expose only the global tail hash needed for
+serialized appends and an aggregate integrity result needed by the public
+verification endpoint. They never return ledger contents. The INSERT policy no
+longer accepts `USER_LOGIN`; genesis and organization-registration shapes stay
+available for their existing public-context flows. `verify0023` validates the
+successor policy and helper signatures and keeps the 0016–0020 state verifiers
+successor-aware.
 
 ## Existing Database Procedure
 

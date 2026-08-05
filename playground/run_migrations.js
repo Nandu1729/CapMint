@@ -273,6 +273,46 @@ const FINAL_RLS_STATE = {
     { table_name: 'users', policy_name: 'users_tenant_update', command: 'UPDATE', signature: '698a82369ca54d4ed185197b0d5e380a4349cf19d3213267e458883aad30bb69' }
   ]
 };
+const LEDGER_CONTENT_SCOPE_STATE = {
+  migration: '0023_scope_ledger_contents.sql',
+  policies: [
+    {
+      table_name: 'log_entries',
+      policy_name: 'log_entries_tenant_insert',
+      command: 'INSERT',
+      signature: '79b045d85dbda73083136932a2ed421d09175251951c94eda356bbc63518d742'
+    },
+    {
+      table_name: 'log_entries',
+      policy_name: 'log_entries_tenant_select',
+      command: 'SELECT',
+      signature: 'b68a61b8228303838a323d11ca8cc9f6418295e38b787510d8ffe1afb00055b3'
+    }
+  ],
+  helper: {
+    function_name: 'capmint_rls_log_entry_actor',
+    identity_arguments:
+      'p_entity_type character varying, p_entity_id uuid, p_organization_id uuid',
+    signature: 'fb28bf90b7d1ed27fe80c0bbe94ff9d9183486c2a7a6c827f3ea7a39ac57701f'
+  },
+  utilityFunctions: [
+    {
+      function_name: 'capmint_ledger_tail_hash',
+      identity_arguments: '',
+      result_type: 'text',
+      language: 'sql',
+      source_signature: 'c1e39fb0d5ea4f743cf23c27061500868a4ff42dd47b0e04463fa864e72b7da5'
+    },
+    {
+      function_name: 'capmint_verify_ledger_integrity',
+      identity_arguments: '',
+      result_type:
+        'TABLE(unbroken boolean, log_count bigint, error text, errors text[])',
+      language: 'plpgsql',
+      source_signature: '45cb5e8c449006b4454ee6b761b18a37f48510667d41ba91373a7eb543b94dfb'
+    }
+  ]
+};
 const PRE_0020_ORGANIZATIONS_SELECT_SIGNATURE =
   'bb7d4d8f8246bc5b4bbb870081df7fbde9ed50fe8537c532fe16446c0a716c28';
 const ORGANIZATION_PUBLIC_READ_STATE = {
@@ -1580,6 +1620,7 @@ async function readIdentityRlsEvidence(client) {
     supporting_migration_recorded: false,
     final_migration_recorded: false,
     organization_public_read_migration_recorded: false,
+    ledger_content_scope_migration_recorded: false,
     rls_tables: [],
     policies: []
   };
@@ -1609,7 +1650,12 @@ async function readIdentityRlsEvidence(client) {
          SELECT 1
          FROM migrations_log
          WHERE filename = '0020_tighten_organizations_public_read.sql'
-       ) AS organization_public_read_recorded`
+       ) AS organization_public_read_recorded,
+       EXISTS (
+         SELECT 1
+         FROM migrations_log
+         WHERE filename = '0023_scope_ledger_contents.sql'
+       ) AS ledger_content_scope_recorded`
     )).rows[0];
     evidence.migration_recorded = migrationRecords.identity_recorded;
     evidence.provenance_migration_recorded =
@@ -1619,6 +1665,8 @@ async function readIdentityRlsEvidence(client) {
     evidence.final_migration_recorded = migrationRecords.final_recorded;
     evidence.organization_public_read_migration_recorded =
       migrationRecords.organization_public_read_recorded;
+    evidence.ledger_content_scope_migration_recorded =
+      migrationRecords.ledger_content_scope_recorded;
   }
   evidence.rls_tables = (await client.query(
     `SELECT relation.relname AS table_name,
@@ -1901,16 +1949,29 @@ function supportingRlsEffectsAbsent(evidence) {
 
 function finalRlsExact(
   evidence,
-  identityPolicies = identityPoliciesForEvidence(evidence)
+  identityPolicies = identityPoliciesForEvidence(evidence),
+  ledgerContentScoped = evidence.ledger_content_scope_migration_recorded
 ) {
   const tables = [...IDENTITY_RLS_STATE.tables, ...PROVENANCE_RLS_STATE.tables, ...SUPPORTING_RLS_STATE.tables, ...FINAL_RLS_STATE.tables].sort().map(table_name => ({ table_name, enabled: true, forced: false }));
-  const policies = [...identityPolicies, ...PROVENANCE_RLS_STATE.policies, ...SUPPORTING_RLS_STATE.policies, ...FINAL_RLS_STATE.policies].sort((a,b) => a.table_name.localeCompare(b.table_name) || a.policy_name.localeCompare(b.policy_name));
-  const helpers = [...PROVENANCE_RLS_STATE.helpers, ...SUPPORTING_RLS_STATE.helpers].sort((a,b) => a.function_name.localeCompare(b.function_name) || a.identity_arguments.localeCompare(b.identity_arguments));
+  const scopedLedgerPolicies = new Map(
+    LEDGER_CONTENT_SCOPE_STATE.policies.map(policy => [policy.policy_name, policy])
+  );
+  const finalPolicies = FINAL_RLS_STATE.policies.map(policy =>
+    ledgerContentScoped
+      && policy.table_name === 'log_entries'
+      && scopedLedgerPolicies.has(policy.policy_name)
+      ? scopedLedgerPolicies.get(policy.policy_name)
+      : policy);
+  const policies = [...identityPolicies, ...PROVENANCE_RLS_STATE.policies, ...SUPPORTING_RLS_STATE.policies, ...finalPolicies].sort((a,b) => a.table_name.localeCompare(b.table_name) || a.policy_name.localeCompare(b.policy_name));
+  const ledgerHelpers = ledgerContentScoped
+    ? [LEDGER_CONTENT_SCOPE_STATE.helper]
+    : [];
+  const helpers = [...PROVENANCE_RLS_STATE.helpers, ...SUPPORTING_RLS_STATE.helpers, ...ledgerHelpers].sort((a,b) => a.function_name.localeCompare(b.function_name) || a.identity_arguments.localeCompare(b.identity_arguments));
   return stableJson(evidence.rls_tables) === stableJson(tables)
     && evidence.policies.length === policies.length
     && evidence.policies.every((policy, index) => {
       const expected = policies[index];
-      if (expected.table_name === 'log_entries' && expected.policy_name === 'log_entries_tenant_select') {
+      if (!ledgerContentScoped && expected.table_name === 'log_entries' && expected.policy_name === 'log_entries_tenant_select') {
         return policy.table_name === expected.table_name
           && policy.policy_name === expected.policy_name
           && policy.command === 'SELECT'
@@ -2034,7 +2095,10 @@ function registrationFunctionExact(routine) {
     && !routine.privileges.some(privilege => privilege.grantee === 'PUBLIC');
 }
 
-function organizationPublicReadExact(evidence) {
+function organizationPublicReadExact(
+  evidence,
+  ledgerContentScoped = evidence.ledger_content_scope_migration_recorded
+) {
   const indexesExact =
     evidence.organization_unique_indexes.length
       === ORGANIZATION_PUBLIC_READ_STATE.indexes.length
@@ -2051,7 +2115,11 @@ function organizationPublicReadExact(evidence) {
       && policy.policy_name
         === ORGANIZATION_PUBLIC_READ_STATE.policy.policy_name);
 
-  return finalRlsExact(evidence, IDENTITY_RLS_STATE.policies)
+  return finalRlsExact(
+    evidence,
+    IDENTITY_RLS_STATE.policies,
+    ledgerContentScoped
+  )
     && organizationPolicy?.signature
       === ORGANIZATION_PUBLIC_READ_STATE.policy.signature
     && !organizationPolicy.using_expression.includes(
@@ -2077,6 +2145,156 @@ function organizationPublicReadEffectsAbsent(evidence) {
           === PRE_0020_ORGANIZATIONS_SELECT_SIGNATURE
       )
     );
+}
+
+async function readLedgerContentScopeEvidence(client) {
+  const evidence = await readOrganizationPublicReadEvidence(client);
+  evidence.ledger_utility_functions = (await client.query(
+    `SELECT routine.proname AS function_name,
+            pg_get_function_identity_arguments(routine.oid)
+              AS identity_arguments,
+            pg_get_function_result(routine.oid) AS result_type,
+            routine.prosecdef AS security_definer,
+            CASE routine.provolatile
+              WHEN 'i' THEN 'IMMUTABLE'
+              WHEN 's' THEN 'STABLE'
+              ELSE 'VOLATILE'
+            END AS volatility,
+            pg_get_userbyid(routine.proowner) AS owner,
+            language.lanname AS language,
+            COALESCE(routine.proconfig, ARRAY[]::text[]) AS configuration,
+            routine.prosrc AS source,
+            COALESCE(
+              (
+                SELECT json_agg(
+                  json_build_object(
+                    'grantee',
+                    CASE
+                      WHEN privilege.grantee = 0 THEN 'PUBLIC'
+                      ELSE pg_get_userbyid(privilege.grantee)
+                    END,
+                    'privilege_type', privilege.privilege_type
+                  )
+                  ORDER BY
+                    CASE
+                      WHEN privilege.grantee = 0 THEN 'PUBLIC'
+                      ELSE pg_get_userbyid(privilege.grantee)
+                    END,
+                    privilege.privilege_type
+                )
+                FROM aclexplode(
+                  COALESCE(
+                    routine.proacl,
+                    acldefault('f', routine.proowner)
+                  )
+                ) AS privilege
+              ),
+              '[]'::json
+            ) AS privileges
+     FROM pg_proc AS routine
+     JOIN pg_namespace AS namespace
+       ON namespace.oid = routine.pronamespace
+     JOIN pg_language AS language
+       ON language.oid = routine.prolang
+     WHERE namespace.nspname = 'public'
+       AND routine.proname IN (
+         'capmint_ledger_tail_hash',
+         'capmint_verify_ledger_integrity'
+       )
+     ORDER BY routine.proname,
+              pg_get_function_identity_arguments(routine.oid)`
+  )).rows.map(routine => ({
+    ...routine,
+    source_signature: functionSourceSignature(routine)
+  }));
+  return evidence;
+}
+
+function ledgerUtilityFunctionExact(routine, expected) {
+  const allowedGrantees = new Set([routine.owner, 'capmint_app']);
+  const appExecute = routine.privileges.some(privilege =>
+    privilege.grantee === 'capmint_app'
+      && privilege.privilege_type === 'EXECUTE');
+  const privilegesExact = routine.privileges.length > 0
+    && routine.privileges.every(privilege =>
+      allowedGrantees.has(privilege.grantee)
+        && privilege.privilege_type === 'EXECUTE');
+  const source = normalizeFunctionSource(routine.source);
+  const sourceExact = expected.function_name === 'capmint_ledger_tail_hash'
+    ? source.includes('FROM public.log_entries AS ledger')
+      && source.includes('ORDER BY ledger.created_at DESC, ledger.id DESC')
+      && source.includes('LIMIT 1')
+    : source.includes('FROM public.log_entries AS ledger')
+      && source.includes('ORDER BY ledger.created_at ASC, ledger.id ASC')
+      && source.includes('sha256(convert_to(')
+      && source.includes("ledger_entry.event_type = 'GENESIS_BLOCK_ANCHOR'");
+
+  return routine.function_name === expected.function_name
+    && routine.identity_arguments === expected.identity_arguments
+    && routine.result_type === expected.result_type
+    && routine.security_definer
+    && routine.volatility === 'STABLE'
+    && routine.owner === 'capmint_admin'
+    && routine.language === expected.language
+    && stableJson(routine.configuration)
+      === stableJson(['search_path=pg_catalog, public'])
+    && appExecute
+    && privilegesExact
+    && !routine.privileges.some(privilege => privilege.grantee === 'PUBLIC')
+    && sourceExact
+    && (!expected.source_signature
+      || routine.source_signature === expected.source_signature);
+}
+
+function ledgerContentScopeExact(evidence) {
+  return organizationPublicReadExact(evidence, true)
+    && evidence.ledger_utility_functions.length
+      === LEDGER_CONTENT_SCOPE_STATE.utilityFunctions.length
+    && evidence.ledger_utility_functions.every((routine, index) =>
+      ledgerUtilityFunctionExact(
+        routine,
+        LEDGER_CONTENT_SCOPE_STATE.utilityFunctions[index]
+      ));
+}
+
+async function verify0023(client) {
+  const evidence = await readLedgerContentScopeEvidence(client);
+  if (ledgerContentScopeExact(evidence)) {
+    return {
+      status: 'exact',
+      summary: 'Ledger contents are tenant-scoped while bounded global tail and integrity functions remain exact.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  const actorHelperPresent = evidence.helpers.some(helper =>
+    helper.function_name === LEDGER_CONTENT_SCOPE_STATE.helper.function_name);
+  const ledgerSelectPolicy = evidence.policies.find(policy =>
+    policy.table_name === 'log_entries'
+      && policy.policy_name === 'log_entries_tenant_select');
+  if (
+    !actorHelperPresent
+    && evidence.ledger_utility_functions.length === 0
+    && (
+      ledgerSelectPolicy === undefined
+      || ledgerSelectPolicy.using_expression === 'true'
+    )
+  ) {
+    return {
+      status: 'absent',
+      summary: 'Ledger tenant-scope helper, policy, and bounded utility functions are absent.',
+      evidence,
+      fingerprint: evidenceFingerprint(evidence)
+    };
+  }
+
+  return {
+    status: 'incompatible',
+    summary: 'Ledger content scoping is partial or non-exact.',
+    evidence,
+    fingerprint: evidenceFingerprint(evidence)
+  };
 }
 
 async function verify0016(client) {
@@ -2487,7 +2705,8 @@ const STATE_VERIFIERS = new Map([
   ['0019_enable_users_and_ledger_rls.sql', verify0019],
   ['0020_tighten_organizations_public_read.sql', verify0020],
   ['0021_add_not_certified_scan_verdict.sql', verify0021],
-  ['0022_make_budget_signature_nullable.sql', verify0022]
+  ['0022_make_budget_signature_nullable.sql', verify0022],
+  ['0023_scope_ledger_contents.sql', verify0023]
 ]);
 
 async function readMetadata(client) {
@@ -2938,6 +3157,7 @@ module.exports = {
   PROVENANCE_RLS_STATE,
   SUPPORTING_RLS_STATE,
   FINAL_RLS_STATE,
+  LEDGER_CONTENT_SCOPE_STATE,
   ORGANIZATION_PUBLIC_READ_STATE,
   EXPECTED_SCAN_EVENT_VERDICTS,
   PROFILE_ORGANIZATION_STATE,
@@ -2966,5 +3186,6 @@ module.exports = {
   verify0019,
   verify0020,
   verify0021,
-  verify0022
+  verify0022,
+  verify0023
 };

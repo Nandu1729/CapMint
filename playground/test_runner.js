@@ -1695,11 +1695,27 @@ async function runTests() {
 
     console.log('\n--- Phase 10: Transparency Ledger ---');
 
-    // LEDGER-04: Verify latest block hash matches calculated
-    const entriesRes = await fetch(`${BASE_URL}/log/api/v1/log/entries`);
+    // LEDGER-04: Ledger contents require auth; system admin can inspect the chain.
+    const unauthenticatedCanonicalEntries = await fetch(
+      `${BASE_URL}/api/v1/log/entries`
+    );
+    const unauthenticatedAliasedEntries = await fetch(
+      `${BASE_URL}/log/api/v1/log/entries`
+    );
+    const entriesRes = await fetch(`${BASE_URL}/log/api/v1/log/entries`, {
+      headers: { 'Authorization': 'Bearer ' + adminToken }
+    });
     const entriesData = await entriesRes.json();
     const lastEntry = entriesData.data.logs[entriesData.data.logs.length - 1];
-    report('LEDGER-04', lastEntry.currentHash !== undefined && lastEntry.currentHash.length === 64, 'Valid SHA-256 current_hash', lastEntry.currentHash);
+    report(
+      'LEDGER-04',
+      unauthenticatedCanonicalEntries.status === 401
+        && unauthenticatedAliasedEntries.status === 401
+        && lastEntry.currentHash !== undefined
+        && lastEntry.currentHash.length === 64,
+      'Ledger entries require auth on both aliases; admin sees a valid SHA-256 hash',
+      `${unauthenticatedCanonicalEntries.status}/${unauthenticatedAliasedEntries.status}/${lastEntry.currentHash}`
+    );
 
     // LEDGER-06: Insert fake ledger row -> Chain invalid
     // Write fake row direct to database
@@ -1790,11 +1806,21 @@ async function runTests() {
 
     console.log('\n--- Phase 15: Audit & Governance ---');
 
-    // AUDIT-01: User action logged
-    const logsRes = await fetch(`${BASE_URL}/log/api/v1/log/entries`);
+    // AUDIT-01: Authentication telemetry stays out of supply-chain provenance.
+    const logsRes = await fetch(`${BASE_URL}/log/api/v1/log/entries`, {
+      headers: { 'Authorization': 'Bearer ' + adminToken }
+    });
     const logsData = await logsRes.json();
     const loginLogs = logsData.data.logs.filter(l => l.event === 'USER_LOGIN');
-    report('AUDIT-01', loginLogs.length > 0, 'Audit log created for user login events', `${loginLogs.length} logs found`);
+    console.log(
+      `[INFO] Transparency ledger contains ${logsData.data.logs.length} provenance entries and ${loginLogs.length} USER_LOGIN entries.`
+    );
+    report(
+      'AUDIT-01',
+      loginLogs.length === 0,
+      'Login telemetry absent from transparency ledger',
+      `${loginLogs.length} login logs across ${logsData.data.logs.length} provenance entries`
+    );
 
     console.log('\n--- Phase 16: End-to-End Business Flow ---');
 
